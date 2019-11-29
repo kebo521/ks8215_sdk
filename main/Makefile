@@ -12,7 +12,7 @@ LIB =-lm -lpthread
 LIB +=-L../lib/tls -ltls
 
 all:
-	$(CC) $(INC) -g -Wall $(SRC) $(LIB) -o main
+	$(CC) $(INC) -g -Wall $(SRC) $(LIB) -o ksMain
 clean:
 	rm -f bin/*
 	

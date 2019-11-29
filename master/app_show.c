@@ -18,14 +18,19 @@
  */
 
 #include <unistd.h>
-//#include <stdarg.h>
-
-#include "types_def.h"
-#include "xui_comm.h"
-
 #include <fcntl.h>
 #include <linux/input.h>
 
+
+#include <time.h>
+
+#include "comm_type.h"
+#include "xui_comm.h"
+#include "sys_sdk.h"
+#include "main.h"
+
+
+#include "szzt_tms.h"
 
 
 
@@ -87,6 +92,11 @@ int APP_QianTest(char *pTitle)
 
 	APP_QianMeun(pTitle);
 	APP_ShowProsseMenu();
+
+	XuiShowWindow(babyWindow,0,1);
+	sleep(2);
+	XuiShowWindow(babyWindow,1,1);
+	sleep(2);
 	
 	XuiDestroyWindow(babyWindow);
 	sleep(2);
@@ -114,6 +124,27 @@ int APP_HardTestMenu(char* title)
 	return 0;
 }
 
+int AppListItemFun(char* pTitle,int Index)
+{
+	int retnum,offset;
+	ST_APP_INFO AppInfo[6];
+	char sBuff[256];
+	retnum=OsGetAppInfo(AppInfo,6);
+	if(retnum <= Index)
+	{
+		APP_ShowMsg(pTitle,"读信息错误",3000);
+		return 0;
+	}
+	offset = sprintf(sBuff,"ID:%s\n",AppInfo[Index].Id);
+	offset += sprintf(sBuff+offset,"Bin:%s\n",AppInfo[Index].Bin);
+	offset += sprintf(sBuff+offset,"Art:%s\n",AppInfo[Index].Artwork);
+	offset += sprintf(sBuff+offset,"Des:%s\n",AppInfo[Index].Desc);
+	offset += sprintf(sBuff+offset,"Ven:%s\n",AppInfo[Index].Vender);
+	offset += sprintf(sBuff+offset,"Ver:%s\n",AppInfo[Index].Version);
+	APP_ShowInfo(pTitle,sBuff,20*1000);
+	return 0;
+}
+
 
 int APP_AppListShow(char *pTitle)
 {
@@ -130,9 +161,49 @@ int APP_AppListShow(char *pTitle)
 	{
 		pMenuText[i]=AppInfo[i].Name;
 	}
-	APP_GUI_Menu(pTitle,0,i,0,pMenuText);
-	return APP_WaitUiEvent(5000);
+	return APP_CreateNewMenuByStr(pTitle,i,pMenuText,AppListItemFun,30*1000);
 }
+
+int APP_AppHitShow(char *pTitle)
+{
+	APP_HitMsg("弹窗3S,暂停2s",3000);
+	APP_ShowSta(pTitle,"开始计时...");
+	
+	gShowTimeS_SetInit(TEXT_24|TEXT_ALIGN_LEFT|TEXT_VALIGN_BOTTOM,2,10);
+	while(1)
+	{
+		OsSleep(1000);
+		if(gShowTimeS_GetOut())
+			break;
+	}
+	UI_SetSysEnColor(RGB_CURR(0xff,0,0),RGB_CURR(0,0xff,0));
+	gShowTimeS_SetInit(TEXT_12|TEXT_ALIGN_CENTER|TEXT_VALIGN_BOTTOM,2,10);
+	while(1)
+	{
+		OsSleep(1000);
+		if(gShowTimeS_GetOut())
+			break;
+	}
+
+	UI_SetSysEnColor(RGB_CURR(0,0,0xff),RGB_CURR(0xff,0xff,0));
+	gShowTimeS_SetInit(TEXT_16|TEXT_ALIGN_RIGHT|TEXT_VALIGN_BOTTOM,2,10);
+	while(1)
+	{
+		OsSleep(1000);
+		if(gShowTimeS_GetOut())
+			break;
+	}
+
+	gShowTimeS_SetInit(TEXT_24|TEXT_ALIGN_LEFT|TEXT_VALIGN_CENTER,2,10);
+	while(1)
+	{
+		OsSleep(1000);
+		if(gShowTimeS_GetOut())
+			break;
+	}
+	return 0;
+}
+
 
 int APP_FactoryMeun(char* title)
 {
@@ -145,7 +216,9 @@ int APP_FactoryMeun(char* title)
 		{"显示应用列表",		APP_AppListShow},
 		{"九方位显示 ",			APP_NineDirecTest},
 		{"嵌套菜单",			APP_QianTest},
+		{"弹窗测试",			APP_AppHitShow},
 		{"二维码测试",			APP_QrCodeTest},
+		{"设置语言",			APP_SetLanguage},
 		
 	//	"单项测试",				NULL,
 	//	"自动测试",				NULL,
@@ -158,8 +231,83 @@ int APP_FactoryMeun(char* title)
 
 
 
+int APP_EDIT_SetDateTime(char* title)
+{
+	ST_TIME tTime;
+	OsGetTime(&tTime);
+	return 0;
+}
+
+int APP_WIFI_SetPar(char* title)
+{
+
+	return 0;
+}
+
+int Menu_TermSnProsee(char* title)
+{
+	return 0;
+}
+
+int APP_SetSleepTimeS(char* title)
+{
+	return 0;
+}
+
+int APP_AdminMenu(char* title)
+{
+	return 0;
+}
+int APP_TestUpSet(char* title)
+{
+	return 0;
+}
+int APP_HardVesion(char* title)
+{
+	return 0;
+}
+int APP_SysVersion(char* title)
+{
+	return 0;
+}
+
+extern int OsSaveAppInfo(ST_APP_INFO* pAppInfo);
+
+int APP_InstallAPP(char *pTitle)
+{
+	ST_APP_INFO tAppInfo;
+	APP_ShowSta(pTitle,"应用安装中");
+	sleep(1);
+	APP_ShowSta(pTitle,"应用安装中...");
+	if(0==InstallAPP("app.ksp",&tAppInfo))
+	{
+		OsSaveAppInfo(&tAppInfo);
+		APP_ShowMsg(pTitle,"安装中成功",3000);
+	}
+	return 0;
+}
 
 
+int APP_MasterMeun(char* title)
+{
+	CMenuItemStru MenuStruPar[]=
+	{
+		{"时间设置",			APP_EDIT_SetDateTime},
+		#ifdef HARD_WIFI
+		{"WIFI设置",			APP_WIFI_SetPar},
+		#endif
+		{"终端序号",			Menu_TermSnProsee},
+		//"省电管理",			APP_SetSleepTimeS,
+		//{"管理功能",			APP_AdminMenu},
+	//	{"检查更新",			APP_TestUpSet},
+	//	{"固件信息",			APP_HardVesion},
+		{"语言设置",			APP_SetLanguage},
+		//{"软件信息",			APP_SysVersion},
+		{"应用安装",			APP_InstallAPP},
+		{"显示应用列表",		APP_AppListShow},
+	};
+	return APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,-1);
+}
 
 
 

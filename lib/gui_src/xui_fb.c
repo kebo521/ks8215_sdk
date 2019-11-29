@@ -16,7 +16,9 @@
  * 2018-11-03 Li XianJing <xianjimli@hotmail.com> created
  *
  */
+#include "comm_type.h"
 #include "types_def.h"
+
 #include <unistd.h>
 #include <math.h>
 
@@ -104,9 +106,216 @@ ret_t xui_fb_close(XuiWindow* fb) {
 }
 
 */
+#if(1)
+
+typedef struct {
+    int width;
+    int height;
+    int row_bytes;
+    int pixel_bytes;
+    unsigned char* data;
+} GRSurface;
+static GRSurface* gr_draw = NULL;
+static int fb_fd = -1;
+static int flagRotationAngle=XUI_ROTATE_0;
+static int offsetScreen;
+
+
+void SetRotationAngle(XuiTransform Angle)
+{
+	flagRotationAngle=Angle;
+}
+
+void close_screen(void)
+{
+	if(gr_draw)
+	{
+		if(gr_draw->data)
+		{
+			/* Unmap the framebuffer*/
+			munmap(gr_draw->data,gr_draw->height * gr_draw->row_bytes);
+		}
+		free(gr_draw);
+		gr_draw = NULL;
+	}
+	
+	if(fb_fd != -1)
+	{
+		/* Close framebuffer device */
+		close(fb_fd);
+		fb_fd = -1;
+	}
+	
+}
+
+int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardWindow
+{
+	struct fb_var_screeninfo var;
+	struct fb_fix_screeninfo fix;
+	unsigned char* pMapdata;
+	printf("open screen open[%s]\r\n",filename);
+	if ((fb_fd = open(filename, O_RDWR)) == -1) {
+		printf("open screen open[%s] Err\r\n",filename);
+		return -1;
+	}
+	if((ioctl(fb_fd, FBIOGET_VSCREENINFO, &var) < 0) || (ioctl(fb_fd, FBIOGET_FSCREENINFO, &fix) < 0)) 
+	{
+		printf("open screen in %s line %d\r\n",__FUNCTION__,__LINE__);
+		close(fb_fd); fb_fd= -1;
+		return -2;
+	}
+	pMapdata =  mmap(NULL, var.yres *fix.line_length, PROT_READ|PROT_WRITE, MAP_FILE|MAP_SHARED, fb_fd, 0);
+	if (pMapdata == MAP_FAILED)
+	{
+		printf("rw_sd_inand.c: Can't mmap frame pARGB ++\r\n");
+		close(fb_fd); fb_fd= -1;
+		return -4;
+	}
+	if(pHardWindow)
+	{
+		memset(pHardWindow,0x00,sizeof(XuiWindow));
+		pHardWindow->left =0;
+		pHardWindow->top =0;
+		if(flagRotationAngle == XUI_ROTATE_0 || flagRotationAngle == XUI_ROTATE_180)
+		{
+			pHardWindow->width=SCREEN_WIDTH;
+			pHardWindow->height=SCREEN_HEIGT;
+		}
+		else
+		{
+			pHardWindow->width=SCREEN_HEIGT;
+			pHardWindow->height=SCREEN_WIDTH;
+		}
+	}
+	
+	if(gr_draw == NULL)
+		gr_draw = malloc(sizeof(GRSurface));
+	memset(gr_draw,0x00,sizeof(GRSurface));
+	gr_draw->width = var.xres;
+	gr_draw->height = var.yres;
+	gr_draw->pixel_bytes = var.bits_per_pixel / 8;
+	if(gr_draw->pixel_bytes == 3)
+		gr_draw->pixel_bytes = 4;
+	gr_draw->row_bytes=fix.line_length;
+	gr_draw->data = pMapdata;
+
+	//--------------------计算起点偏移量----------------------------------------------
+	if(flagRotationAngle == XUI_ROTATE_0)
+	{
+		offsetScreen= (var.yres -SCREEN_HEIGT-10)*var.xres + (var.xres -SCREEN_WIDTH-10);
+	}
+	else if(flagRotationAngle == XUI_ROTATE_90)
+	{
+		offsetScreen = (var.yres-SCREEN_HEIGT-10) *var.xres + (var.xres - 10);
+	}
+	else if(flagRotationAngle == XUI_ROTATE_180)
+	{
+		offsetScreen = (var.yres-10) *var.xres + (var.xres - 10);
+	}
+	else if(flagRotationAngle == XUI_ROTATE_270)
+	{
+		offsetScreen = (var.yres-10) *var.xres + (var.xres -SCREEN_WIDTH-10);
+	}
+	//-----------------------------------------------------------------------------------
+	return 1;
+}
+
+int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb) 
+{
+	int i,j,x,y,w,h;
+	int swidth,wWidth;
+	A_RGB *pMapData;
+	A_RGB *destin,*source;
+	if(gr_draw == NULL)
+		return -1;
+	if(pRect)
+	{
+		x = pRect->left;
+		y = pRect->top;
+		w =x+ pRect->width;
+		h =y+ pRect->height;
+	}
+	else
+	{
+		x = 0;
+		y = 0;
+		w = window->width;
+		h = window->height;
+	}
+	wWidth = window->width;
+	swidth	=	gr_draw->width;
+	pMapData = ((A_RGB *)gr_draw->data) + offsetScreen;
+	if(flagRotationAngle == XUI_ROTATE_0)
+	{
+		pMapData += window->top*swidth + window->left + x;
+		for (j = y; j < h; j++) 
+		{
+			destin =pMapData + j*swidth;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin++ = *source++;
+			}
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_90)
+	{
+		pMapData +=  (window->left+x)*swidth - window->top;
+		for (j = y; j < h; j++) 
+		{
+			destin = pMapData - j;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin = *source++;
+				destin += swidth;
+			}
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_180)
+	{
+		pMapData -= window->top*swidth + window->left + x;
+		for (j = y; j < h; j++) 
+		{
+			destin = pMapData - j*swidth;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin-- = *source++;
+			}
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_270)
+	{
+		pMapData -=  (window->left+x)*swidth - window->top;
+		for (j = y; j < h; j++) 
+		{
+			destin = pMapData+j;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin = *source++;
+				destin -= swidth;
+			}
+		}
+	}
+	return RET_OK;
+}
+
+
+
+#else
+typedef struct {
+	int dev_fd;
+	u16 openFlagOK;
+	u16 bytes_per_pixel;
+	u16 width,height;	
+	int line_length;
+	int memlen;
+	A_RGB *pARGB;
+}screen_buffer;
 
 static screen_buffer fb_screen={0};
-
 void close_screen(void)
 {
 	if(fb_screen.openFlagOK)
@@ -173,6 +382,10 @@ int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardW
 	return 1;
 }
 
+typedef union {
+	A_RGB uPix;
+	rgba_t tPix;
+}Pixel_Color;
 
 
 #define xui_fb_get_addr(x,y) 	(fb_screen.pARGB + y * fb_screen.width+ x)
@@ -612,8 +825,8 @@ int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb)
 	#else	//-----------------------------------------------------------
 	for (j = y; j < h; j++) 
 	{
-		destin=&fb_screen.pARGB[(fbY+j)*fb_screen.width + (fbX+x)];
-		source=&pInrgb[j*mWidth + x];
+		destin=fb_screen.pARGB+((u32)(fbY+j)*fb_screen.width + (fbX+x));
+		source=pInrgb+((u32)j*mWidth + x);
 		for(i=x; i<w; i++)
 		{
 			*destin++ = *source++;
@@ -622,7 +835,7 @@ int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb)
 	#endif
 	return RET_OK;
 }
-
+#endif
 
 /*
 int xui_fb_Init(XuiWindow *pWindow) 

@@ -29,12 +29,14 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 
+#include "comm_type.h"
 #include "types_def.h"
 
 #include "xui_ui.h"
 #include "xui_fb.h"
 #include "xui_font.h"
 #include "xui_gui.h"
+#include "sdk/sys_sdk.h"
 
 //==========字义系统字库=======================
 #define SYS_FUNT_12EN
@@ -43,19 +45,27 @@
 
 #include "fontBitEn.h"
 
+static A_RGB uiEnForeColor=0x00FFFFFF,uiEnBackColor=0xFF000000;
+
+void UI_SetSysEnColor(A_RGB ForeColor,A_RGB BackColor)
+{
+	uiEnForeColor= ForeColor;
+	uiEnBackColor= BackColor;
+}
+
 void UI_DisplaySysEn(XuiWindow *pWindow,int x,int y,int type,char*pMsgEn) 
 {
 	A_RGB *pbgra;
 	u8*	pbit;
-	u8	i,j,jn;	//readLen,
+	u8	i,j,jn,backflag;	//readLen,
 	u8	cH,cW,cZ;
+	#ifdef SYS_FUNT_24EN
 	u16 jb;
+	#else
+	u8 jb;
+	#endif
 	u16 width,height;
 	A_RGB* pWidget;
-
-	pWidget	= pWindow->widget;
-	width	= pWindow->width;
-	height	= pWindow->height;
 
 	#ifdef SYS_FUNT_12EN
 	if(type == TEXT_12)
@@ -83,12 +93,22 @@ void UI_DisplaySysEn(XuiWindow *pWindow,int x,int y,int type,char*pMsgEn)
 	#endif
 			return;
 	//---------------------------------------------------------------
-	
+	pWidget	= pWindow->widget;
+	width	= pWindow->width;
+	height	= pWindow->height;
+	if(uiEnBackColor&0xFF000000)
+		backflag = 0;
+	else
+		backflag = 1;
 	while((jn=(u8)*pMsgEn++) != '\0')
 	{
-		if(jn >= 0x20)
+		if(jn & 0x80)
+		{//-----中文-------
+
+		}
+		else if(jn >= 0x20)
 		{
-			if((x+cW) >= width) 
+			if((x+cW) > width) 
 			{//--Automatic line feed display---
 				x = 0;
 				y += cH;
@@ -103,7 +123,9 @@ void UI_DisplaySysEn(XuiWindow *pWindow,int x,int y,int type,char*pMsgEn)
 					jb = pbit[(jn-0x20)*cZ + i*2]*256 + pbit[(jn-0x20)*cZ + i*2+1];
 					for(j = 0; j < cW; j++) {
 						if(jb & (0x8000>>j))
-							*pbgra = 0xffffffff;
+							*pbgra = uiEnForeColor;
+						else if(backflag)
+							*pbgra = uiEnBackColor;
 						pbgra++;
 					}
 				}
@@ -115,7 +137,9 @@ void UI_DisplaySysEn(XuiWindow *pWindow,int x,int y,int type,char*pMsgEn)
 				jb = pbit[(jn-0x20)*cZ + i];
 				for(j = 0; j < cW; j++) {
 					if(jb & (0x80>>j))
-						*pbgra = 0xffffffff;
+						*pbgra = uiEnForeColor;
+					else if(backflag)
+						*pbgra = uiEnBackColor;
 					pbgra++;
 				}
 			}
@@ -129,7 +153,7 @@ void API_ShowLineEn(u8 Line,char *pMsgEn,int timeoutms)
 {
 	if(gUiDataAll.tHardWindow.widget == NULL) return;
 	UI_DisplaySysEn(&gUiDataAll.tHardWindow,0,Line*TEXT_12,TEXT_12,pMsgEn);
-	if(timeoutms) sleep(timeoutms/1000);
+	if(timeoutms) OsSleep(timeoutms);
 }
 
 
@@ -182,15 +206,15 @@ int InitExtResLib(char *pfile)
 		itemHerdLen= BYTE4_TO_INT(pItem->datalen);
 		fileLen += DfGetBeiSu(itemHerdLen,16);
 	}
-	TRACE("ks.res:data fileLen[%u]\r\n",fileLen);
 	/*
+	TRACE("ks.res:data fileLen[%u]\r\n",fileLen);
 	// 签名块验证
 	{
 		u8		signout[256];
 		u32 	offset;
 		offset = 4096;
 		fileLen += offset;
-		seek(fd,offset,SEEK_SET);
+		lseek(fd,offset,SEEK_SET);
 		tKspSignContext =(KSP_SIGN_CONTEXT *)signout;
 		if(APP_rsa_decryptSign(phead->auth, signout) == 0) 
 		{
@@ -240,11 +264,8 @@ int InitExtResLib(char *pfile)
 			API_ShowLineEn(2,"error check ks.res signlen",10*1000);
 			//return -4;
 		}	
-
-
 	}
-	
-	*/
+	//*/
 	baseOffset = 4096;
 	//--------------------生成资源参数表-------------------------------------------
 	for(i=0; i<itemCount; i++) 
@@ -530,13 +551,12 @@ int Font_Get_en_addr(u8 a)
 		return -1;      //非英文字母
 	return resDisTable.fn[0].Offset + ((a-0x20) * resDisTable.resFd.reqLen_en);
 }
-static A_RGB uiFontColor=0x00FFFFFF,uiBgColor=0x00000000;
 
-void UI_SetFontColor(A_RGB fgColor,A_RGB bgColor)
+static A_RGB uilibForeColor=0x00FFFFFF,uilibBackColor=0xFF000000;
+void UI_SetFontColor(A_RGB ForeColor,A_RGB BackColor)
 {
-	uiFontColor= fgColor;
-	uiBgColor= bgColor;
-	//LCD_SetColorRGB565(fgColor,bgColor);
+	uilibForeColor= ForeColor;
+	uilibBackColor= BackColor;
 }
 
 int UI_DisplayFont(XuiWindow *pWindow,POINT* prclTrg, u8* hzData)
@@ -546,7 +566,7 @@ int UI_DisplayFont(XuiWindow *pWindow,POINT* prclTrg, u8* hzData)
 	u8 *s_dots;
     RECTL rect;
 	int  offset;
-	u8  i,j;	//readLen,
+	u8  i,j,backflag;	//readLen,
 	u8  wMax,wi,db;	//readLen,
 	u16 width,height;
 	
@@ -580,6 +600,10 @@ int UI_DisplayFont(XuiWindow *pWindow,POINT* prclTrg, u8* hzData)
 	//	hzData++;
 	}
 	s_dots=resDisTable.pbFont + offset;
+	if(uilibBackColor&0xFF000000)
+		backflag = 0;
+	else
+		backflag = 1;
 	//--------------------------------------------------
     for (i = 0; i < FONT_SIZE; i++)
     {    
@@ -592,18 +616,15 @@ int UI_DisplayFont(XuiWindow *pWindow,POINT* prclTrg, u8* hzData)
 			if(wMax>8) wMax=8;
         	for(wi=0;wi<wMax;wi++)
         	{
-        		if((u16)(rect.left+j+wi) >= width) break;
+        		if((rect.left+j+wi) >= width) break;
 				if(db&0x80) 	//if((db<<(wi&0x07)) & 0x80)	//
 				{
-					*pbgra = *(u32*)&uiFontColor;
+					*pbgra = uilibForeColor;
 				}
-				/*
-				else
+				else if(backflag)
 				{
-					if(!(uiBgColor&0x00FFFFFF))
-						*pbgra = uiBgColor;
+					*pbgra = uilibBackColor;
 				}
-				*/
 				pbgra++; db<<=1;
 			}
         }
@@ -694,17 +715,49 @@ int UI_DrawRectString(XuiWindow *pWindow,RECTL* pRect,const char *src)
 	return offset;
 }
 
+
+void UI_DrawCenterString(XuiWindow *pWindow,char *src)
+{
+	int sLenWidth;
+	POINT rclTrg;
+	sLenWidth=strlen(src)*FONT_SIZE/2;
+	if(sLenWidth < pWindow->width)
+		rclTrg.left=(pWindow->width - sLenWidth)/2;
+	else
+		rclTrg.left=0;
+	if(FONT_SIZE < pWindow->height)
+		rclTrg.top= (pWindow->height- FONT_SIZE)/2;
+	else
+		rclTrg.top = 0;
+	
+	while(*src)
+	{
+		if(*src & 0x80)
+		{
+			rclTrg.left += UI_DisplayFont(pWindow,&rclTrg,(u8*)src);
+			src++;
+		}
+		else
+		{
+			rclTrg.left += UI_DisplayFont(pWindow,&rclTrg,(u8*)src);
+		}
+		src++;
+	}
+}
+
+
 const API_FONT_Def ApiFont={
-	{'F','N','T',6},
+	{'F','N','T',8},
+	UI_SetSysEnColor,
 	UI_DisplaySysEn,
 	
 	InitExtResLib,
 	DeInitExtResLib,
-
 	UI_SetFontColor,
 	UI_DisplayFont,
 	UI_DrawLineString,
 	UI_DrawRectString,
+	UI_DrawCenterString,
 };
 
 

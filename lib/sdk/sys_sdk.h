@@ -65,7 +65,7 @@ extern int OsLog(LOG_T Prio,const char *fmt,...);
 #define LOG								OsLog
 //#define TRACE(...)						OsLog(LOG_INFO,__VA_ARGS__)	
 extern void OsLogHex(char* msg,void* pBuff,int Len);
-#define TRACE_HEX(msg,pBuff,Len)		OsLogHex(msg,pBuff,Len)
+#define LOG_HEX(logT,msg,pBuff,Len)		OsLogHex(msg,pBuff,Len)
 
 
 typedef struct{
@@ -102,8 +102,7 @@ typedef void (*RUNAPP_CB)(char *appid, char *str, void *data);	//(char *appid, c
 
 
 
-extern int OsGetAppInfo(ST_APP_INFO AppInfo[],int InfoCnt);
-extern int OsRunApp(char *AppId, char **Argv, void *Data, RUNAPP_CB CbOut,RUNAPP_CB CbErr);
+//extern int OsRunApp(char *AppId, char **Argv, void *Data, RUNAPP_CB CbOut,RUNAPP_CB CbErr);
 
 extern int OsGetAppInfo(ST_APP_INFO AppInfo[],int InfoCnt);
 extern int OsGetOptInfo(ST_OPT_INFO OptInfo[],int InfoCnt);

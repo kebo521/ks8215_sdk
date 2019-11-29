@@ -17,7 +17,7 @@
  *
  */
 
-#include "comm_stu.h"
+#include "comm_type.h"
 
 
 #include <unistd.h>
@@ -70,6 +70,34 @@ void APP_Trace_Hex(char* msg,void* pBuff,int Len)
 #define TRACE				API_Trace
 #define TRACE_HEX		APP_Trace_Hex
 
+const char sMaster_Cert_ZT[] =
+"-----BEGIN RSA PRIVATE KEY-----\r\n"
+"MIIEowIBAAKCAQEAyrPz81zvCTKDi3vj+6FvhmQFzrFWQYBMZPsVbhrnOocqYcu/\r\n"
+"WykQYQyJabcHtzSpXbc4FGDFEvjaly0B+8hGm3doc8hmVO+Ks4Jry4O0KCg7Bjui\r\n"
+"4Q5/WwEq6BHN2L7A0y9pJe8AkjpR2hFTsZOIF+PnbfTtsLGP/Ecuf7jPcHcxXlwZ\r\n"
+"yPb5RmsAw+tC3JAIxovQAvreaGc/0FLhRMx0ic5jFgTl+81cYAgc3HhgPd0iHUJO\r\n"
+"TaXRifPyeqHAZro8BT9yyzqmA4G8/ogBd5RUHpGX9P1tmucNotfDYu3F1/W4qIRF\r\n"
+"XPjfj12RBc1hhQstMATEixx54tlFpKuMQkENlQIDAQABAoIBAH/UJgaV18R0D5K5\r\n"
+"6Vb5Qmx8zVDAcsXR09tmn+gUnTdCoA6WP7GMXuDk2A9Ltljpo9kOvxXSxNUnDCqD\r\n"
+"3plafnRyQ/OoMChl+5EisTnhb45XeImAuEG3M8c/IEDDYY3LFazYXDXo1/JfRtj/\r\n"
+"TklQ4WU3eu3TpMVl5IhSl1dCQ8cGsz7G6OaBjG/UntLX/wcnseuwIYELl0M5y7Vk\r\n"
+"gsxnB/nHoeOikIkdN3rCoxTGSX8iyEvOolgga/T73K9ywvzb0Q0TwdkpDX2bDDrM\r\n"
+"s1arClTxqYKke8kShr/AX9Uj1tk9aE3WQHsM4MUfFVG0VZmZvQMpyh5gPYa7Ms8G\r\n"
+"qqeIHi0CgYEA+GOufhHxVfdc8M88qBuup162WSitpB0O/Nn/4rbMHaa0XvfnuZuR\r\n"
+"hYOzr4cQ2yzxooAHxOnD3pE1ORNS/yxj3150KNd0yUKobrSWYmb1gdIs1R/97FUJ\r\n"
+"r1HoEvSLw9nvutR5Pnk1y5MNTw+Xq1kMRXM2iM5wjaBPSJ41zBRYVbsCgYEA0Onq\r\n"
+"ay/fzdq6QDMTyzDtz9CW/QfFzumvysy/VGaOx2GQlmRXSUewC4Lwy118Sx95fEQC\r\n"
+"A4EKR21SKRuX2yP70/1XMptYW3Uu8qPzwFTouXWz5smWoNwguakHhuuxiQAiUHBU\r\n"
+"5Z5o2SpeR1IwiZ4Nt8uHyosPXXpGr2EryarozO8CgYEA8tVJNzlFbpz5wPdpvpPp\r\n"
+"qPlAXmQVdlduWqapsrSxUt+ygRHt+phrqVL7rUPnp88FoK94aPt9IS9nEBijUJLO\r\n"
+"RQbrmy4gn85KKojkaOltZXDbobS4I39zi3IQ588qgNukskudCQWpIQ/vt/ZvefYB\r\n"
+"uDgN/auNf/hU6pK5132gapcCgYBZcOwVu8dbgJtgxP1ibq5B3JHn/p3nehDzCDmZ\r\n"
+"ztat8c1PNeJQ00pBg2vIBVwjZXRDiXI7QdG+xsT4KIIZJgy4s6vTVMK9VSwmYZ8H\r\n"
+"5tJEJGpDEmdUsymnkwBP+TRm7RHD0nPmYq2M3CDE9CEnqe1BlPer9WE8qg79IuL2\r\n"
+"Uh+dLQKBgEtgOzeGV5KAwl/TqIo9Li77L6uToIUkqMtvPKVEQvPKyEleW2NDeXw+\r\n"
+"5pcEdydGstikUxPUItbnHi0lKn9zjef0BKsvNSUClCT3dFe/KwHAeicCycaC2+Cp\r\n"
+"NfMupSeWXUMjSjJuZPAldNVs2yf+XS87UHIhm6JmxDlwP2WESXsy\r\n"
+"-----END RSA PRIVATE KEY-----\r\n";
 
 
 
@@ -199,8 +227,8 @@ int InstallMasterAPP(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBotto
 		//Sleep(3000);
 		return -3;
 	}	
-	mkdir(tKspSignContext->app.tag,0666);	//创建对应目录
-	chdir(tKspSignContext->app.tag);		//进入对应目录
+//	mkdir(tKspSignContext->app.tag,0666);	//创建对应目录
+//	chdir(tKspSignContext->app.tag);		//进入对应目录
 #endif
 	//APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_INSTALLING);
 	// 写入应用信息到块
@@ -313,9 +341,8 @@ int InstallMasterAPP(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBotto
 	}
 	close(ks_fd);
 	free(pBuffData);
-	TRACE("CheckSetup:resLogo=%x,app=%d,tms=%d\r\n",resLogoSetup,appSetup,tmsSetup);
-	remove(pKspPath);
-	TRACE("API fremove[%s]\r\n",pKspPath);
+	TRACE("CheckSetup:resLogo=%x,app=%d,tms=%d\r\n",resLogoSetup,appSetup,tmsSetup);	
+	ret = 1;
 	//---------------更新LOGO-----------------------------------
 	if(resLogoSetup&0x02)
 	{
@@ -335,8 +362,11 @@ int InstallMasterAPP(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBotto
 		strcpy(pAppInfo->Artwork,tKspSignContext->app.sdk_ver);
 		strcpy(pAppInfo->Vender,tKspSignContext->app.app_time);
 		strcpy(pAppInfo->Version,tKspSignContext->app.app_ver);
+		ret = 0;
 	}
-	return 0;
+	remove(pKspPath);
+	TRACE("API fremove[%s]\r\n",pKspPath);
+	return ret;
 }
 
 ST_SYS_MSG *pSysMsg=NULL;
@@ -346,12 +376,13 @@ void signSaveShmMsg(int signo)
 {
 	if(pSysMsg)
 	{
-		int fd = open(S_SYS_MSG_PATH,O_RDWR,0666);
+		int fd = open(S_SYS_MSG_PATH,O_WRONLY|O_CREAT,0666);
 		if (fd != -1)
 		{
 			write(fd,pSysMsg,sizeof(ST_SYS_MSG));
 			close(fd);
 		}
+		TRACE("sign->SaveShmMsg[%d]\r\n",fd);
 	}
 }
 
@@ -444,7 +475,7 @@ int main(int argc, char* argv[])
 
 	signal(pSysMsg->sig,signSaveShmMsg);
 //	my_signall(pSysMsg->sig,signSaveShmMsg);
-	
+	//pSysMsg->mAppMax=0;
 //	int sigqueue(pid_t pid, int sig, const union sigval val)
 //	sigqueue(pSysMsg->pid,pSysMsg->sig,(const union sigval)0);
 	
@@ -455,7 +486,8 @@ int main(int argc, char* argv[])
 		{//---------无主控安装主控-------------
 			if(0==InstallMasterAPP("Master.ksp",&pSysMsg->AppInfo[0],NULL))
 			{
-				pSysMsg->mAppMax++;
+				if(pSysMsg->mAppMax == 0)
+					pSysMsg->mAppMax++;
 				//sigqueue(pSysMsg->pid,pSysMsg->sig,(sigval_t)0);
 				//sigqueue(0,pSysMsg->sig,(sigval_t)0);
 				raise(pSysMsg->sig);
@@ -487,6 +519,19 @@ int main(int argc, char* argv[])
 			pid_t _pid_t;
 			_pid_t = wait(&pid); //---等待孙进程结束------
 			printf("------reRunAPP-[%d,%d]---------\n",_pid_t,pid);
+			
+			{
+				ret=shmdt(pSysMsg);
+				TRACE(" a shared pSysMsg[%d]\r\n",ret);
+				ret=shmctl(shmAid,IPC_RMID,NULL);
+				TRACE(" a shared memory shmctl[%d]\r\n",ret);
+				
+				ret=shmdt(pSysData);
+				TRACE(" a shared pSysData[%d]\r\n",ret);
+				ret=shmctl(shmAid,IPC_RMID,NULL);
+				TRACE(" a shared memory shmctl[%d]\r\n",ret);
+				exit(0);
+			}
 			pSysData->AppExitCode= (int)_pid_t;
 		} 
 		else break; //孙进程，跳出外面执行
@@ -494,8 +539,10 @@ int main(int argc, char* argv[])
 
 	if(pSysData->pNextAppId == 0)
 	{//------主控应用-------------
+		//char sRunBuff[32];
 		pSysData->nCurrAppId=0;
 		umask(0); //主控进程权限
+		//sprintf(sRunBuff,"./%s",Tms_TMS_sApp);
 		ret=execl(Tms_TMS_sApp,"master",(char*)0);
 	}
 	else

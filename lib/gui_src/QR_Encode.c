@@ -1,7 +1,9 @@
 #include <unistd.h>
 //#include <stdarg.h>
 
+#include "comm_type.h"
 #include "types_def.h"
+
 #include "xui_ui.h"
 #include "xui_fb.h"
 #include "xui_font.h"

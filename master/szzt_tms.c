@@ -1,10 +1,37 @@
+
 /*****************************tms功能******************************
 //功能-------  
 //作者-------  邓国祖
 //创作时间--20180511
 ******************************************************************************/
+#include "comm_type.h"
+#include "file_stu.h"
 
 #include "tls_sdk.h"
+
+#include "sys_sdk.h"
+
+#include "xui_comm.h"
+
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+
+
+#include <unistd.h>
+//#include <fcntl.h>
+//#include <signal.h>
+//#include <time.h>
+
+//#include <sys/types.h>    
+//#include <sys/stat.h>    
+//#include <sys/time.h>
+//#include <sys/shm.h> 
+
+
 
 //--------------程序升级使用---------------------------
 #define Tms_Term_UpFlag		"appup.ini"  	// 应用参数标记
@@ -12,10 +39,6 @@
 #define Tms_TMS_sAppUp		"tms_run"  		// 终端参数版本
 #define Tms_APP_sAppUp		"app_run"  		// 应用程序
 #define Tms_APP_sLogo			"logo.bmp"  		// 应用程序
-
-
-//#define TMS_CONNET_ADDER	"172.16.36.11"
-//#define TMS_CONNET_ADDER	"192.168.1.10"
 
 
 typedef struct
@@ -105,8 +128,9 @@ const char Develop_Channel_Cert_ZT[] =
 
 
 
-#if(1)
 
+#if(1)
+/*
 //=============================================================
 //====================================================================
 //功能:    保存参数到文件系统
@@ -119,21 +143,21 @@ int APP_FileSaveBuff(const char* pfilePath,u32 offset,void* pBuff,u32 Inlen)
 {
 	int		fb;
 	int		ret;
-    fb = open(pfilePath,O_WRONLY|,O_CREAT,0666);
+    fb = open(pfilePath,O_WRONLY|O_CREAT,0666);
 	if(fb == -1)
 	{
-		Log(LOG_ERROR,"APP FileSaveBuff Open[%s] fail\r\n",pfilePath);
+		LOG(LOG_ERROR,"APP FileSaveBuff Open[%s] fail\r\n",pfilePath);
 		return -1;
 	}
 	if(offset)
 	{
-		seek(fb,offset,SEEK_SET);
+		lseek(fb,offset,SEEK_SET);
 	}
 	ret=write(fb,pBuff,Inlen);
 	close(fb);
 	if(Inlen != ret)
 	{
-		Log(LOG_ERROR,"APP FileSaveBuff WriteFile[%s] Err ret[%d != %d]\r\n",pfilePath,Inlen,ret);
+		LOG(LOG_ERROR,"APP FileSaveBuff WriteFile[%s] Err ret[%d != %d]\r\n",pfilePath,Inlen,ret);
 		return -2;
 	}
 	return ret;
@@ -152,19 +176,19 @@ int APP_FileReadBuff(const char* pfilePath,u32 offset,void* pBuff,u32 buffSize)
 	fd = open(pfilePath,O_RDONLY);
 	if(fd == -1)
 	{
-		Log(LOG_ERROR,"APP FileReadBuff Open[%s]fail, \r\n",pfilePath);
+		LOG(LOG_ERROR,"APP FileReadBuff Open[%s]fail, \r\n",pfilePath);
 		return -1;
 	}
 	if(pBuff)
 	{
 		if(offset)
 		{
-			seek(fb,offset,SEEK_SET);
+			lseek(fb,offset,SEEK_SET);
 		}
 		ret=read(fd, pBuff, buffSize);
 		if(buffSize != ret)
 		{
-			Log(LOG_ERROR,"APP FileReadBuff Read[%s] Err nReadSize[%d,%d]\r\n",pfilePath,ret,buffSize);
+			LOG(LOG_ERROR,"APP FileReadBuff Read[%s] Err nReadSize[%d,%d]\r\n",pfilePath,ret,buffSize);
 		}
 	}
 	else 
@@ -176,12 +200,9 @@ int APP_FileReadBuff(const char* pfilePath,u32 offset,void* pBuff,u32 buffSize)
 	close(fd);
 	return ret;
 }
-
+*/
 //#include <direct.h>
-#include <sys/stat.h> 
-
-
-int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBottomProgress)(unsigned char))
+int InstallAPP(const char* pKspPath,ST_APP_INFO* pAppInfo)
 { // 从文件系统中读取应用
 	u8  i,tmsSetup,appSetup,resLogoSetup; //ret bit0,logo bit1
 	int ks_fd,ret,kspoffset,totalLen,compLen;
@@ -192,26 +213,26 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 	u32 	offset;
 	u8					signout[256];
 	KSP_SIGN_CONTEXT 	*tKspSignContext;
-	
+	LOG(LOG_INFO,"InstallMasterAPP[%s] Init\r\n",pKspPath);
 	//----------------读取KSP文件头----------------------------------
 	ks_fd=open(pKspPath,O_RDONLY);
 	if(ks_fd == -1)
 	{
-		Log(LOG_ERROR,"fs read err.\r\n");
+		LOG(LOG_ERROR,"fs read err.\r\n");
 		return -1;
 	}
 	ret = read(ks_fd,&head, sizeof(KSP_FILE_HEAD));
 	if(sizeof(KSP_FILE_HEAD) != ret) 
 	{
-		Log(LOG_ERROR,"fs read len[%d] err.\r\n",ret);
+		LOG(LOG_ERROR,"fs read len[%d] err.\r\n",ret);
 		close(ks_fd);
 		remove(pKspPath);
 		return -1;
 	}
-	TRACE_HEX("head",&head,20);
+	LOG_HEX(LOG_INFO,"head",&head,20);
 	if (0 != memcmp(head.Mask, "FKSP", 4)) 
 	{
-		Log(LOG_ERROR,"fs read mask err.\r\n");
+		LOG(LOG_ERROR,"fs read mask err.\r\n");
 		close(ks_fd);
 		remove(pKspPath);
 		return -2;
@@ -220,27 +241,27 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 	totalLen= BYTE4_TO_INT(head.DataLen);
 	if(totalLen < 16) 
 	{
-		Log(LOG_ERROR,"kspoffset[%d],totalLen:%d Err\r\n",kspoffset,totalLen);
+		LOG(LOG_ERROR,"kspoffset[%d],totalLen:%d Err\r\n",kspoffset,totalLen);
 		close(ks_fd);
 		remove(pKspPath);
 		return 1;
 	}
-	//APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_CHECK_PACKAGE);
+	APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_CHECK_PACKAGE);
 #if(1)
 	offset = 0;
 	tKspSignContext =(KSP_SIGN_CONTEXT *)signout;
-	if(APP_rsa_PrivatekeyPublic(Develop_Channel_Cert_ZT,sizeof(Develop_Channel_Cert_ZT),head.signcode, signout) == 0) // 签名块验证
+	if(APP_rsa_PrivatekeyPublic((char*)Develop_Channel_Cert_ZT,sizeof(Develop_Channel_Cert_ZT),head.signcode, signout) == 0) // 签名块验证
 	{
 		int ret;
 		u8 shaResult[32];
 		mbedtls_md_context_t ctx;
-//		TRACE_HEX("signout",signout,sizeof(KSP_SIGN_CONTEXT));
+//		LOG_HEX(LOG_INFO,"signout",signout,sizeof(KSP_SIGN_CONTEXT));
 		//-------------------SHA256验证--------------------------
 		MaxSet = 32*1024;
 		pBuffData=(u8*)malloc(MaxSet);
 		api_tls_InterFace.hash->md_starts(&ctx,MBEDTLS_MD_SHA256);
 
-		seek(ks_fd,kspoffset,SEEK_SET);
+		lseek(ks_fd,kspoffset,SEEK_SET);
 		while(offset < totalLen) 
 		{
 			CruSet = totalLen - offset;
@@ -250,7 +271,7 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 			//ret=APP_FileReadBuff(pKspPath,kspoffset+offset,pBuffData,CruSet);
 			if(ret < CruSet)
 			{
-				Log(LOG_ERROR,"APP FileReadBuff CruSet:%d ret:%d\r\n",CruSet,ret);
+				LOG(LOG_ERROR,"APP FileReadBuff CruSet:%d ret:%d\r\n",CruSet,ret);
 				break;
 			}
 			api_tls_InterFace.hash->md_update(&ctx,pBuffData,ret);
@@ -262,12 +283,12 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 		{
 			if (memcmp(shaResult, tKspSignContext->hashResult, 32) != 0) 
 			{
-				TRACE_HEX("sha256-1", tKspSignContext->hashResult, 32);
-				TRACE_HEX("sha256-2", shaResult, 32);
-				//APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_VERIFY_SIGN_ERR);
+				LOG_HEX(LOG_ERROR,"sha256-1", tKspSignContext->hashResult, 32);
+				LOG_HEX(LOG_ERROR,"sha256-2", shaResult, 32);
+				APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_VERIFY_SIGN_ERR);
 				close(ks_fd);
 				remove(pKspPath);
-				//Sleep(3000);
+				OsSleep(3000);
 				return -4;
 			}
 		}
@@ -275,17 +296,17 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 
 	if(offset < totalLen)
 	{
-		Log(LOG_ERROR,"ks signinfo check err.\r\n");
-		//APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_CALC_SIGN_ERR);
+		LOG(LOG_ERROR,"ks signinfo check err.\r\n");
+		APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_CALC_SIGN_ERR);
 		close(ks_fd);
 		remove(pKspPath);
-		//Sleep(3000);
+		OsSleep(3000);
 		return -3;
 	}	
 	mkdir(tKspSignContext->app.tag,0666);	//创建对应目录
-	chdir(tKspSignContext->app.tag);	//进入对应目录
+//	chdir(tKspSignContext->app.tag);		//进入对应目录
 #endif
-	//APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_INSTALLING);
+	APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_INSTALLING);
 	// 写入应用信息到块
 	compLen = 0;	
 	tmsSetup=0;
@@ -293,47 +314,44 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 	resLogoSetup=0;
   	MaxSet = 32*1024;
 	pBuffData=(u8*)malloc(MaxSet);
-  	Log(LOG_INFO,"write app[%d]\r\n",head.filenum);
-	if(ShowBottomProgress) ShowBottomProgress(0);	//初始进度条
+  	LOG(LOG_INFO,"write app[%d]\r\n",head.filenum);
+	APP_ShowBottomProgress(0);	//初始进度条
 	//-----不休眠--------------
 	//先关字库文件，有利于更新字库。
 	//------------------------------
 	{
 		int 	Tfd;
 		char	fileName[16+1];
-		char	dir_name[20+3];
+		char	dir_name[32+3];
 		KSP_FILE_ITEM tFileItem;
 		//-----打开安装文件------------
 		// 重新读取文件，并按文件写入相关系统
 		for (i = 0; i < head.filenum; i++) 
 		{
 			// 读一个块
-			seek(ks_fd,kspoffset,SEEK_SET);
+			lseek(ks_fd,kspoffset,SEEK_SET);
 			read(ks_fd,&tFileItem,sizeof(tFileItem));
 			//APP_FileReadBuff(pKspPath,kspoffset,&tFileItem, sizeof(tFileItem));
 			memcpy(fileName,tFileItem.fileName,16);
 			fileName[16]='\0';
 			fileLen = BYTE4_TO_INT(tFileItem.fileLen);		
 			kspoffset += sizeof(tFileItem); 	
-			Log(LOG_INFO,"filename[%d]:%s,fileLen=%d\r\n",i,fileName,fileLen);		
-			
+			LOG(LOG_INFO,"filename[%d]:%s,fileLen=%d\r\n",i,fileName,fileLen);		
+			Tfd = -1;
 			if(0 == strcmp("/hd/tms", fileName)) //TMS自身更新
 			{ 
-				strcpy(dir_name,Tms_TMS_sAppUp);
-				//remove(dir_name);
-				tmsSetup=1;
-				Tfd=open(dir_name,O_WRONLY|O_CREAT,0777);
+				
 			}
 			else if(0 == strcmp("/hd/app", fileName)) //应用更新
 			{ 
-				strcpy(dir_name,Tms_APP_sAppUp);
+				sprintf(dir_name,"%s/%s",tKspSignContext->app.tag,Tms_APP_sAppUp);
 				//remove(dir_name);
 				appSetup=1;
 				Tfd=open(dir_name,O_WRONLY|O_CREAT,0777);
 			}
 			else	//资源更新
 			{ 
-				strcpy(dir_name, fileName);
+				sprintf(dir_name,"%s/%s",tKspSignContext->app.tag,fileName);
 				if(!(resLogoSetup&0x01))
 				{
 					if(strcmp("ks.res", fileName) == 0) //字库资源
@@ -343,21 +361,21 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 				}
 				if(!(resLogoSetup&0x02))
 				{
-					if(strsts("Logo.", fileName))//logo 资源
+					if(strstr(fileName,"Logo."))//logo 资源
 					{
 						resLogoSetup |= 0x02;
 					}
 				}
 				Tfd=open(dir_name,O_WRONLY|O_CREAT,0666);
 			}
-			//------------刷新进度条----------------------
-			if(Tfd==0)
+			compLen += sizeof(KSP_FILE_ITEM);
+			if(Tfd == -1)
 			{
-				Log(LOG_ERROR,"API fopen CRNEW[%s]\r\n",dir_name);
+				LOG(LOG_ERROR,"API fopen CRNEW[%s]\r\n",dir_name);
 				continue;
 			}
-			compLen += sizeof(KSP_FILE_ITEM);
-			if(ShowBottomProgress) ShowBottomProgress(compLen*100/totalLen);
+			//------------刷新进度条----------------------
+			APP_ShowBottomProgress(compLen*100/totalLen);
 			//-------------SetData-----------------------------
 			{
 				offset = 0;
@@ -366,30 +384,30 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 					CruSet = fileLen - offset;
 					if(CruSet>MaxSet) CruSet=MaxSet;
 					// 读目标文件
-					seek(ks_fd,kspoffset+offset,SEEK_SET);
+					lseek(ks_fd,kspoffset+offset,SEEK_SET);
 					ret=read(ks_fd,pBuffData,CruSet);
 					if(ret != CruSet)
 					{
-						Log(LOG_ERROR,"ERR->FileReadBuff->%s,CruSet=%d,ret=%d\r\n",pKspPath,CruSet,ret);
+						LOG(LOG_ERROR,"ERR->FileReadBuff->%s,CruSet=%d,ret=%d\r\n",pKspPath,CruSet,ret);
 						break;
 					}
 					// 写入文件系统
-					//seek(Tfd,offset,SEEK_SET);
+					//lseek(Tfd,offset,SEEK_SET);
 					ret=write(Tfd,pBuffData,CruSet);
 					if (ret != CruSet) 
 					{
-						Log(LOG_ERROR,"ERR->FileSaveBuff->%s,CruSet=%d,ret=%d\r\n",dir_name,CruSet,ret);
+						LOG(LOG_ERROR,"ERR->FileSaveBuff->%s,CruSet=%d,ret=%d\r\n",dir_name,CruSet,ret);
 						break;
 					}
 					offset += CruSet;
 					//------------刷新进度调----------------------
 					compLen += CruSet;
-					if(ShowBottomProgress) ShowBottomProgress(compLen*100/totalLen);
+					APP_ShowBottomProgress(compLen*100/totalLen);
 				}
 				close(Tfd);
 				if(offset < fileLen)
 				{
-					Log(LOG_ERROR,"ERR->FileSave->%s ERR[%d<%d]\r\n",dir_name,offset,fileLen);
+					LOG(LOG_ERROR,"ERR->FileSave->%s ERR[%d<%d]\r\n",dir_name,offset,fileLen);
 					remove(dir_name);
 				}
 			}
@@ -399,9 +417,8 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 	}
 	close(ks_fd);
 	free(pBuffData);
-	Log(LOG_INFO,"CheckSetup:resLogo=%x,app=%d,tms=%d\r\n",resLogoSetup,appSetup,tmsSetup);
-	remove(pKspPath);
-	Log(LOG_INFO,"API fremove[%s]\r\n",pKspPath);
+	LOG(LOG_INFO,"CheckSetup:resLogo=%x,app=%d,tms=%d\r\n",resLogoSetup,appSetup,tmsSetup);	
+	ret = 1;
 	//---------------更新LOGO-----------------------------------
 	if(resLogoSetup&0x02)
 	{
@@ -410,30 +427,28 @@ int APP_PowerOnCheckSetup(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*Show
 	//----------------安装参数-----------------------------------
 	if(resLogoSetup&0x01)
 	{
-	
+		
 	}
 	//----------------安装应用-----------------------------------
-	if(appSetup)	//安装应用
+	if(appSetup)
 	{
-		//APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_SUCCESS);
 		strcpy(pAppInfo->Id,tKspSignContext->app.tag);
 		strcpy(pAppInfo->Name,tKspSignContext->app.name_cn);
 		strcpy(pAppInfo->Desc,tKspSignContext->app.name_en);
 		strcpy(pAppInfo->Artwork,tKspSignContext->app.sdk_ver);
 		strcpy(pAppInfo->Vender,tKspSignContext->app.app_time);
 		strcpy(pAppInfo->Version,tKspSignContext->app.app_ver);
+		ret = 0;
 	}
 	//--------------安装主控-----------------------------------
 	if(tmsSetup)	//安装主控
 	{
-		strcpy(pAppInfo->Id,tKspSignContext->app.tag);
-		strcpy(pAppInfo->Name,tKspSignContext->app.name_cn);
-		strcpy(pAppInfo->Desc,tKspSignContext->app.name_en);
-		strcpy(pAppInfo->Artwork,tKspSignContext->app.sdk_ver);
-		strcpy(pAppInfo->Vender,tKspSignContext->app.app_time);
-		strcpy(pAppInfo->Version,tKspSignContext->app.app_ver);
+		
 	}
-	return 0;
+	remove(pKspPath);
+	LOG(LOG_INFO,"API fremove[%s]\r\n",pKspPath);
+	return ret;
 }
+
 
 #endif

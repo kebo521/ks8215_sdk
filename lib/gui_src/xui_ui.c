@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <linux/input.h>
 
+#include "comm_type.h"
 #include "types_def.h"
 
 #include "xui_ui.h"
@@ -15,33 +16,24 @@
 //#include "EvenMsg.h"
 #include "QR_Encode.h"
 #include "key_hard.h"
+#include "sdk/sys_sdk.h"
 
 
 
-//=========================按键定义==========================
-//static const char* KeyMsgABC[10]={"*#:/?%@-+=","&$!,;'`^~\"_|","ABC","DEF","GHI","JKL","MNO","PQRS","TUV","WXYZ"};
 
 //XuiWindow UI_screen = {0};
 gUi_def gUiDataAll={0};
 
-void u32_memcpy(u32 *u1,u32 *u2,u32 len)
-{
-	while(len--)
-		*u1++ = *u2++;
-}
 
-void u32_memset(u32 *u1,u32 nun,u32 len)
+void argbset(A_RGB *u1,A_RGB nun,int len)
 {
 	while(len--)
 		*u1++ = nun;
 }
-
-
-
-extern char *API_eStrstr(char* src1, const char* src2);
+//================sys_sdk 提供=========================
+//extern char *eStrstr(char* src1, const char* src2);
 
 /*
-
 //========从src1中查找src2字段=返回匹配src1中的末端地址=======
 char *API_eStrstr(char* src1, const char* src2)
 {
@@ -87,14 +79,13 @@ char *API_eStrstr(char* src1, const char* src2)
 
 
 
-
 int XuiOpen(int argc,char **argv)
 {
 	int i;
 	char *pTag;
 	for(i=0;i<argc;i++)
 	{
-		pTag=API_eStrstr(argv[i],"FB=");
+		pTag=eStrstr(argv[i],"FB=");
 		if(pTag)
 		{
 			gUiDataAll.Screen_fd=open_screen(pTag,&gUiDataAll.tHardWindow);
@@ -105,7 +96,7 @@ int XuiOpen(int argc,char **argv)
 			}
 			continue;
 		}
-		pTag=API_eStrstr(argv[i],"INPUT=");
+		pTag=eStrstr(argv[i],"INPUT=");
 		if(pTag)
 		{
 			//TRACE("Open Input[%d]\r\n",pTag);
@@ -116,7 +107,7 @@ int XuiOpen(int argc,char **argv)
 			}
 			continue;
 		}
-		pTag=API_eStrstr(argv[i],"ROTATE=");
+		pTag=eStrstr(argv[i],"ROTATE=");
 		if(pTag)
 		{
 			gUiDataAll.iRotate=atoi(pTag);
@@ -127,14 +118,14 @@ int XuiOpen(int argc,char **argv)
 			//TRACE("gUiDataAll iRotate[%d]\r\n",gUiDataAll.iRotate);
 			continue;
 		}
-		pTag=API_eStrstr(argv[i],"TSDEV=");
+		pTag=eStrstr(argv[i],"TSDEV=");
 		if(pTag)
 		{
 			//TRACE("Open TSDEV[%d]\r\n",pTag);
 			gUiDataAll.TsDev_fd = open(pTag,O_RDWR);  // O_RDONLY
 			continue;
 		}
-		pTag=API_eStrstr(argv[i],"STATUSBAR=");
+		pTag=eStrstr(argv[i],"STATUSBAR=");
 		if(pTag)
 		{
 			gUiDataAll.iStatusbar=atoi(pTag);
@@ -199,50 +190,29 @@ int XuiResume(void)
 //获取根画布
 XuiWindow *XuiRootCanvas(void)
 {
+	XuiWindow *Window;
+	int width,height;
 	if(gUiDataAll.Screen_fd < 0)
 	{
 		TRACE("Xui Root Canvas Screen_fd=%d\r\n",gUiDataAll.Screen_fd);
 		return NULL;
 	}
 	//-------------------------------------------
-	#ifdef DISPLAY_HORIZONTAL_SCREEN
-	gUiDataAll.tHardWindow.left = gUiDataAll.tHardWindow.width-SCREEN_HEIGT-10;
-	#else
-	gUiDataAll.tHardWindow.left = gUiDataAll.tHardWindow.width-SCREEN_WIDTH-10;
-	#endif
-	gUiDataAll.tHardWindow.top = 10;
-	{
-		s16 staX,staY;
-		staX=gUiDataAll.tHardWindow.left-10;
-		staY=0;
-		xui_fb_fill_rect(staX,staY,FB_WIDTH,FB_HEIGHT,RGB_CURR(0x7f,0x7f,0x7f));
-	}
-	
-	if(gUiDataAll.tHardWindow.width < SCREEN_WIDTH || gUiDataAll.tHardWindow.height < SCREEN_HEIGT)
-	{
-		TRACE("InitRootCanvas Err too small\r\n");
-		return NULL;
-	}
-
-	//-------------------------------------------
-	XuiWindow *Window;
-	u16 width,height;
-	int nWindLen;
-	width=SCREEN_WIDTH;
-	height= SCREEN_HEIGT-gUiDataAll.iStatusbar;
-	nWindLen =sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB);
-	Window = (XuiWindow *)malloc(nWindLen);
+	width=gUiDataAll.tHardWindow.width;
+	height= gUiDataAll.tHardWindow.height -gUiDataAll.iStatusbar;
+	Window = (XuiWindow *)malloc(sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB));
 	if(Window==NULL)
 	{
-		TRACE("InitRootCanvas malloc(%d) is NULL\r\n",nWindLen);
+		TRACE("InitRootCanvas malloc(%d) is NULL\r\n",sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB));
 		return NULL;
 	}
-	u32_memset((u32*)Window,0x0000000,nWindLen/4);
-	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow));	
+	memset(Window,0x00,sizeof(XuiWindow));
 	Window->left=gUiDataAll.tHardWindow.left;
 	Window->top=gUiDataAll.tHardWindow.top + gUiDataAll.iStatusbar;
 	Window->width = width;
 	Window->height = height;
+	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow));	
+	argbset(Window->widget,RGB565_CLEAR,height*width);
 	//TRACE("InitRootCanvas [%X][%X]\r\n",(u32)Window,(u32)Window->widget);
 	return Window;
 }
@@ -252,22 +222,21 @@ XuiWindow *XuiStatusbarCanvas(void)
 {
 	XuiWindow *Window;
 	u16 width,height;
-	int nWindLen;
 	if(gUiDataAll.Screen_fd < 0)
 	{
 		TRACE("Xui Status barCanvas .Screen_fd=%d\r\n",gUiDataAll.Screen_fd);
 		return NULL;
 	}
-	width=SCREEN_WIDTH;
+	width=gUiDataAll.tHardWindow.width;
 	height= gUiDataAll.iStatusbar;
-	nWindLen =sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB);
-	Window = (XuiWindow *)malloc(nWindLen);
-	u32_memset((u32*)Window,0x0000000,nWindLen/4);
-	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow));	
+	Window = (XuiWindow *)malloc(sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB));
+	memset(Window,0x00,sizeof(XuiWindow));
 	Window->left=gUiDataAll.tHardWindow.left;
 	Window->top=gUiDataAll.tHardWindow.top;
 	Window->width = width;
 	Window->height = height;
+	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow));	
+	argbset(Window->widget,RGB565_CLEAR,height*width);
 	return Window;
 }
 
@@ -275,20 +244,17 @@ XuiWindow *XuiStatusbarCanvas(void)
 XuiWindow *XuiCreateCanvas(XuiWindow *parent, unsigned int x, unsigned int y,unsigned int width, unsigned int height)
 {
 	XuiWindow *Window;
-	int nWindLen;
 	if((x+width)> parent->width || (y+height)> parent->height)
 		return NULL;
-	
-	nWindLen =sizeof(XuiWindow) + (height*width)*sizeof(A_RGB);
-
-	Window = (XuiWindow *)malloc(nWindLen);
-	u32_memset((u32*)Window,0x0000000,nWindLen/4);
-	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow));	
+	Window = (XuiWindow *)malloc(sizeof(XuiWindow) + (height*width)*sizeof(A_RGB));
+	memset(Window,0x00,sizeof(XuiWindow));
 	Window->left=parent->left+ x;
 	Window->top =parent->top + y;
 	Window->width = width;
 	Window->height = height;
 	Window->pChild = parent;
+	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow)); 
+	argbset(Window->widget,RGB565_CLEAR,height*width);
 
 	if(parent->pParent==NULL)
 	{
@@ -415,8 +381,8 @@ void XuiDestroyWindow(XuiWindow *window)
 
 int XuiClearArea(XuiWindow *window, unsigned int x,unsigned int y, unsigned int width, unsigned int height)
 {
-	u16 i,j,w,h;
-	u16 mWidth,mChildw;
+	int i,j,w,h;
+	int mWidth,mChildw;
 	A_RGB *pBack,*pWidget;
 	A_RGB *destin,*source;
 	
@@ -429,8 +395,9 @@ int XuiClearArea(XuiWindow *window, unsigned int x,unsigned int y, unsigned int 
 		pBack = window->wBack;
 		for (j = y; j < h; j++) 
 		{
-			source=&pBack[j*mWidth + x];
-			destin=&pWidget[j*mWidth + x];
+			mChildw = j*mWidth + x;
+			source= pBack+mChildw;
+			destin= pWidget+mChildw;
 			for(i=x; i<w; i++)
 			{
 				*destin++ = *source++;
@@ -455,49 +422,96 @@ int XuiClearArea(XuiWindow *window, unsigned int x,unsigned int y, unsigned int 
 		}
 	}
 	else return -1;
-
+/*
 	{
 		RECTL tRect;
-		tRect.left = window->left + x;
-		tRect.top=	window->top + y;
+		tRect.left = x;
+		tRect.top=	y;
 		tRect.width= width;
 		tRect.height= height;
 		xui_fb_push(window,&tRect,window->widget);
-	}
+	}*/
 	return 0;
 }
 
 
 void XuiShowWindow(XuiWindow *window,int show, int flag)
 {
-	RECTL tRect;
-	tRect.left = window->left;
-	tRect.top=	window->top;
-	tRect.width= window->width;
-	tRect.height= window->height;
 	if(show == 1)
 	{
-		xui_fb_push(window,&tRect,window->widget);
+		xui_fb_push(window,NULL,window->widget);
 	}
 	else
 	{
-		if(window->wBack)
+		if(window->pChild)
 		{
-			xui_fb_push(window,&tRect,window->wBack);
+			RECTL tRect;
+			tRect.left = window->left;
+			tRect.top=	window->top;
+			tRect.width= window->width;
+			tRect.height= window->height;
+			window = window->pChild;
+			tRect.left -= window->left;	//取相对位置
+			tRect.top -= window->top;		//取相对位置
+			xui_fb_push(window,&tRect,window->widget);
 		}
-		else if(window->pChild)
+		else if(window->wBack)
 		{
-			xui_fb_push(window->pChild,&tRect,window->pChild->widget);
+			xui_fb_push(window,NULL,window->wBack);
 		}
 	}
 }
 
+void UI_FillHitBack(A_RGB* pBack,int w,int h)
+{
+	u16 sx,mx,sy,my;
+	int i=5;
+	sy=i;
+	sx=i;
+	my=h- sy*2;	
+	mx=w- sx*2;
+	//------------------------------------------------------
+	i = sy*w;
+	while(i--)
+		*pBack++ = RGB_CURR(0xD8,0xE0,0xE0);
+
+	while(my--)
+	{
+		i=sx;
+		while(i--)
+			*pBack++ = RGB_CURR(0xD8,0xE0,0xE0);
+
+		i=mx;
+		while(i--)
+			*pBack++ = RGB_CURR(0xff,0xff,0x7f);
+
+		i=sx;
+		while(i--)
+			*pBack++ = RGB_CURR(0xD8,0xE0,0xE0);
+	}
+
+	i = sy*w;
+	while(i--)
+		*pBack++ = RGB_CURR(0xD8,0xE0,0xE0);
+}
 
 void UI_SetBackground(XuiWindow *pWindow,FunFillColour pFillColour)	//(u32* pOut,int width,int height)
 {
 	if(pWindow->wBack == NULL)
 		pWindow->wBack = (A_RGB*)malloc((pWindow->height * pWindow->width)*sizeof(A_RGB));
 	pFillColour(pWindow->wBack,pWindow->width,pWindow->height);
+}
+
+void UI_ShowBackground(XuiWindow *pWindow)	
+{
+	int max;
+	A_RGB *destin,*source;
+	source = pWindow->wBack;
+	if(source == NULL) return ;
+	destin = pWindow->widget;
+	max= pWindow->height * pWindow->width;
+	while(max--)
+		*destin++ = *source++;
 }
 
 
@@ -625,20 +639,16 @@ int UI_ShowPictureFile(XuiWindow *pWindow,RECTL *prclTrg,const char *pfilePath)
 
 
 //=============底部显示进度条==ratio(0~100)===============================
-void UI_ShowBottomProgress(XuiWindow *pWindow,int ratio)
+void UI_ShowBottomProgress(XuiWindow *pWindow,RECTL *pRect,int thick,int ratio)
 {
-	RECTL tRect;
-	tRect.width=SCREEN_WIDTH;
-	tRect.left = 0; 
-	tRect.height=16;
-	tRect.top = SCREEN_HEIGT-tRect.height;
-	UI_FillRectSingLe(pWindow,&tRect,RGB_CURR(199,200,244));
+	UI_FillRectSingLe(pWindow,pRect,RGB_CURR(199,200,244));
 	if(ratio)
 	{
-		tRect.top	+=	3;
-		tRect.left	+=	3;
-		tRect.width -=	6;
-		tRect.height -=	6;
+		RECTL tRect;
+		tRect.top	=	pRect->top+thick;
+		tRect.left	=	pRect->left+thick;
+		tRect.width =	pRect->width-(thick<<1);	//thick*2;
+		tRect.height =	pRect->height-(thick<<1);	//thick*2;
 		if(ratio < 100)
 			tRect.width = tRect.width*ratio/100;
 		UI_FillRectSingLe(pWindow,&tRect,RGB_CURR(0,255,255));
@@ -650,42 +660,32 @@ void UI_ShowParMiddleSlide(XuiWindow *pWindow,int ratio)
 {
 	u16 Width1,Width2;
 	RECTL tRect;
-	tRect.width = SCREEN_APP_W-8;
+	tRect.left = 4;
 	tRect.height = 32;
+	tRect.width = pWindow->width - tRect.left*2;
+	tRect.top = (pWindow->height - tRect.height)/2;
 	Width1 = (tRect.width-tRect.height)*ratio/100;
 	Width2 = (tRect.width-tRect.height)-Width1;
-	tRect.top = SCREEN_APP_Y+(SCREEN_APP_H-32)/2;
-	tRect.left = SCREEN_APP_X+4;
 	UI_FillRectSingLe(pWindow,&tRect,RGB_CURR(255,255,255));
 
-	
-	tRect.top = SCREEN_APP_Y+(SCREEN_APP_H-16)/2;
+	tRect.height = 16;
+	tRect.left = 4;
 	if(Width1)
 	{
-		tRect.left = SCREEN_APP_X+4;
 		tRect.width = Width1;
-		tRect.height = 16;
+		tRect.top = (pWindow->height - tRect.height)/2;
 		UI_FillRectSingLe(pWindow,&tRect,RGB_CURR(210,99,25));
 	}
 	if(Width2)
 	{
-		tRect.left = SCREEN_APP_X+4+Width1+tRect.height;
+		tRect.left += pWindow->width+Width1+tRect.height;
 		tRect.width = Width2;
-		tRect.height = 16;
 		UI_FillRectSingLe(pWindow,&tRect,RGB_CURR(56,56,56));
 	}
-	tRect.left = SCREEN_APP_X+4+Width1;
-	tRect.top = SCREEN_APP_Y+(SCREEN_APP_H-32)/2;
 	tRect.height = 32;
+	tRect.top = (pWindow->height - tRect.height)/2;
+	tRect.left = pWindow->width+4+Width1;
 	UI_FillRectSingLe(pWindow,&tRect,RGB_CURR(199,206,218));
-/*
-	ret=API_sprintf(sbuff,"%d",par);
-	tRect.left = SCREEN_APP_X+(SCREEN_APP_W-ret*FONT_SIZE/2)/2;
-	tRect.top = SCREEN_APP_Y+ (SCREEN_APP_H-32)/2  +32;
-//	ApiFont.SetFontColor(RGB_CURR(56,56,56),RGB_CURR(255,255,255));
-//	ApiFont.DisplayFont(&tRect,(u8*)sbuff);
-	DisplayPaintEnd();
-	*/
 }
 
 

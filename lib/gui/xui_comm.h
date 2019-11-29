@@ -13,5 +13,7 @@
 
 #include "QR_Encode.h"
 
+#include "language.h"
+
 #endif
 

@@ -1,34 +1,31 @@
-
-
 #ifndef _UI_DISPLAY_
 #define _UI_DISPLAY_
 
-//==========================================================
-typedef struct {/*
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-  uint8_t a;*/
+//===============É«²Ê²ÎÊý¶¨Òå========================================
+#define	RGB_CURR(r,g,b)		((r*0x10000)|(g*0x100)|b)	//(u32)(rgba_t)(b,g,r,0xff))
+#define RGB565_CLEAR			0xFF000000		// Transparent color
 
+typedef struct {
   uint8_t b;
   uint8_t g;
   uint8_t r;
   uint8_t a;
 } rgba_t;
 typedef unsigned int  			A_RGB;		// <= RGB_CURR
-typedef union {
-	A_RGB uPix;
-	rgba_t tPix;
-}Pixel_Color;
 
+typedef void (*FunFillColour)(A_RGB*,int,int);		//É«²ÊÌî³äº¯Êý¶¨Òå(data,w,h)
+//=====================================================================================================
+typedef struct{
+  u16 left;
+  u16 top;
+} POINT, *PPOINT;
 
-#define	RGB_CURR(r,g,b)		((r*0x10000)|(g*0x100)|b)	//(u32)(rgba_t)(b,g,r,0xff))
-
-
-
-
-
-typedef void (*FunFillColour)(A_RGB*,int,int);
+typedef struct{
+  u16 left;
+  u16 top;
+  u16 width;
+  u16 height;
+}RECTL,*LPRECTL;
 
 /**
  * GUIÖ§³ÖµÄÍ¼Ïñ¸ñÊ½¶¨Òå
@@ -48,9 +45,9 @@ typedef struct _XuiWindow{
 	struct _XuiWindow *pParent;	//×Ó´°¿Ú
 	struct _XuiWindow *pNext;		//×Ó´°¿Ú....
 	
-	unsigned short left,top,width,height;
+	int left,top,width,height;
 	
-//	unsigned short key;		//å…³è”æŒ‰é”®å€¼
+//	unsigned short key;		//å…³è”æŒ‰é”®å€?
 //	unsigned short type;	//Window çª—å£ç±»åž‹ï¼Œè¯¦è§XuiWindowType
 	
 	A_RGB* 		wBack;	//Window ±³¾°É«£¬ÎÞ ¿É½èÓÃ¸´´°¿Ú»¹Ô­
@@ -70,6 +67,7 @@ typedef struct {
 //	u16 left,top;
 }gUi_def;
 extern gUi_def gUiDataAll;
+
 extern int XuiOpen(int argc,char **argv);
 extern void XuiClose(void);
 
@@ -82,12 +80,15 @@ extern void XuiDestroyWindow(XuiWindow *window);
 extern int XuiClearArea(XuiWindow *window, unsigned int x,unsigned int y, unsigned int width, unsigned int height);
 extern void XuiShowWindow(XuiWindow *window,int show, int flag);
 
+extern void UI_FillHitBack(A_RGB* pBack,int w,int h);
 extern void UI_SetBackground(XuiWindow *pWindow,FunFillColour pFillColour);	//(u32* pOut,int width,int height)
+extern void UI_ShowBackground(XuiWindow *pWindow);
 extern void UI_vline(XuiWindow *pWindow,POINT *pRect,int width,A_RGB Color);
 extern void UI_hline(XuiWindow *pWindow,POINT *pRect,int height,A_RGB Color);
 extern void UI_FillRectSingLe(XuiWindow *pWindow,RECTL *pRect,A_RGB Color);
 extern void UI_ShowQrCode(XuiWindow *pWindow,RECTL* pRect,const char* pInfo,A_RGB Color);
 
+extern void UI_ShowBottomProgress(XuiWindow *pWindow,RECTL *pRect,int thick,int ratio);
 
 typedef struct _API_UI	
 {
@@ -106,7 +107,7 @@ typedef struct _API_UI
 
 	void (*ShowQrCode)(XuiWindow *,RECTL* ,const char*,A_RGB);	//(xywh,"Text",RGB_CURR(r,g,b))
 	int (*ShowPictureFile)(XuiWindow *,RECTL *,const char *);
-	void (*ShowBottomProgress)(XuiWindow *,int);	//ratio (0~100)
+	void (*ShowBottomProgress)(XuiWindow *,RECTL *,int,int);	//(XuiWindow *pWindow,RECTL *pRect,int thick,int ratio) ratio (0~100)
 	void (*ShowParMiddleSlide)(XuiWindow *,int); //ratio (0~100)
 }API_UI_Def;
 

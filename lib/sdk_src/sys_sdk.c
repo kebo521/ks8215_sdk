@@ -109,15 +109,54 @@ int OsSaveAppInfo(ST_APP_INFO* pAppInfo)
 {
 	if(tSt_Sys.pSysMsg)
 	{
-		if(tSt_Sys.pSysMsg->mAppMax >= (sizeof(tSt_Sys.pSysMsg->AppInfo)/sizeof(tSt_Sys.pSysMsg->AppInfo[0])))
-			return -3;
-		memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
-		tSt_Sys.pSysMsg->mAppMax++;
-		sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
+		int i,max;
+		max = tSt_Sys.pSysMsg->mAppMax;
+		for(i=0;i<max;i++)
+		{
+			if(strcmp(pAppInfo->Id,tSt_Sys.pSysMsg->AppInfo[i].Id)==0)
+				break;
+		}
+		if(i < max)
+		{//--------应用更新--------
+			memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
+			sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
+		}
+		else
+		{//--------应用安装--------
+			if(i >= (sizeof(tSt_Sys.pSysMsg->AppInfo)/sizeof(tSt_Sys.pSysMsg->AppInfo[0])))
+				return -3;
+			memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
+			tSt_Sys.pSysMsg->mAppMax++;
+			sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
+		}
 		return 0;
 	}
 	return -5;
 }
+
+void API_Trace(char* pMsg,...)
+{
+	int		ret;
+	char	sTraceBuff[4096];
+	//------------------------------------------
+	va_list arg;
+	va_start(arg, pMsg);
+	ret=vsnprintf(sTraceBuff,sizeof(sTraceBuff),pMsg,arg);	//ret=
+	va_end(arg);
+	printf("Trace[%d]->%s",ret,sTraceBuff);//stdout
+}
+
+void APP_Trace_Hex(char* msg,void* pBuff,int Len)
+{
+	int i;
+	printf("%s[%d]:",msg,Len);
+	for(i=0;i<Len;i++)
+	{
+		printf("%02X ",((u8*)pBuff)[i]);
+	}
+	printf("\r\n");
+}
+//================================================================================
 
 extern int APP_main(int argc, char* argv[]);
 

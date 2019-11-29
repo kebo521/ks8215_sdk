@@ -6,6 +6,7 @@
 #include<pthread.h>
 #include<semaphore.h>
 
+#include "comm_type.h"
 #include "types_def.h"
 #include "EvenMsg.h"
 #include "key_hard.h"
