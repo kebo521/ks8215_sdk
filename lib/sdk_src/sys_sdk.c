@@ -177,7 +177,17 @@ void OsLogSetTag(const char *Tag)
 {
 	int fd = open(Tag,O_RDWR|O_CREAT,0666); 	
 	if (fd != -1)		
-	{			
+	{
+	/*
+		int ret;
+		char buff[128];
+		time_t timer;//long
+		struct tm *pblock;
+		timer = time(NULL);
+		pblock = localtime(&timer);
+		ret=snprintf(buff,sizeof(buff),"============%04d-%02d-%02d %02:%02:%02=============\r\n",pblock->tm_year+1900,pblock->tm_mon,pblock->tm_mday,pblock->tm_hour,pblock->tm_min,pblock->tm_sec);
+		write(fd,buff,ret);
+		*/
 		dup2 (fd, STDOUT_FILENO);			
 		close(fd);	
 	}
@@ -355,22 +365,59 @@ int OsGetOptInfo(ST_OPT_INFO OptInfo[],int InfoCnt)
 }
 
 
+int OsExit(int recode)
+{
+	memmove(tSt_Sys.pSysData->aAppIDStack,tSt_Sys.pSysData->aAppIDStack+1,sizeof(tSt_Sys.pSysData->aAppIDStack)-1);
+	tSt_Sys.pSysData->aAppIDStack[sizeof(tSt_Sys.pSysData->aAppIDStack)-1]=0;
+	tSt_Sys.pSysData->pNextAppId=tSt_Sys.pSysData->aAppIDStack[0];
+	shmdt(tSt_Sys.pSysMsg);
+	shmdt(tSt_Sys.pSysData);
+	exit(recode);
+}
 
 int OsRunApp(char *AppId, char **Argv, void *Data, RUNAPP_CB CbOut,RUNAPP_CB CbErr)
 {
 	if(tSt_Sys.pSysMsg)
 	{
 		int i;
-		if(tSt_Sys.pSysMsg->nCurrAppId != 0)	//master app id =0
-			return ERR_NEED_ADMIN;
+	//	if(tSt_Sys.pSysMsg->nCurrAppId != 0)	//master app id =0
+	//		return ERR_NEED_ADMIN;
 		
 		for(i=0;i<tSt_Sys.pSysMsg->mAppMax;i++)
 		{
 			if(strcmp(tSt_Sys.pSysMsg->AppInfo[i].Id,AppId)==0)
 			{
+				//char runData[32];
+				u8 id,max=0;
+				char *pData;
+				tSt_Sys.pSysData->pNextAppId=i;
 				memmove(tSt_Sys.pSysData->aAppIDStack+1,tSt_Sys.pSysData->aAppIDStack,sizeof(tSt_Sys.pSysData->aAppIDStack)-1);
 				tSt_Sys.pSysData->aAppIDStack[0]=i;
-				execv(tSt_Sys.pSysMsg->AppInfo[i].Bin , Argv);
+		
+				if(Argv)
+				{
+					while(Argv[max] != ((char*)0)) 
+					{
+						if(strlen(Argv[max]) == 0)
+							break;
+						max++;
+					}
+					tSt_Sys.pSysData->sendBuff[0]=max;
+					pData = (char*)tSt_Sys.pSysData->sendBuff+1;
+					for(id=0;id<max;id++)
+					{
+						strcpy(pData,Argv[id]);
+						pData += strlen(pData)+1;
+					}
+					tSt_Sys.pSysData->sWriteLen = (unsigned char*)pData - tSt_Sys.pSysData->sendBuff;
+				}
+				else
+				{
+					tSt_Sys.pSysData->sWriteLen = 0;
+				}
+				exit(0);
+			//	sprintf(runData,"%s/%s",tSt_Sys.pSysMsg->AppInfo[i].Id,"app_run");
+			//	execv(runData , Argv);
 			}
 		}
 		return ERR_APP_NOT_EXIST;

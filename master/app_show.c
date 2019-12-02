@@ -288,6 +288,43 @@ int APP_InstallAPP(char *pTitle)
 }
 
 
+int AppSwitchFun(char* pTitle,int Index)
+{
+	int retnum;
+	ST_APP_INFO AppInfo[6];
+	char *ArgvPar[]={"app","test",(char*)0};
+	APP_ShowMsg(pTitle,"应用信息",3000);
+	retnum=OsGetAppInfo(AppInfo,6);
+	if(retnum <= Index)
+	{
+		APP_ShowMsg(pTitle,"读信息错误",3000);
+		return 0;
+	}
+	APP_ShowSta(pTitle,AppInfo[Index].Id);
+	LOG(LOG_INFO,"AppSwitchFun\r\n");
+	OsRunApp(AppInfo[Index].Id,ArgvPar,NULL,NULL,NULL);
+	return 0;
+}
+
+int APP_AppListSwitch(char *pTitle)
+{
+	int retnum,i;
+	ST_APP_INFO AppInfo[6];
+	char* pMenuText[6];
+	retnum=OsGetAppInfo(AppInfo,6);
+	if(retnum<=0)
+	{
+		APP_ShowMsg(pTitle,"无应用信息",3000);
+		return 0;
+	}
+	for(i=0;i<retnum;i++)
+	{
+		pMenuText[i]=AppInfo[i].Name;
+	}
+	return APP_CreateNewMenuByStr(pTitle,i,pMenuText,AppSwitchFun,30*1000);
+}
+
+
 int APP_MasterMeun(char* title)
 {
 	CMenuItemStru MenuStruPar[]=
@@ -305,6 +342,7 @@ int APP_MasterMeun(char* title)
 		//{"软件信息",			APP_SysVersion},
 		{"应用安装",			APP_InstallAPP},
 		{"显示应用列表",		APP_AppListShow},
+		{"切换应用",			APP_AppListSwitch},
 	};
 	return APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,-1);
 }

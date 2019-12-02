@@ -429,7 +429,7 @@ int main(int argc, char* argv[])
 		if (fd != -1)
 		{
 			dup2 (fd, STDIN_FILENO);
-		//	dup2 (fd, STDOUT_FILENO);
+			dup2 (fd, STDOUT_FILENO);
 			dup2 (fd, STDERR_FILENO);
 			if (fd > 2)
 				close(fd);
@@ -519,7 +519,7 @@ int main(int argc, char* argv[])
 			pid_t _pid_t;
 			_pid_t = wait(&pid); //---等待孙进程结束------
 			printf("------reRunAPP-[%d,%d]---------\n",_pid_t,pid);
-			
+			/*
 			{
 				ret=shmdt(pSysMsg);
 				TRACE(" a shared pSysMsg[%d]\r\n",ret);
@@ -531,7 +531,7 @@ int main(int argc, char* argv[])
 				ret=shmctl(shmAid,IPC_RMID,NULL);
 				TRACE(" a shared memory shmctl[%d]\r\n",ret);
 				exit(0);
-			}
+			}*/
 			pSysData->AppExitCode= (int)_pid_t;
 		} 
 		else break; //孙进程，跳出外面执行
@@ -547,10 +547,28 @@ int main(int argc, char* argv[])
 	}
 	else
 	{//-------其它应用-------------
+		u8 id,max=1;
+		char *pData;
+		char *pArgv[8];
+		if(pSysData->sWriteLen)
+		{
+			max += pSysData->sendBuff[0];
+			if(max > 6) max=6;
+			pData = (char*)pSysData->sendBuff+1;
+			for(id=1;id<max;id++)
+			{
+				pArgv[id]=pData;
+				pData += strlen(pData)+1;
+			}
+		}
+		pArgv[0]="app_run";
+		pArgv[max]=(char*)0;
+		//---------------------------------------------------
 		pSysData->nCurrAppId=pSysData->pNextAppId;
 		chdir(pSysMsg->AppInfo[pSysData->nCurrAppId].Id);	//进入对应目录
 		umask(0); //应用进程权限
-		ret=execl("./app_run","app_run",(char*)0);
+		execv("app_run" , pArgv);
+		//ret=execl("./app_run","app_run",(char*)0);
 	}
 
 	//----------------不会运行-------------------------------------

@@ -231,6 +231,7 @@ int APP_main(int argc, char* argv[]) {
 	XuiClose();
 
 	TRACE("->Main End\r\n");
+	OsExit(0);
 	//------------------------------------------------------------
 	return 0;
 }

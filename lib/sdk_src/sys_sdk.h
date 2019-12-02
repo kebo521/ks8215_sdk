@@ -103,7 +103,8 @@ typedef void (*RUNAPP_CB)(char *appid, char *str, void *data);	//(char *appid, c
 
 
 extern int OsGetAppInfo(ST_APP_INFO AppInfo[],int InfoCnt);
-extern int OsRunApp(char *AppId, char **Argv, void *Data, RUNAPP_CB CbOut,RUNAPP_CB CbErr);
+
+extern int OsExit(int recode);
 
 extern int OsGetAppInfo(ST_APP_INFO AppInfo[],int InfoCnt);
 extern int OsGetOptInfo(ST_OPT_INFO OptInfo[],int InfoCnt);
