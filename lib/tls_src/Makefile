@@ -7,7 +7,7 @@ SRC += ./library/*.c
 #-L. -lmbedtls
  
 all:
-	$(CC) -I. -I../ -g -Wall $(SRC) -shared -o ../tls/libtls.so
+	$(CC) -I. -I../ -g -Wall $(SRC) -fPIC -shared -o ../tls/libtls.so
 clean:
 	rm -f bin/*
 	

@@ -367,11 +367,17 @@ int OsGetOptInfo(ST_OPT_INFO OptInfo[],int InfoCnt)
 
 int OsExit(int recode)
 {
-	memmove(tSt_Sys.pSysData->aAppIDStack,tSt_Sys.pSysData->aAppIDStack+1,sizeof(tSt_Sys.pSysData->aAppIDStack)-1);
-	tSt_Sys.pSysData->aAppIDStack[sizeof(tSt_Sys.pSysData->aAppIDStack)-1]=0;
-	tSt_Sys.pSysData->pNextAppId=tSt_Sys.pSysData->aAppIDStack[0];
-	shmdt(tSt_Sys.pSysMsg);
-	shmdt(tSt_Sys.pSysData);
+	if(tSt_Sys.pSysMsg)
+	{
+		memmove(tSt_Sys.pSysData->aAppIDStack,tSt_Sys.pSysData->aAppIDStack+1,sizeof(tSt_Sys.pSysData->aAppIDStack)-1);
+		tSt_Sys.pSysData->aAppIDStack[sizeof(tSt_Sys.pSysData->aAppIDStack)-1]=0;
+		tSt_Sys.pSysData->pNextAppId=tSt_Sys.pSysData->aAppIDStack[0];
+		shmdt(tSt_Sys.pSysMsg);
+	}
+	if(tSt_Sys.pSysData)
+	{
+		shmdt(tSt_Sys.pSysData);
+	}
 	exit(recode);
 }
 

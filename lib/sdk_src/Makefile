@@ -10,7 +10,7 @@ INC +=-I../
 LIB =-lm -lpthread
 
 all:
-	$(CC) $(INC) -g -Wall $(SRC) $(LIB) -shared -o ../sdk/libsdk.so
+	$(CC) $(INC) -g -Wall $(SRC) $(LIB) -fPIC -shared -o ../sdk/libsdk.so
 clean:
 	rm -f bin/*
 	

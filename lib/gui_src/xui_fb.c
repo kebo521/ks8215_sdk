@@ -108,13 +108,6 @@ ret_t xui_fb_close(XuiWindow* fb) {
 */
 #if(1)
 
-typedef struct {
-    int width;
-    int height;
-    int row_bytes;
-    int pixel_bytes;
-    unsigned char* data;
-} GRSurface;
 static GRSurface* gr_draw = NULL;
 static int fb_fd = -1;
 static int flagRotationAngle=XUI_ROTATE_0;
@@ -152,6 +145,7 @@ int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardW
 {
 	struct fb_var_screeninfo var;
 	struct fb_fix_screeninfo fix;
+	int pixel_bytes;
 	unsigned char* pMapdata;
 	printf("open screen open[%s]\r\n",filename);
 	if ((fb_fd = open(filename, O_RDWR)) == -1) {
@@ -171,6 +165,7 @@ int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardW
 		close(fb_fd); fb_fd= -1;
 		return -4;
 	}
+	printf("open_screen[%d,%d][%d][%d]\r\n",var.xres,var.yres,var.bits_per_pixel,fix.line_length);
 	if(pHardWindow)
 	{
 		memset(pHardWindow,0x00,sizeof(XuiWindow));
@@ -187,34 +182,34 @@ int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardW
 			pHardWindow->height=SCREEN_WIDTH;
 		}
 	}
-	
+	pixel_bytes = var.bits_per_pixel / 8;
+	if(pixel_bytes == 3)
+		pixel_bytes = 4;
 	if(gr_draw == NULL)
 		gr_draw = malloc(sizeof(GRSurface));
 	memset(gr_draw,0x00,sizeof(GRSurface));
 	gr_draw->width = var.xres;
 	gr_draw->height = var.yres;
-	gr_draw->pixel_bytes = var.bits_per_pixel / 8;
-	if(gr_draw->pixel_bytes == 3)
-		gr_draw->pixel_bytes = 4;
+	gr_draw->pixel_bytes = pixel_bytes;
 	gr_draw->row_bytes=fix.line_length;
 	gr_draw->data = pMapdata;
 
 	//--------------------计算起点偏移量----------------------------------------------
 	if(flagRotationAngle == XUI_ROTATE_0)
 	{
-		offsetScreen= (var.yres -SCREEN_HEIGT-10)*var.xres + (var.xres -SCREEN_WIDTH-10);
+		offsetScreen= (var.yres -SCREEN_HEIGT-10)*fix.line_length + (var.xres -SCREEN_WIDTH-10)*pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_90)
 	{
-		offsetScreen = (var.yres-SCREEN_HEIGT-10) *var.xres + (var.xres - 10);
+		offsetScreen = (var.yres-SCREEN_HEIGT-10) *fix.line_length + (var.xres - 10)*pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_180)
 	{
-		offsetScreen = (var.yres-10) *var.xres + (var.xres - 10);
+		offsetScreen = (var.yres-10) *fix.line_length + (var.xres - 10)*pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_270)
 	{
-		offsetScreen = (var.yres-10) *var.xres + (var.xres -SCREEN_WIDTH-10);
+		offsetScreen = (var.yres-10) *fix.line_length + (var.xres -SCREEN_WIDTH-10)*pixel_bytes;
 	}
 	//-----------------------------------------------------------------------------------
 	return 1;
@@ -243,8 +238,8 @@ int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb)
 		h = window->height;
 	}
 	wWidth = window->width;
-	swidth	=	gr_draw->width;
-	pMapData = ((A_RGB *)gr_draw->data) + offsetScreen;
+	swidth	=gr_draw->row_bytes/sizeof(A_RGB);
+	pMapData = (A_RGB *)(gr_draw->data + offsetScreen);
 	if(flagRotationAngle == XUI_ROTATE_0)
 	{
 		pMapData += window->top*swidth + window->left + x;
