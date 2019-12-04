@@ -1,4 +1,4 @@
-LOCAL_PATH := $(call my-dir)
+LOCAL_PATH := $(call my-dir)/..
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := graphics_adf.c graphics_fbdev.c xui_afb.c xui_ui.c xui_font.c xui_gui.c \
