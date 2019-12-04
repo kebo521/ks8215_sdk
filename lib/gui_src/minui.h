@@ -1,6 +1,7 @@
 
 #ifndef MINUI_DEF_H
 #define MINUI_DEF_H
+#include "comm_type.h"
 #include "sdk/sys_sdk.h"
 
 #include "xui_ui.h"

@@ -65,20 +65,14 @@ static int adf_surface_init(adf_pdata *pdata, struct drm_mode_modeinfo *mode, ad
     if (surf->fd < 0)
         return surf->fd;
 
-    surf->base.width = surf->exter.width = mode->hdisplay;
-    surf->base.height = surf->exter.height = mode->vdisplay;
-    surf->base.row_bytes = surf->exter.row_bytes = surf->pitch;
-    surf->base.pixel_bytes = surf->exter.pixel_bytes = (pdata->format == DRM_FORMAT_RGB565) ? 2 : 4;
+    surf->base.width =mode->hdisplay;
+    surf->base.height = mode->vdisplay;
+    surf->base.row_bytes = surf->pitch;
+    surf->base.pixel_bytes =(pdata->format == DRM_FORMAT_RGB565) ? 2 : 4;
 
-    surf->exter.data = malloc(surf->exter.row_bytes*surf->exter.height);
-    if (surf->exter.data == NULL) {
-        close(surf->fd);
-        return -errno;
-    }
 
     surf->base.data = mmap(NULL, surf->pitch * surf->base.height, PROT_WRITE, MAP_SHARED, surf->fd, surf->offset);
     if (surf->base.data == MAP_FAILED) {
-        free(surf->exter.data);
         close(surf->fd);
         return -errno;
     }
@@ -248,7 +242,6 @@ static void adf_blank(minui_backend *backend, int blank)
 static void adf_surface_destroy(adf_surface_pdata *surf)
 {
     munmap(surf->base.data, surf->pitch * surf->base.height);
-    free(surf->exter.data);
     close(surf->fd);
 }
 
