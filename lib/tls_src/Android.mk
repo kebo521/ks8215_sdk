@@ -6,6 +6,7 @@ include $(CLEAR_VARS)
 
 #LOCAL_CFLAGS := -DSCX15 -I$(LOCAL_PATH)
 LOCAL_SRC_FILES:= $(wildcard $(LOCAL_PATH)/library/*.c)
+LOCAL_SRC_FILES+= $(wildcard $(LOCAL_PATH)/*.c)
 
 LOCAL_MODULE:= libtls
 
