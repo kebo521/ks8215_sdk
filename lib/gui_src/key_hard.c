@@ -24,24 +24,29 @@
 
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <linux/input.h>
 #include "key_hard.h"
 #include "EvenMsg.h"
 #include "xui_ui.h"
 #include "sdk/sys_sdk.h"
 
-
-
+void handleKey_quit(int signo)
+{
+	LOG(LOG_INFO,"in qq handle sig %d \n", signo);    
+	pthread_exit(NULL);
+}
 
 void *get_keyMsg(void *args)  
 {  
 //	int keys_fd;  
 	struct input_event t;  
+	signal(SIGQUIT,handleKey_quit);
 
 //	keys_fd = open("/dev/input/event2",O_RDWR);  // O_RDONLY
 	if (gUiDataAll.keys_fd <= 0)  
 	{  
-		printf("open /dev/input/event2 device error!\n");  
+		LOG(LOG_ERROR,"open /dev/input/event2 device error!\n");  
 		return 0;  
 	}  
 	while(1)  
@@ -53,7 +58,7 @@ void *get_keyMsg(void *args)
 				if(t.value == 1)
 				{
 					int keyVar=0;
-			//		printf (" -key[%d][%d]\n", t.code,t.value);
+				//	LOG(LOG_INFO," -key[%d][%d]\n", t.code,t.value);
 					if(t.code == KEY_END) break;
 					switch(t.code)
 					{
@@ -81,19 +86,19 @@ void *get_keyMsg(void *args)
 			}
 			else if(t.type == EV_REL)
 			{
-				printf (" -REL[%d][%d]\n", t.code,t.value);	
+			//	LOG(LOG_INFO," -REL[%d][%d]\n", t.code,t.value);	
 				if(t.code == KEY_ESC)  
 					break;	
 			}
 			else if(t.type == EV_ABS)
 			{
-				printf (" -ABS[%d][%d]\n", t.code,t.value);	
+			//	LOG(LOG_INFO," -ABS[%d][%d]\n", t.code,t.value);	
 			}
 		//	printf (" [%d,%d,%d][%d]\n",EV_KEY,EV_REL,EV_ABS,t.type);	
 		}  
 	}  
 //	close (keys_fd); 
-	printf (" -key_end-pthread_exit\n");	
+	LOG(LOG_INFO," -key_end-pthread_exit\n");	
 	pthread_exit(NULL);
 	return 0;  
 }  
@@ -116,8 +121,9 @@ void Stop_Key_thread(void)
 {
 	//pthread_join(key_thread, NULL);
 	int ret;
-	ret=pthread_cancel(key_thread);
-	LOG(LOG_ERROR,"Stop Key thread %d\n", ret);
+	ret=pthread_kill(key_thread, SIGQUIT);;
+	LOG(LOG_INFO,"Stop Key thread %d\n", ret);
+	signal(SIGQUIT,SIG_DFL);
 }
 
 
