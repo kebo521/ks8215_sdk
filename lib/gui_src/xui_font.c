@@ -30,7 +30,6 @@
 #include <sys/ioctl.h>
 
 #include "comm_type.h"
-#include "types_def.h"
 
 #include "xui_ui.h"
 #include "xui_fb.h"
@@ -173,14 +172,14 @@ int InitExtResLib(char *pfile)
 	fd=open(pfile, O_RDONLY);
 	if(fd <= 0)
 	{
-		TRACE("open read %s err[%d].\r\n",pfile,fd);
+		LOG(LOG_ERROR,"open read %s err[%d].\r\n",pfile,fd);
 	//	UnInitFileSystem();
 		API_ShowLineEn(1,"open ks.res err Necessary download of ks.res",10*1000);
 		return -1;
 	}
 	if(sizeof(HerdBuff) != read(fd,&HerdBuff,sizeof(HerdBuff)))
 	{
-		TRACE("fs read %s Head res err.\r\n",pfile);
+		LOG(LOG_ERROR,"fs read %s Head res err.\r\n",pfile);
 		API_ShowLineEn(1,"read ks.res err Necessary download of ks.res",10*1000);
 		close(fd);
 		return -2;
@@ -196,7 +195,7 @@ int InitExtResLib(char *pfile)
 	uVer=phead->ver;
 	itemCount=phead->count;
 	itemLen=phead->itemlen;
-	TRACE("res:Ver[%d],itemCount[%d],itemLen[%d]\r\n",uVer,itemCount,itemLen);
+	LOG(LOG_INFO,"res:Ver[%d],itemCount[%d],itemLen[%d]\r\n",uVer,itemCount,itemLen);
 	//计算文件长度
 	fileLen=0;
 	for(i=0; i<itemCount; i++) 
@@ -207,7 +206,7 @@ int InitExtResLib(char *pfile)
 		fileLen += DfGetBeiSu(itemHerdLen,16);
 	}
 	/*
-	TRACE("ks.res:data fileLen[%u]\r\n",fileLen);
+	LOG(LOG_INFO,"ks.res:data fileLen[%u]\r\n",fileLen);
 	// 签名块验证
 	{
 		u8		signout[256];
@@ -236,7 +235,7 @@ int InitExtResLib(char *pfile)
 				ret=read(fd,pBuffData,CruSet);//offset
 				if(ret < CruSet)
 				{
-					TRACE("API fread Res CruSet:%d ret:%d\r\n",CruSet,ret);
+					LOG(LOG_ERROR,"API fread Res CruSet:%d ret:%d\r\n",CruSet,ret);
 					break;
 				}
 				api_tls_InterFace.hash->md_update(&ctx,pBuffData,ret);
@@ -259,7 +258,7 @@ int InitExtResLib(char *pfile)
 	
 		if(offset < fileLen)
 		{
-			TRACE("res signinfo check err.\r\n");
+			LOG(LOG_ERROR,"res signinfo check err.\r\n");
 			//API_fclose(fd);
 			API_ShowLineEn(2,"error check ks.res signlen",10*1000);
 			//return -4;
@@ -275,56 +274,56 @@ int InitExtResLib(char *pfile)
 		{
 			resDisTable.gbk.ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.gbk.Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("gbk-> Offset[%d]ParLen[%d]\r\n",resDisTable.gbk.Offset,resDisTable.gbk.ParLen);
+//			LOG(LOG_INFO,"gbk-> Offset[%d]ParLen[%d]\r\n",resDisTable.gbk.Offset,resDisTable.gbk.ParLen);
 		}
 		else if(strstr(pItem->name,"ucode"))
 		{
 			resDisTable.ucode.ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.ucode.Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("ucode-> Offset[%d]ParLen[%d]\r\n",resDisTable.ucode.Offset,resDisTable.ucode.ParLen);
+//			LOG(LOG_INFO,"ucode-> Offset[%d]ParLen[%d]\r\n",resDisTable.ucode.Offset,resDisTable.ucode.ParLen);
 		}
 		else if(strstr(pItem->name,"f24_enn"))
 		{
 			resDisTable.fn[0].ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.fn[0].Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("fn[0]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[0].Offset,resDisTable.fn[0].ParLen);
+//			LOG(LOG_INFO,"fn[0]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[0].Offset,resDisTable.fn[0].ParLen);
 		}
 		else if(strstr(pItem->name,"f24_hz1n"))
 		{
 			resDisTable.fn[1].ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.fn[1].Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("fn[1]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[1].Offset,resDisTable.fn[1].ParLen);
+//			LOG(LOG_INFO,"fn[1]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[1].Offset,resDisTable.fn[1].ParLen);
 		}
 		else if(strstr(pItem->name,"f24_hz2n"))
 		{
 			resDisTable.fn[2].ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.fn[2].Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("fn[2]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[2].Offset,resDisTable.fn[2].ParLen);
+//			LOG(LOG_INFO,"fn[2]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[2].Offset,resDisTable.fn[2].ParLen);
 		}
 		else if(strstr(pItem->name,"f24_hz3n"))
 		{
 			resDisTable.fn[3].ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.fn[3].Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("fn[3]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[3].Offset,resDisTable.fn[3].ParLen);
+//			LOG(LOG_INFO,"fn[3]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[3].Offset,resDisTable.fn[3].ParLen);
 		}
 		else if(strstr(pItem->name,"f24_hz4n"))
 		{
 			resDisTable.fn[4].ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.fn[4].Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("fn[4]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[4].Offset,resDisTable.fn[4].ParLen);
+//			LOG(LOG_INFO,"fn[4]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[4].Offset,resDisTable.fn[4].ParLen);
 		}
 		else if(strstr(pItem->name,"f24_hz5n"))
 		{
 			resDisTable.fn[5].ParLen= BYTE4_TO_INT(pItem->datalen);
 			resDisTable.fn[5].Offset= baseOffset+BYTE4_TO_INT(pItem->offset);
-//			TRACE("fn[5]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[5].Offset,resDisTable.fn[5].ParLen);
+//			LOG(LOG_INFO,"fn[5]-> Offset[%d]ParLen[%d]\r\n",resDisTable.fn[5].Offset,resDisTable.fn[5].ParLen);
 		}
 	}
 
 	//----------24点阵字库配置-----------------------
 	if(resDisTable.fn[0].ParLen==0)
 	{
-		TRACE("res no f24_enn err.\r\n");
+		LOG(LOG_INFO,"res no f24_enn err.\r\n");
 		close(fd);
 		API_ShowLineEn(2,"error\nread f24_enn not",10*1000);
 		return -6;

@@ -30,7 +30,7 @@
 #include <linux/kd.h>
 
 #include "minui.h"
-#include "graphics.h"
+//#include "graphics.h"
 
 static gr_surface fbdev_init(minui_backend*);
 static gr_surface fbdev_flip(minui_backend*);
@@ -57,7 +57,7 @@ minui_backend* open_fbdev() {
     return &my_backend;
 }
 
-static void fbdev_blank(minui_backend* backend __unused, bool blank)
+static void fbdev_blank(minui_backend* backend __unused, int blank)
 {
     int ret;
 

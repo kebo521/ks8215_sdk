@@ -21,7 +21,6 @@
 //#include <stdarg.h>
 
 #include "comm_type.h"
-#include "types_def.h"
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -29,6 +28,7 @@
 #include "key_hard.h"
 #include "EvenMsg.h"
 #include "xui_ui.h"
+#include "sdk/sys_sdk.h"
 
 
 
@@ -108,7 +108,7 @@ void Start_Key_thread(void)
 	rc = pthread_create(&key_thread, NULL, get_keyMsg,NULL);
 	if (rc)
 	{
-	   TRACE("ERROR; return code is %d\n", rc);
+		LOG(LOG_ERROR,"ERROR; return code is %d\n", rc);
 	}
 }
 
@@ -117,7 +117,7 @@ void Stop_Key_thread(void)
 	//pthread_join(key_thread, NULL);
 	int ret;
 	ret=pthread_cancel(key_thread);
-	TRACE("Stop Key thread %d\n", ret);
+	LOG(LOG_ERROR,"Stop Key thread %d\n", ret);
 }
 
 

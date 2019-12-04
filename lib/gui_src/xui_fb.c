@@ -17,7 +17,6 @@
  *
  */
 #include "comm_type.h"
-#include "types_def.h"
 
 #include <unistd.h>
 #include <math.h>
@@ -33,6 +32,7 @@
 
 #include "xui_ui.h"
 #include "xui_fb.h"
+#include "sdk/sys_sdk.h"
 
 
 
@@ -445,7 +445,7 @@ int xui_fb_line(int xs, int ys, int xe, int ye,A_RGB argb)
 	hm = (float)h/max;
 	xm	=	xs;
 	ym	=	ys;
-	//TRACE("xui fb line [%f,%f]-[%d,%d],%d,[%f,%f]\r\n",xm,ym,xe,ye,max,wm,hm);
+	//LOG(LOG_INFO,"xui fb line [%f,%f]-[%d,%d],%d,[%f,%f]\r\n",xm,ym,xe,ye,max,wm,hm);
 	while(max--) 
 	{
 		if(ys<fb_screen.height && xs<fb_screen.width)
@@ -869,7 +869,7 @@ XuiWindow *XuiRootCanvas(void)
 	Window = (XuiWindow *)malloc(nWindLen);
 	if(Window==NULL)
 	{
-		TRACE("InitRootCanvas malloc(%d) is NULL\r\n",nWindLen);
+		LOG(LOG_INFO,"InitRootCanvas malloc(%d) is NULL\r\n",nWindLen);
 		return NULL;
 	}
 	u32_memset((u32*)Window,0x0000000,nWindLen/4);
@@ -878,7 +878,7 @@ XuiWindow *XuiRootCanvas(void)
 	Window->top=gUiDataAll.tHardWindow.top + gUiDataAll.iStatusbar;
 	Window->width = width;
 	Window->height = height;
-	//TRACE("InitRootCanvas [%X][%X]\r\n",(u32)Window,(u32)Window->widget);
+	//LOG(LOG_INFO,"InitRootCanvas [%X][%X]\r\n",(u32)Window,(u32)Window->widget);
 	return Window;
 }
 

@@ -4,7 +4,6 @@
 //创作时间--20150604
 ******************************************************************************/
 #include "comm_type.h"
-#include "types_def.h"
 
 #include "EvenMsg.h"
 
@@ -16,6 +15,7 @@
 #include "ui_menu.h"
 
 #include "language.h"
+#include "sdk/sys_sdk.h"
 
 
 //============菜单显示处理用到的参数======================
@@ -80,7 +80,7 @@ int APP_CreateNewMenuByStr(char *pTitle,int tNum,char* *pMenuText,const APP_Inde
 	pNeTable=(CMenuUITable*)malloc(mLen+slen);
 	if(pNeTable == NULL)
 	{//内存申请失败，退回之前的Ui
-		TRACE("CreateNewMenuByStr malloc[%d] fail!\n",mLen+slen);
+		LOG(LOG_INFO,"CreateNewMenuByStr malloc[%d] fail!\n",mLen+slen);
 		return RET_ERR;
 	}
 	API_memset(pNeTable,0x00,mLen);
@@ -119,7 +119,7 @@ int APP_CreateNewMenuByStruct(char *pTitle,int tNum,CMenuItemStru *pMenuAll,int 
 	pNeTable=(CMenuUITable*)malloc(sizeof(CMenuUITable)+sizeof(CMenuItemStru)*tNum);
 	if(pNeTable == NULL)
 	{	//内存申请失败，退回之前的Ui
-	//	TRACE("pMenuUiTable Null!\n");
+	//	 LOG(LOG_INFO,"pMenuUiTable Null!\n");
 		//APP_ShowMsg(pTitle,"pMenuUiTable Null",2000);
 		return RET_ERR;
 	}

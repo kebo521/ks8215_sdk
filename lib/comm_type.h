@@ -42,7 +42,26 @@ typedef unsigned short  		u16;	//!< Define u16
 
 typedef signed int				s32;	//!< Define s32
 typedef unsigned int			u32;	//!< Define u32
+//======================================================================
+#ifndef TRUE
+#define TRUE 1
+#endif /*TRUE*/
 
+#ifndef FALSE
+#define FALSE 0
+#endif /*FALSE*/
+
+#ifndef bool_t
+#define bool_t uint8_t
+#endif /*bool_t*/
+
+//======================================================================
+#define API_strlen		strlen
+#define API_strcpy		strcpy
+#define API_memcpy		memcpy
+#define API_memset		memset
+#define API_memmove	memmove
+#define API_sprintf	sprintf
 //===================================================================================
 typedef struct {
 	char Name[64];

@@ -7,7 +7,6 @@
 #include <linux/input.h>
 
 #include "comm_type.h"
-#include "types_def.h"
 
 #include "xui_ui.h"
 #include "xui_fb.h"
@@ -91,7 +90,7 @@ int XuiOpen(int argc,char **argv)
 			gUiDataAll.Screen_fd=open_screen(pTag,&gUiDataAll.tHardWindow);
 			if(gUiDataAll.Screen_fd < 0) 
 			{
-				TRACE("->main open screen ret NULL \r\n");
+				LOG(LOG_INFO,"->main open screen ret NULL \r\n");
 				return 2;
 			}
 			continue;
@@ -99,7 +98,7 @@ int XuiOpen(int argc,char **argv)
 		pTag=eStrstr(argv[i],"INPUT=");
 		if(pTag)
 		{
-			//TRACE("Open Input[%d]\r\n",pTag);
+			//LOG(LOG_INFO,"Open Input[%d]\r\n",pTag);
 			gUiDataAll.keys_fd = open(pTag,O_RDWR);  // O_RDONLY
 			if(gUiDataAll.keys_fd > 0)
 			{
@@ -115,13 +114,13 @@ int XuiOpen(int argc,char **argv)
 			{
 				gUiDataAll.iRotate=0;
 			}
-			//TRACE("gUiDataAll iRotate[%d]\r\n",gUiDataAll.iRotate);
+			//LOG(LOG_INFO,"gUiDataAll iRotate[%d]\r\n",gUiDataAll.iRotate);
 			continue;
 		}
 		pTag=eStrstr(argv[i],"TSDEV=");
 		if(pTag)
 		{
-			//TRACE("Open TSDEV[%d]\r\n",pTag);
+			//LOG(LOG_INFO,"Open TSDEV[%d]\r\n",pTag);
 			gUiDataAll.TsDev_fd = open(pTag,O_RDWR);  // O_RDONLY
 			continue;
 		}
@@ -133,7 +132,7 @@ int XuiOpen(int argc,char **argv)
 			{
 				gUiDataAll.iStatusbar = 0;
 			}
-			//TRACE("Open iStatusbar[%d]\r\n",gUiDataAll.iStatusbar);
+			//LOG(LOG_INFO,"Open iStatusbar[%d]\r\n",gUiDataAll.iStatusbar);
 			continue;
 		}
 	}
@@ -194,7 +193,7 @@ XuiWindow *XuiRootCanvas(void)
 	int width,height;
 	if(gUiDataAll.Screen_fd < 0)
 	{
-		TRACE("Xui Root Canvas Screen_fd=%d\r\n",gUiDataAll.Screen_fd);
+		LOG(LOG_ERROR,"Xui Root Canvas Screen_fd=%d\r\n",gUiDataAll.Screen_fd);
 		return NULL;
 	}
 	//-------------------------------------------
@@ -203,7 +202,7 @@ XuiWindow *XuiRootCanvas(void)
 	Window = (XuiWindow *)malloc(sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB));
 	if(Window==NULL)
 	{
-		TRACE("InitRootCanvas malloc(%d) is NULL\r\n",sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB));
+		LOG(LOG_ERROR,"InitRootCanvas malloc(%d) is NULL\r\n",sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB));
 		return NULL;
 	}
 	memset(Window,0x00,sizeof(XuiWindow));
@@ -213,7 +212,7 @@ XuiWindow *XuiRootCanvas(void)
 	Window->height = height;
 	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow));	
 	argbset(Window->widget,RGB565_CLEAR,height*width);
-	//TRACE("InitRootCanvas [%X][%X]\r\n",(u32)Window,(u32)Window->widget);
+	//LOG(LOG_INFO,"InitRootCanvas [%X][%X]\r\n",(u32)Window,(u32)Window->widget);
 	return Window;
 }
 
@@ -224,7 +223,7 @@ XuiWindow *XuiStatusbarCanvas(void)
 	u16 width,height;
 	if(gUiDataAll.Screen_fd < 0)
 	{
-		TRACE("Xui Status barCanvas .Screen_fd=%d\r\n",gUiDataAll.Screen_fd);
+		LOG(LOG_ERROR,"Xui Status barCanvas .Screen_fd=%d\r\n",gUiDataAll.Screen_fd);
 		return NULL;
 	}
 	width=gUiDataAll.tHardWindow.width;

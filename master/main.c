@@ -23,7 +23,6 @@
 #include<sys/stat.h>
 
 #include "comm_type.h"
-//#include "types_def.h"
 
 #include "xui_comm.h"
 #include "app_show.h"
@@ -103,11 +102,11 @@ int InitProcessPool(int noclose)
 		perror("fork");
 		return -1;
 	}
-	TRACE("1->InitProcessPool getpid[%d]fork[%d]\r\n",getpid(),pid);
+	LOG(LOG_INFO,"1->InitProcessPool getpid[%d]fork[%d]\r\n",getpid(),pid);
 	if(pid != 0)
 		return 1;
 	pid=setsid();
-	TRACE("2->InitProcessPool getpid[%d]setsid[%d]\r\n",getpid(),pid);
+	LOG(LOG_INFO,"2->InitProcessPool getpid[%d]setsid[%d]\r\n",getpid(),pid);
 	if(pid < 0)
 	{
 		printf("setsid failed\n");
@@ -230,7 +229,7 @@ int APP_main(int argc, char* argv[]) {
 	}
 	XuiClose();
 
-	TRACE("->Main End\r\n");
+	LOG(LOG_INFO,"->Main End\r\n");
 	OsExit(0);
 	//------------------------------------------------------------
 	return 0;

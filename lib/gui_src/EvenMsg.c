@@ -7,9 +7,9 @@
 #include<semaphore.h>
 
 #include "comm_type.h"
-#include "types_def.h"
 #include "EvenMsg.h"
 #include "key_hard.h"
+#include "sdk/sys_sdk.h"
 
 
 
@@ -53,7 +53,7 @@ void FIFO_OperatSetMsg(u16 MessageID,u16 Message)
 		//-----检查消息堆已满,覆盖最第一条倒入的消息---------
 		//if(!((pMessageTable->WriteID ^ pMessageTable->ReadID)&0x03))
 		//	pMessageTable->ReadID++;
-		//TRACE("FIFO_OperatSetMsg[%X] WriteID[%d]MessageID[%d]Message[%d]\r\n",pMessageTable->threadID,WriteID, MessageID, Message);
+		//LOG(LOG_INFO,"FIFO_OperatSetMsg[%X] WriteID[%d]MessageID[%d]Message[%d]\r\n",pMessageTable->threadID,WriteID, MessageID, Message);
 	}
 }
 //阻塞式接收消息接口
@@ -87,7 +87,7 @@ int  FIFO_OperatGetMsg(u16 *pMessageID,u16 *pMessage)
 				*pMessageID=MessageID;
 			if(pMessage)
 				*pMessage=MessagePar;
-			//TRACE("FIFO_OperatGetMsg[%X]ReadID[%d]MessageID[%d]Message[%d]\r\n",pMessageTable->threadID,ReadID, *pMessageID, *pMessage);
+			//LOG(LOG_INFO,"FIFO_OperatGetMsg[%X]ReadID[%d]MessageID[%d]Message[%d]\r\n",pMessageTable->threadID,ReadID, *pMessageID, *pMessage);
 			return 1;
 		}
 	}
@@ -155,7 +155,7 @@ void APP_OperationKillThread(void* threadID)
 			pMsgTable=pMessageTable;
 			pMessageTable=pMsgTable->pPrevious;
 			free(pMsgTable);
-			//TRACE("APP OperationKillThread pMessageTable[%X],threadID[%X]\r\n",pMessageTable,pMessageTable->threadID);
+			//LOG(LOG_ERROR,"APP OperationKillThread pMessageTable[%X],threadID[%X]\r\n",pMessageTable,pMessageTable->threadID);
 			return;
 		}
 		pMsgTable=pMessageTable;
@@ -177,13 +177,13 @@ void APP_OperationCreateThread(void *(*pFunThread)(void*))
 	API_memset(pMsgTable,0x00,sizeof(CMessageTable));
 	if(pthread_create(&pMsgTable->threadID, NULL,pFunThread,NULL))
 	{
-		TRACE("pthread create error!\r\n");
+		LOG(LOG_ERROR,"pthread create error!\r\n");
 		return;
 	}
 	pMsgTable->pFunMessageTask = NULL;
 	pMsgTable->pPrevious = pMessageTable;
 	pMessageTable=pMsgTable;
-	TRACE("APP OperationCreateThread pMessageTable[%X],threadID[%X]\r\n",pMessageTable,pMessageTable->threadID);
+	LOG(LOG_INFO,"APP OperationCreateThread pMessageTable[%X],threadID[%X]\r\n",pMessageTable,pMessageTable->threadID);
 }
 
 void APP_OperationLoadThread(void* threadID)
@@ -195,7 +195,7 @@ void APP_OperationLoadThread(void* threadID)
 	pMsgTable->pFunMessageTask = NULL;
 	pMsgTable->pPrevious = pMessageTable;
 	pMessageTable=pMsgTable;
-	TRACE("APP OperationLoadThread pMessageTable[%X],threadID[%X]\r\n",pMessageTable,pMessageTable->threadID);
+	LOG(LOG_INFO,"APP OperationLoadThread pMessageTable[%X],threadID[%X]\r\n",pMessageTable,pMessageTable->threadID);
 }
 
 //=======================================================================================

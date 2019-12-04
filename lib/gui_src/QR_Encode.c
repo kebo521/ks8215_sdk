@@ -2,7 +2,6 @@
 //#include <stdarg.h>
 
 #include "comm_type.h"
-#include "types_def.h"
 
 #include "xui_ui.h"
 #include "xui_fb.h"
@@ -11,6 +10,7 @@
 
 #include "EvenMsg.h"
 #include "QR_Encode.h"
+#include "sdk/sys_sdk.h"
 
 
 #pragma GCC diagnostic push
@@ -2029,7 +2029,7 @@ int Lib_QrCodeImg(IMAGE *rImge,const char* pInfo ,int bHighQuality)
 	ret = EncodeData(bHighQuality, 0, TRUE, -1, pInfo ,API_strlen(pInfo));
 	if(ret == TRUE)
 	{
-		//	TRACE("x=%d,y=%d,dW=%d,dH=%d\r\n",x,y,dW,dH);
+		//	LOG(LOG_INFO,"x=%d,y=%d,dW=%d,dH=%d\r\n",x,y,dW,dH);
 		rImge->w 		= QR_gData.nSymbleSize;
 		rImge->h 		= QR_gData.nSymbleSize;
 		rImge->mline	= MAX_MODULESIZE;
@@ -2038,7 +2038,7 @@ int Lib_QrCodeImg(IMAGE *rImge,const char* pInfo ,int bHighQuality)
 	}
 	else
 	{
-		TRACE("qr:enerr");
+		LOG(LOG_ERROR,"qr:enerr");
 		ret=-1;
 	}
 	QrCacheEnd();
@@ -2067,14 +2067,14 @@ IMAGE *Lib_QrCodeImg(const char* pInfo ,int bHighQuality,int width,u32 fgColor,u
 	do{
 		if(EncodeData(bHighQuality, 0, TRUE, -1, pInfo ,API_strlen(pInfo))==FALSE)
 		{
-			TRACE("qr:enerr");
+			LOG(LOG_INFO,"qr:enerr");
 			break;
 		}
 		nScale=width/QR_gData.nSymbleSize;
 		if(nScale<1) nScale=1;
 		w =  nScale*QR_gData.nSymbleSize;
 		size = w*w*2;	
-		TRACE("nSymbleSize=%d,qr:w=%d,size=%d\r\n",QR_gData.nSymbleSize,w,size);
+		LOG(LOG_INFO,"nSymbleSize=%d,qr:w=%d,size=%d\r\n",QR_gData.nSymbleSize,w,size);
 
 		pImg=(IMAGE*)malloc(sizeof(IMAGE)+size);
 		if(pImg==NULL) break;	
@@ -2121,7 +2121,7 @@ void API_GUI_Draw565QRcode(RECTL* prclTrg,char *pInMsg,uint32 fgColor, uint32 bg
 			prclTrg->top +=(prclTrg->height -pImage->h)/2;
 		prclTrg->width=pImage->w;
 		prclTrg->height=pImage->h;
-		TRACE("ShowQrCode[%d][%d][%d][%d]\r\n",prclTrg->left,prclTrg->top,prclTrg->width,prclTrg->height);
+		LOG(LOG_INFO,"ShowQrCode[%d][%d][%d][%d]\r\n",prclTrg->left,prclTrg->top,prclTrg->width,prclTrg->height);
 		//TRACE_HEX("ShowQrCodeBuff",pImage,sizeof(IMAGE)+ImageInfo.w*((ImageInfo.w+7)/8));
 		DisplayBitMap(prclTrg,(uint8*)pImage->idata);
 		free(pImage);

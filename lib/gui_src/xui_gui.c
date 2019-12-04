@@ -5,7 +5,6 @@
 #include <sys/time.h>
 
 #include "comm_type.h"
-#include "types_def.h"
 
 #include "EvenMsg.h"
 #include "xui_ui.h"
@@ -51,7 +50,7 @@ void API_GUI_LoadWindow(XuiWindow *pWindow)
 	tGuiThemeMsg.titleFclr = FONT_TITLE_COLOUR;
 	tGuiThemeMsg.contFclr = RGB565_TIEM_FONT;
 	tGuiThemeMsg.pWindow = pWindow;
-//	TRACE("Theme[%d][%d][%d][%d][%d]\r\n",tGuiThemeMsg.hfont,tGuiThemeMsg.hn,tGuiThemeMsg.hmc,tGuiThemeMsg.htitle,tGuiThemeMsg.hcont);
+//	LOG(LOG_INFO,"Theme[%d][%d][%d][%d][%d]\r\n",tGuiThemeMsg.hfont,tGuiThemeMsg.hn,tGuiThemeMsg.hmc,tGuiThemeMsg.htitle,tGuiThemeMsg.hcont);
 }
 
 
@@ -332,7 +331,7 @@ int  API_GUI_CreateWindow(const char* pTitle,const char* pOk,const char* pCancel
 	ret=API_Set_Background(fBackColour);
 	if(ret < 0)
 	{
-		TRACE("Set_Background [%d] ERR\r\n",ret);
+		LOG(LOG_INFO,"Set_Background [%d] ERR\r\n",ret);
 		return ret;
 	}
 	if(pTitle!=NULL)
@@ -547,7 +546,7 @@ u32 API_UI_EditShow(u16 keyNum)
 				{
 					newTimeMs = (int)OsGetTickCount();
 					newTimeMs -= tGuiEditMsg.oldTimeMs;
-					//TRACE("IME_ABC key[%d]oldTimeMs[%d]time[%d]\r\n",Message,oldTimeMs,newTimeMs);
+					//LOG(LOG_INFO,"IME_ABC key[%d]oldTimeMs[%d]time[%d]\r\n",Message,oldTimeMs,newTimeMs);
 					if(newTimeMs>700)
 					{
 						newTimeMs=0;
@@ -616,7 +615,7 @@ u32 API_UI_EditShow(u16 keyNum)
 	{
 		POINT	rclTrg;
 		u8		sbuff[4]={0};
-		//TRACE("API_UI_EditShow indexShow[%d],indexEdit[%d],keyNum[%d]\r\n",tGuiEditMsg.indexShow,tGuiEditMsg.indexEdit,keyNum);
+		//LOG(LOG_INFO,"API_UI_EditShow indexShow[%d],indexEdit[%d],keyNum[%d]\r\n",tGuiEditMsg.indexShow,tGuiEditMsg.indexEdit,keyNum);
 		//---清除之前的内容------
 		sbuff[0]=' ';//sbuff[0]='\0';
 		while(tGuiEditMsg.indexShow > tGuiEditMsg.indexEdit)
@@ -633,7 +632,7 @@ u32 API_UI_EditShow(u16 keyNum)
 				rclTrg.left = tGuiEditMsg.Rect.left+(tGuiEditMsg.indexShow)*FONT_SIZE/2;
 			}
 			ApiFont.SetFontColor(FONT_CONT_COLOUR,UI_CONT_COLOUR);
-			//TRACE("API_UI_EditShow top[%d],left[%d],sbuff[%S]\r\n",rclTrg.top,rclTrg.left,sbuff);
+			//LOG(LOG_INFO,"API_UI_EditShow top[%d],left[%d],sbuff[%S]\r\n",rclTrg.top,rclTrg.left,sbuff);
 			ApiFont.DisplayFont(tGuiThemeMsg.pWindow,&rclTrg,sbuff);
 		}
 		while(tGuiEditMsg.indexShow < tGuiEditMsg.indexEdit)
@@ -653,7 +652,7 @@ u32 API_UI_EditShow(u16 keyNum)
 				sbuff[0]=tGuiEditMsg.MaskCode;
 			else
 				sbuff[0]=tGuiEditMsg.sEditBuff[tGuiEditMsg.indexShow];
-			//TRACE("API_UI_EditShow top[%d],left[%d],sbuff[%S]\r\n",rclTrg.top,rclTrg.left,sbuff);
+			//LOG(LOG_INFO,"API_UI_EditShow top[%d],left[%d],sbuff[%S]\r\n",rclTrg.top,rclTrg.left,sbuff);
 			ApiFont.DisplayFont(tGuiThemeMsg.pWindow,&rclTrg,sbuff);
 			tGuiEditMsg.indexShow++;
 		}

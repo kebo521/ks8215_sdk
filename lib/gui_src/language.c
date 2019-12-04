@@ -1,5 +1,5 @@
 #include "comm_type.h"
-#include "evenMsg.h"
+#include "EvenMsg.h"
 #include "key_hard.h"
 #include "xui_ui.h"
 #include "xui_font.h"

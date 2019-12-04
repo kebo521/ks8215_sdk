@@ -27,7 +27,10 @@
 
 #include <adf/adf.h>
 
-#include "graphics.h"
+//#include "graphics.h"
+#include "minui.h"
+
+
 extern int tp_flag1;
 //extern void gr_rotate_180(GRSurface *dstSurf, GRSurface *srcSurf);
 extern int s_rotate_type;
@@ -56,9 +59,9 @@ static void adf_blank(minui_backend *backend, int blank);
 
 static int adf_surface_init(adf_pdata *pdata, struct drm_mode_modeinfo *mode, adf_surface_pdata *surf) {
     memset(surf, 0, sizeof(*surf));
-    TRACE("adf_ui_init pdata->intf_fd = %d, mode->hdisplay = %d, mode->vdisplay = %d~", pdata->intf_fd, mode->hdisplay, mode->vdisplay);
+    LOG(LOG_INFO,"adf_ui_init pdata->intf_fd = %d, mode->hdisplay = %d, mode->vdisplay = %d~", pdata->intf_fd, mode->hdisplay, mode->vdisplay);
     surf->fd = adf_interface_simple_buffer_alloc(pdata->intf_fd, mode->hdisplay, mode->vdisplay, pdata->format, &surf->offset, &surf->pitch);
-    TRACE("adf_ui_init surf->fd = %d, surf->offset = %d, surf->pitch = %d!", surf->fd, surf->offset, surf->pitch);
+	LOG(LOG_INFO,"adf_ui_init surf->fd = %d, surf->offset = %d, surf->pitch = %d!", surf->fd, surf->offset, surf->pitch);
     if (surf->fd < 0)
         return surf->fd;
 
@@ -96,7 +99,7 @@ static int adf_interface_init(adf_pdata *pdata)
     err = adf_surface_init(pdata, &intf_data.current_mode, &pdata->surfaces[0]);
     if (err < 0) {
         fprintf(stderr, "allocating surface 0 failed: %s\n", strerror(-err));
-        TRACE("allocating surface 0 failed: %s\n", strerror(-err));
+        LOG(LOG_ERROR,"allocating surface 0 failed: %s\n", strerror(-err));
         ret = err;
         goto done;
     }
@@ -104,7 +107,7 @@ static int adf_interface_init(adf_pdata *pdata)
     err = adf_surface_init(pdata, &intf_data.current_mode, &pdata->surfaces[1]);
     if (err < 0) {
         fprintf(stderr, "allocating surface 1 failed: %s\n", strerror(-err));
-        TRACE("allocating surface 1 failed: %s\n", strerror(-err));
+        LOG(LOG_ERROR,"allocating surface 1 failed: %s\n", strerror(-err));
         memset(&pdata->surfaces[1], 0, sizeof(pdata->surfaces[1]));
         pdata->n_surfaces = 1;
 
@@ -163,12 +166,12 @@ static gr_surface adf_init(minui_backend *backend)
 #endif
 
     n_dev_ids = adf_devices(&dev_ids);
-    TRACE("adf_ui_init n_dev_ids = %d", n_dev_ids);
+    LOG(LOG_INFO,"adf_ui_init n_dev_ids = %d", n_dev_ids);
     if (n_dev_ids == 0) {
         return NULL;
     } else if (n_dev_ids < 0) {
         fprintf(stderr, "enumerating adf devices failed: %s\n", strerror(-n_dev_ids));
-        TRACE("adf_ui_init enumerating adf devices failed: %s\n", strerror(-n_dev_ids));
+        LOG(LOG_ERROR,"adf_ui_init enumerating adf devices failed: %s\n", strerror(-n_dev_ids));
         return NULL;
     }
 
@@ -180,14 +183,14 @@ static gr_surface adf_init(minui_backend *backend)
         int err = adf_device_open(dev_ids[i], O_RDWR, &dev);
         if (err < 0) {
             fprintf(stderr, "opening adf device %u failed: %s\n", dev_ids[i], strerror(-err));
-            TRACE("adf_ui_init opening adf device %u failed: %s\n", dev_ids[i], strerror(-err));
+            LOG(LOG_ERROR,"adf_ui_init opening adf device %u failed: %s\n", dev_ids[i], strerror(-err));
             continue;
         }
 
         err = adf_device_init(pdata, &dev);
         if (err < 0){
             fprintf(stderr, "initializing adf device %u failed: %s\n", dev_ids[i], strerror(-err));
-            TRACE("adf_ui_init initializing adf device %u failed: %s\n", dev_ids[i], strerror(-err));
+            LOG(LOG_ERROR,"adf_ui_init initializing adf device %u failed: %s\n", dev_ids[i], strerror(-err));
         }
         adf_device_close(&dev);
     }

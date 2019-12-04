@@ -17,7 +17,6 @@
  *
  */
 #include "comm_type.h"
-#include "types_def.h"
 
 #include <unistd.h>
 #include <math.h>
@@ -31,8 +30,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 
-#include "xui_ui.h"
-#include "xui_fb.h"
+#include "minui.h"
 
 
 
@@ -275,7 +273,7 @@ int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb)
 	    unsigned char *tmpbuf = gr_draw->data;
 	    gr_draw = gr_backend->flip(gr_backend);
 	    if(!tp_flag1){
-	        TRACE("gr_flip gr_draw->data len: %d, %d IN", strlen(tmpbuf), __LINE__);
+	        LOG(LOG_INFO,"gr_flip gr_draw->data len: %d, %d IN", strlen(tmpbuf), __LINE__);
 	        memcpy(gr_draw->data, tmpbuf, gr_draw->row_bytes*gr_draw->height);
 	    }
 	}
