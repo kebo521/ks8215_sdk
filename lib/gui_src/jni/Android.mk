@@ -14,16 +14,15 @@ LOCAL_MODULE := libgui
 #graphics_adf.c graphics_fbdev.c xui_afb.c
 LOCAL_SRC_FILES := graphics_adf.c graphics_fbdev.c xui_afb.c xui_ui.c xui_font.c xui_gui.c \
                    ui_menu.c QR_Encode.c language.c key_hard.c EvenMsg.c
+LOCAL_SRC_FILES += $(LOCAL_PATH)/adf/adf.c
 
 LOCAL_C_INCLUDES +=\
 	$(LOCAL_PATH)/ \
-    $(LOCAL_PATH)/../ \
-    external/libpng \
-    external/zlib \
-    external/freetype/include \
-    system/core/libpixelflinger/include
+	$(LOCAL_PATH)/adf/ \
+    $(LOCAL_PATH)/../ 
+   
 
-LOCAL_WHOLE_STATIC_LIBRARIES += libadf
+#LOCAL_WHOLE_STATIC_LIBRARIES += libadf
 
 LOCAL_SHARED_LIBRARIES:= libcutils libdl libsdk
 

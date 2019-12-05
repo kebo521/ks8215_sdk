@@ -21,7 +21,8 @@ LOCAL_C_INCLUDES +=\
     external/libpng \
     external/zlib \
     external/freetype/include \
-    system/core/libpixelflinger/include
+	system/core/adf/libadf/include
+#system/core/libpixelflinger/include
 
 LOCAL_WHOLE_STATIC_LIBRARIES += libadf
 
