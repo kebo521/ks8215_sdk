@@ -104,7 +104,7 @@ void *get_keyMsg(void *args)
 }  
 
 
-static pthread_t key_thread=NULL;
+static pthread_t key_thread=0;
 
 
 void Start_Key_thread(void)
@@ -121,7 +121,7 @@ void Stop_Key_thread(void)
 {
 	//pthread_join(key_thread, NULL);
 	int ret;
-	ret=pthread_kill(key_thread, SIGQUIT);;
+	ret=pthread_kill(key_thread, SIGQUIT);
 	LOG(LOG_INFO,"Stop Key thread %d\n", ret);
 	signal(SIGQUIT,SIG_DFL);
 }

@@ -164,7 +164,8 @@ void APP_OperationKillThread(void* threadID)
 		//------通知上层应用继续执行-------
 		FIFO_OperatSetMsg(EVEN_ID_FUNTION_OUT,0);
 		//------结束当前线程----------
-		pthread_cancel((pthread_t)threadID);
+		//pthread_cancel((pthread_t)threadID);
+		pthread_kill((pthread_t)threadID, SIGQUIT);
 		//ExitThread(threadID);
 	}
 }

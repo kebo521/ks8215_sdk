@@ -1,7 +1,18 @@
 LOCAL_PATH := $(call my-dir)/..
-include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := graphics_adf.c graphics_fbdev.c xui_afb.c xui_ui.c xui_font.c xui_gui.c \
+# libsdk.so
+include $(CLEAR_VARS)
+LOCAL_MODULE    := libsdk
+LOCAL_SRC_FILES += $(LOCAL_PATH)/../sdk/libsdk.so
+include $(PREBUILT_SHARED_LIBRARY)
+
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libgui
+
+
+#graphics_adf.c graphics_fbdev.c
+LOCAL_SRC_FILES :=  graphics_adf.c graphics_fbdev.c xui_afb.c xui_ui.c xui_font.c xui_gui.c \
                    ui_menu.c QR_Encode.c language.c key_hard.c EvenMsg.c
 
 LOCAL_C_INCLUDES +=\
@@ -14,17 +25,11 @@ LOCAL_C_INCLUDES +=\
 
 LOCAL_WHOLE_STATIC_LIBRARIES += libadf
 
-LOCAL_SHARED_LIBRARIES:= \
-    libcutils    \
-    libdl
+LOCAL_SHARED_LIBRARIES:= libcutils libdl libsdk
 
-LOCAL_STATIC_LIBRARIES:= \
-    libpng \
-    libz
-
-LOCAL_MODULE := libgui
-
-LOCAL_ALLOW_UNDEFINED_SYMBOLS := true
+LOCAL_STATIC_LIBRARIES:= libpng libz
+  
+#LOCAL_ALLOW_UNDEFINED_SYMBOLS := true
 
 # This used to compare against values in double-quotes (which are just
 # ordinary characters in this context).  Strip double-quotes from the

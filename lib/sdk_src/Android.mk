@@ -5,7 +5,8 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_CFLAGS += -lpthread 
-  
+
+LOCAL_ALLOW_UNDEFINED_SYMBOLS := true
 #LOCAL_CFLAGS := -DSCX15 -I$(LOCAL_PATH)
 LOCAL_SRC_FILES:= sys_sdk.c esm_sdk.c
 
