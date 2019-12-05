@@ -16,4 +16,7 @@ LOCAL_C_INCLUDES +=\
 
 #LOCAL_MODULE_TAGS:= optional
 LOCAL_SHARED_LIBRARIES:= libc libcutils
+
+NDK_APP_DST_DIR = $(LOCAL_PATH)/../sdk/
+
 include $(BUILD_SHARED_LIBRARY)
