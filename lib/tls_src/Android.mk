@@ -1,6 +1,6 @@
 # Spreadtrum busmonitor hardware layer
 
-LOCAL_PATH:= $(call my-dir)__
+LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE:= tls

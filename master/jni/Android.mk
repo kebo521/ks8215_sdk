@@ -38,4 +38,5 @@ LOCAL_C_INCLUDES +=\
 #LOCAL_LDFLAGS += -L/$(LOCAL_PATH)/../lib/tls -ltls
 
 LOCAL_SHARED_LIBRARIES:= libc libcutils libtls libsdk libgui
+
 include $(BUILD_EXECUTABLE)

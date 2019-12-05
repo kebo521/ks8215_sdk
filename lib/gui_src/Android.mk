@@ -1,4 +1,4 @@
-LOCAL_PATH := $(call my-dir)__
+LOCAL_PATH := $(call my-dir)
 
 # libsdk.so
 include $(CLEAR_VARS)
