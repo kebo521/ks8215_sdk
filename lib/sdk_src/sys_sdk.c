@@ -15,8 +15,9 @@
 #include <sys/stat.h>    
 #include <sys/time.h>
 #include <sys/ipc.h>
-#include <sys/shm.h> 
+//#include <sys/shm.h> 
 //#include <linux/shm.h> 
+#include<sys/mman.h>
 
 #include "comm_type.h"
 #include "sys_sdk.h" 
@@ -84,11 +85,77 @@ char *eStrstr(char* src1, const char* src2)
 	return NULL;
 }
 
-#define SHM_SDK_AID		0xA8215		//独立数字平台统一定
-#define SHM_SDK_DID		0xD8215		//独立数字平台统一定
+#define SHM_SDK_AID		"../shm_A8215"		//独立数字平台统一定
+#define SHM_SDK_DID		"../shm_D8215"		//独立数字平台统一定
+#define SHM_AID_NAME		"/dev/ashmem"		//独立数字平台统一定
 
-int OsSysInit(unsigned int Aperm)
+
+
+
+
+int OsSysInit(char* pInTag)
 {
+	#if(0)//def ANDROID_DEF
+	tSt_Sys.shmAid = ashmem_create_region(SHM_AID_NAME,sizeof(ST_SYS_MSG));
+	if(tSt_Sys.shmAid == -1) 
+	{		
+		LOG(LOG_ERROR,"ashmem_create_region1->%s Err\r\n",SHM_AID_NAME);		
+		return -1;	
+	}
+	tSt_Sys.pSysMsg = mmap(NULL,sizeof(ST_SYS_MSG),PROT_READ|PROT_WRITE,MAP_SHARED,tSt_Sys.shmAid, 0);
+
+
+	tSt_Sys.shmDid = ashmem_create_region(SHM_AID_NAME,sizeof(ST_SYS_DATA));
+	if(tSt_Sys.shmDid == -1) 
+	{		
+		LOG(LOG_ERROR,"ashmem_create_region2->%s Err\r\n",SHM_AID_NAME); 	
+		return -1;	
+	}
+	tSt_Sys.pSysMsg = mmap(NULL,sizeof(ST_SYS_DATA),PROT_READ|PROT_WRITE,MAP_SHARED,tSt_Sys.shmDid, 0);
+	#else	//---------------------------------------------------------------------------------------------
+	char *pShmAid,*pShmDid;
+	if(strstr(pInTag,"master"))
+	{
+		pShmAid=eStrstr(SHM_SDK_AID,"../");
+		pShmDid=eStrstr(SHM_SDK_DID,"../");
+	}
+	else
+	{
+		pShmAid=SHM_SDK_AID;
+		pShmDid=SHM_SDK_DID;
+	}
+	LOG(LOG_INFO,"pShmAid[%s],pShmDid[%s]\r\n",pShmAid,pShmDid);
+	//tSt_Sys.shmAid = shm_open(SHM_SDK_AID, O_RDWR, 0777);// S_IRUSR | S_IWUSR
+	tSt_Sys.shmAid = open(pShmAid, O_RDWR);
+	if(tSt_Sys.shmAid < 0) 
+	{		
+		LOG(LOG_ERROR,"ashmem_create_region1->%s [%d]Err\r\n",SHM_AID_NAME,tSt_Sys.shmAid);		
+		return -1;	
+	}
+//	ftruncate(tSt_Sys.shmAid, sizeof(ST_SYS_MSG));
+	tSt_Sys.pSysMsg = mmap(NULL, sizeof(ST_SYS_MSG), PROT_READ|PROT_WRITE, MAP_SHARED, tSt_Sys.shmAid, 0);
+	if (tSt_Sys.pSysMsg == MAP_FAILED) 
+	{		
+		LOG(LOG_ERROR,"mmap->A8215 shmAid Err\r\n");		
+		return -1;	
+	}
+	//tSt_Sys.shmAid = shm_open(SHM_SDK_DID, O_RDWR, 0777);// S_IRUSR | S_IWUSR
+	tSt_Sys.shmDid = open(pShmDid,O_RDWR);
+	if(tSt_Sys.shmDid == -1) 
+	{		
+		LOG(LOG_ERROR,"ashmem_create_region2->%s Err\r\n",SHM_AID_NAME); 	
+		return -1;	
+	}
+//	ftruncate(tSt_Sys.shmDid, sizeof(ST_SYS_DATA));
+	tSt_Sys.pSysData = mmap(NULL,sizeof(ST_SYS_DATA),PROT_READ|PROT_WRITE,MAP_SHARED,tSt_Sys.shmDid, 0);
+	if (tSt_Sys.pSysData == MAP_FAILED) 
+	{		
+		LOG(LOG_ERROR,"mmap->A8215 shmDid Err\r\n");		
+		return -1;	
+	}
+
+
+/*
 	tSt_Sys.shmAid = shmget(SHM_SDK_AID,sizeof(ST_SYS_MSG),Aperm);		
 	if(tSt_Sys.shmAid == -1) 
 	{		
@@ -104,6 +171,8 @@ int OsSysInit(unsigned int Aperm)
 		return -1;	
 	}
 	tSt_Sys.pSysData = (ST_SYS_DATA *)shmat(tSt_Sys.shmDid,NULL,0);
+	*/
+	#endif
 	return 0;
 }
 
@@ -121,7 +190,8 @@ int OsSaveAppInfo(ST_APP_INFO* pAppInfo)
 		if(i < max)
 		{//--------应用更新--------
 			memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
-			sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
+			fsync(tSt_Sys.shmAid);
+			//sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
 		}
 		else
 		{//--------应用安装--------
@@ -129,49 +199,31 @@ int OsSaveAppInfo(ST_APP_INFO* pAppInfo)
 				return -3;
 			memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
 			tSt_Sys.pSysMsg->mAppMax++;
-			sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
+			fsync(tSt_Sys.shmAid);
+			//sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
 		}
 		return 0;
 	}
 	return -5;
 }
 
-void API_Trace(char* pMsg,...)
-{
-	int		ret;
-	char	sTraceBuff[4096];
-	//------------------------------------------
-	va_list arg;
-	va_start(arg, pMsg);
-	ret=vsnprintf(sTraceBuff,sizeof(sTraceBuff),pMsg,arg);	//ret=
-	va_end(arg);
-	printf("Trace[%d]->%s",ret,sTraceBuff);//stdout
-}
-
-void APP_Trace_Hex(char* msg,void* pBuff,int Len)
-{
-	int i;
-	printf("%s[%d]:",msg,Len);
-	for(i=0;i<Len;i++)
-	{
-		printf("%02X ",((u8*)pBuff)[i]);
-	}
-	printf("\r\n");
-}
 //================================================================================
-
 extern int APP_main(int argc, char* argv[]);
 
 
 
 int main(int argc, char* argv[])
 {
-	if(eStrstr(argv[0],"master"))
-		OsSysInit(0666);
-	else
-		OsSysInit(0444);
-	return APP_main(argc-1,argv+1);
+	if(argc<1)
+	{
+		LOG(LOG_ERROR,"main->in(argc[%d]) ERR\r\n",argc);
+		return -1;
+	}
+	OsSysInit(argv[0]);
+	return APP_main(argc-2,argv+2);
 }
+//=============================================================================
+
 
 
 
@@ -374,11 +426,27 @@ int OsExit(int recode)
 		memmove(tSt_Sys.pSysData->aAppIDStack,tSt_Sys.pSysData->aAppIDStack+1,sizeof(tSt_Sys.pSysData->aAppIDStack)-1);
 		tSt_Sys.pSysData->aAppIDStack[sizeof(tSt_Sys.pSysData->aAppIDStack)-1]=0;
 		tSt_Sys.pSysData->pNextAppId=tSt_Sys.pSysData->aAppIDStack[0];
-		shmdt(tSt_Sys.pSysMsg);
+		if(tSt_Sys.pSysMsg)	
+		{
+			//shmdt(tSt_Sys.pSysMsg);
+			munmap(tSt_Sys.pSysMsg,sizeof(ST_SYS_MSG));		
+		}		
+		if(tSt_Sys.shmAid != -1)
+		{		
+			close(tSt_Sys.shmAid);		
+			tSt_Sys.shmAid = -1;	
+		}		
 	}
-	if(tSt_Sys.pSysData)
+
+	if(tSt_Sys.pSysData)	
 	{
-		shmdt(tSt_Sys.pSysData);
+		//shmdt(tSt_Sys.pSysData);
+		munmap(tSt_Sys.pSysData,sizeof(ST_SYS_DATA));		
+	}		
+	if(tSt_Sys.shmDid != -1)
+	{		
+		close(tSt_Sys.shmDid);		
+		tSt_Sys.shmDid = -1;	
 	}
 	exit(recode);
 }

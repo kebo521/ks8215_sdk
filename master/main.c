@@ -36,7 +36,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <linux/input.h>
-#include <sys/shm.h>  
+//#include <sys/shm.h>  
 //#include <sys/ipc.h>
 #include "language.h"
 #include "sys_sdk.h"
@@ -218,8 +218,9 @@ int APP_main(int argc, char* argv[]) {
 		
 		API_InitSysLanguage(1);
 		API_GUI_LoadWindow(pWindow);
-		
-		APP_MasterMeun("终端管理");//
+
+		APP_FactoryMeun("测试应用");
+		//APP_MasterMeun("终端管理");//
 		APP_ShowProsseMenu();
 
 		ApiFont.DeInitFontLib();
