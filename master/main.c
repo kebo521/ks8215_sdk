@@ -194,14 +194,13 @@ int APP_main(int argc, char* argv[]) {
 	char *pHardMsg[]={
 	"FB=/dev/fb0",
 	"INPUT=/dev/input/event2",
-	"ROTATE=0",
+	"ROTATE=270",
 //	"TSDEV=",
 	"STATUSBAR=24",
 	};
 
 	XuiWindow* pWindow,*pStaWindow;
 	OsLogSetTag("logo.txt");	
-	SetRotationAngle(XUI_ROTATE_0);
 	XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg);
 	if((pWindow=XuiRootCanvas()) != NULL)
 	{

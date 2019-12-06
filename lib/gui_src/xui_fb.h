@@ -46,9 +46,9 @@ typedef struct gr_surface {
 typedef GRSurface* gr_surface;
 //================================================================================================
 
-extern void SetRotationAngle(XuiTransform Angle);
+extern void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow);
 
-extern int open_screen(const char* filename,XuiWindow *pHardWindow);
+extern int open_screen(const char* filename);
 extern void close_screen(void);
 
 extern int xui_fb_line(int xs, int ys, int xe, int ye, A_RGB argb);

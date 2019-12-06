@@ -87,7 +87,7 @@ int XuiOpen(int argc,char **argv)
 		pTag=eStrstr(argv[i],"FB=");
 		if(pTag)
 		{
-			gUiDataAll.Screen_fd=open_screen(pTag,&gUiDataAll.tHardWindow);
+			gUiDataAll.Screen_fd=open_screen(pTag);
 			if(gUiDataAll.Screen_fd < 0) 
 			{
 				LOG(LOG_INFO,"->main open screen ret NULL \r\n");
@@ -136,6 +136,14 @@ int XuiOpen(int argc,char **argv)
 			continue;
 		}
 	}
+	if(gUiDataAll.iRotate==0)
+		SetRotationAngle(XUI_ROTATE_0,&gUiDataAll.tHardWindow);
+	else if(gUiDataAll.iRotate==90)
+		SetRotationAngle(XUI_ROTATE_90,&gUiDataAll.tHardWindow);
+	else if(gUiDataAll.iRotate==180)
+		SetRotationAngle(XUI_ROTATE_180,&gUiDataAll.tHardWindow);
+	else if(gUiDataAll.iRotate==270)
+		SetRotationAngle(XUI_ROTATE_270,&gUiDataAll.tHardWindow);
 	return 0;
 }
 

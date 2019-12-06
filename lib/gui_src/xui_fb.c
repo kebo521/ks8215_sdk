@@ -112,11 +112,46 @@ static GRSurface* gr_draw = NULL;
 static int fb_fd = -1;
 static int flagRotationAngle=XUI_ROTATE_0;
 static int offsetScreen;
+static int display_off_x,display_off_y,display_width,display_height;
 
-
-void SetRotationAngle(XuiTransform Angle)
+void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
 {
 	flagRotationAngle=Angle;
+	if(gr_draw == NULL) return;
+	//--------------------计算起点偏移量----------------------------------------------
+	if(flagRotationAngle == XUI_ROTATE_0)
+	{
+		offsetScreen= display_off_y * gr_draw->row_bytes+ display_off_x*gr_draw->pixel_bytes;
+	}
+	else if(flagRotationAngle == XUI_ROTATE_90)
+	{
+		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width)*gr_draw->pixel_bytes;
+	}
+	else if(flagRotationAngle == XUI_ROTATE_180)
+	{
+		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + (display_off_x+display_width)*gr_draw->pixel_bytes;
+	}
+	else if(flagRotationAngle == XUI_ROTATE_270)
+	{
+		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + display_off_x*gr_draw->pixel_bytes;
+	}
+
+	if(pHardWindow)
+	{
+		memset(pHardWindow,0x00,sizeof(XuiWindow));
+		//pHardWindow->left =0;
+		//pHardWindow->top =0;
+		if(flagRotationAngle == XUI_ROTATE_0 || flagRotationAngle == XUI_ROTATE_180)
+		{
+			pHardWindow->width=display_width;
+			pHardWindow->height=display_height;
+		}
+		else
+		{
+			pHardWindow->width=display_height;
+			pHardWindow->height=display_width;
+		}
+	}
 }
 
 void close_screen(void)
@@ -141,7 +176,7 @@ void close_screen(void)
 	
 }
 
-int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardWindow
+int open_screen(const char* filename) //XuiWindow *pHardWindow
 {
 	struct fb_var_screeninfo var;
 	struct fb_fix_screeninfo fix;
@@ -166,22 +201,6 @@ int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardW
 		return -4;
 	}
 	printf("open_screen[%d,%d][%d][%d]\r\n",var.xres,var.yres,var.bits_per_pixel,fix.line_length);
-	if(pHardWindow)
-	{
-		memset(pHardWindow,0x00,sizeof(XuiWindow));
-		pHardWindow->left =0;
-		pHardWindow->top =0;
-		if(flagRotationAngle == XUI_ROTATE_0 || flagRotationAngle == XUI_ROTATE_180)
-		{
-			pHardWindow->width=SCREEN_WIDTH;
-			pHardWindow->height=SCREEN_HEIGT;
-		}
-		else
-		{
-			pHardWindow->width=SCREEN_HEIGT;
-			pHardWindow->height=SCREEN_WIDTH;
-		}
-	}
 	pixel_bytes = var.bits_per_pixel / 8;
 	if(pixel_bytes == 3)
 		pixel_bytes = 4;
@@ -194,23 +213,10 @@ int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardW
 	gr_draw->row_bytes=fix.line_length;
 	gr_draw->data = pMapdata;
 
-	//--------------------计算起点偏移量----------------------------------------------
-	if(flagRotationAngle == XUI_ROTATE_0)
-	{
-		offsetScreen= (var.yres -SCREEN_HEIGT-10)*fix.line_length + (var.xres -SCREEN_WIDTH-10)*pixel_bytes;
-	}
-	else if(flagRotationAngle == XUI_ROTATE_90)
-	{
-		offsetScreen = (var.yres-SCREEN_HEIGT-10) *fix.line_length + (var.xres - 10)*pixel_bytes;
-	}
-	else if(flagRotationAngle == XUI_ROTATE_180)
-	{
-		offsetScreen = (var.yres-10) *fix.line_length + (var.xres - 10)*pixel_bytes;
-	}
-	else if(flagRotationAngle == XUI_ROTATE_270)
-	{
-		offsetScreen = (var.yres-10) *fix.line_length + (var.xres -SCREEN_WIDTH-10)*pixel_bytes;
-	}
+	display_width = SCREEN_WIDTH;
+	display_height = SCREEN_HEIGT;
+	display_off_x = var.xres-display_width-10;
+	display_off_y = var.yres-display_height-10;
 	//-----------------------------------------------------------------------------------
 	return 1;
 }
