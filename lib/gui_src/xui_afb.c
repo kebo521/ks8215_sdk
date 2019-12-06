@@ -107,7 +107,7 @@ ret_t xui_fb_close(XuiWindow* fb) {
 static GRSurface* gr_draw = NULL;
 static int fb_fd = -1;
 static int flagRotationAngle=XUI_ROTATE_0;
-static int offsetScreen;
+static int offsetScreen=0;
 static int display_off_x,display_off_y,display_width,display_height;
 
 void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
@@ -117,19 +117,19 @@ void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
 	//--------------------计算起点偏移量----------------------------------------------
 	if(flagRotationAngle == XUI_ROTATE_0)
 	{
-		offsetScreen= display_off_y * gr_draw->row_bytes+ display_off_x*gr_draw->pixel_bytes;
+		offsetScreen= display_off_y * gr_draw->row_bytes+ display_off_x*sizeof(A_RGB);
 	}
 	else if(flagRotationAngle == XUI_ROTATE_90)
 	{
-		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width)*gr_draw->pixel_bytes;
+		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width)*sizeof(A_RGB);
 	}
 	else if(flagRotationAngle == XUI_ROTATE_180)
 	{
-		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + (display_off_x+display_width)*gr_draw->pixel_bytes;
+		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + (display_off_x+display_width)*sizeof(A_RGB);
 	}
 	else if(flagRotationAngle == XUI_ROTATE_270)
 	{
-		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + display_off_x*gr_draw->pixel_bytes;
+		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + display_off_x*sizeof(A_RGB);
 	}
 
 	if(pHardWindow)
@@ -171,12 +171,15 @@ int open_screen(const char* filename) //XuiWindow *pHardWindow
             return -1;
         }
     }
+	printf("screen adf[%d,%d][%d,,%d,%d]\r\n",gr_draw->pixel_bytes,gr_draw->row_bytes, \
+		OVERSCAN_PERCENT,gr_draw->width,gr_draw->height);
     display_off_x = gr_draw->width * OVERSCAN_PERCENT / 100;
     display_off_y = gr_draw->height * OVERSCAN_PERCENT / 100;
 	display_width = gr_draw->width - 2*display_off_x;
 	display_height=gr_draw->height - 2*display_off_y;
 	//-----------------------------------------------------------------------------------
 	printf("screen adf[%d,%d,%d,%d]\r\n",display_off_x,display_off_y,display_width,display_height);
+	
 	tp_flag1 = 0;	//0 为双画布，1为单画布
 	return 1;
 }
