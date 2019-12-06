@@ -125,15 +125,15 @@ void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
 	}
 	else if(flagRotationAngle == XUI_ROTATE_90)
 	{
-		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width)*gr_draw->pixel_bytes;
+		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width-1)*gr_draw->pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_180)
 	{
-		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + (display_off_x+display_width)*gr_draw->pixel_bytes;
+		offsetScreen = (display_off_y+display_height-1) *gr_draw->row_bytes + (display_off_x+display_width-1)*gr_draw->pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_270)
 	{
-		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + display_off_x*gr_draw->pixel_bytes;
+		offsetScreen = (display_off_y+display_height-1) *gr_draw->row_bytes + display_off_x*gr_draw->pixel_bytes;
 	}
 
 	if(pHardWindow)

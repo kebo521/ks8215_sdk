@@ -117,19 +117,19 @@ void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
 	//--------------------计算起点偏移量----------------------------------------------
 	if(flagRotationAngle == XUI_ROTATE_0)
 	{
-		offsetScreen= display_off_y * gr_draw->row_bytes+ display_off_x*sizeof(A_RGB);
+		offsetScreen= display_off_y * gr_draw->row_bytes+ display_off_x*gr_draw->pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_90)
 	{
-		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width)*sizeof(A_RGB);
+		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width-1)*gr_draw->pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_180)
 	{
-		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + (display_off_x+display_width)*sizeof(A_RGB);
+		offsetScreen = (display_off_y+display_height-1) *gr_draw->row_bytes + (display_off_x+display_width-1)*gr_draw->pixel_bytes;
 	}
 	else if(flagRotationAngle == XUI_ROTATE_270)
 	{
-		offsetScreen = (display_off_y+display_height) *gr_draw->row_bytes + display_off_x*sizeof(A_RGB);
+		offsetScreen = (display_off_y+display_height-1) *gr_draw->row_bytes + display_off_x*gr_draw->pixel_bytes;
 	}
 
 	if(pHardWindow)
