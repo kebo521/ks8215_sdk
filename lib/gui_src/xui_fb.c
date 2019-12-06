@@ -200,7 +200,7 @@ int open_screen(const char* filename) //XuiWindow *pHardWindow
 		close(fb_fd); fb_fd= -1;
 		return -4;
 	}
-	printf("open_screen[%d,%d][%d][%d]\r\n",var.xres,var.yres,var.bits_per_pixel,fix.line_length);
+	printf("open screen[%d,%d][%d][%d]\r\n",var.xres,var.yres,var.bits_per_pixel,fix.line_length);
 	pixel_bytes = var.bits_per_pixel / 8;
 	if(pixel_bytes == 3)
 		pixel_bytes = 4;

@@ -200,7 +200,7 @@ int APP_main(int argc, char* argv[]) {
 	};
 
 	XuiWindow* pWindow,*pStaWindow;
-	OsLogSetTag("logo.txt");	
+//	OsLogSetTag("logo.txt");	
 	XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg);
 	if((pWindow=XuiRootCanvas()) != NULL)
 	{

@@ -58,7 +58,7 @@ void *get_keyMsg(void *args)
 				if(t.value == 1)
 				{
 					int keyVar=0;
-				//	LOG(LOG_INFO," -key[%d][%d]\n", t.code,t.value);
+					LOG(LOG_INFO," -key[%d][%d]\n", t.code,t.value);
 					if(t.code == KEY_END) break;
 					switch(t.code)
 					{

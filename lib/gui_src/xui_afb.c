@@ -176,6 +176,7 @@ int open_screen(const char* filename) //XuiWindow *pHardWindow
 	display_width = gr_draw->width - 2*display_off_x;
 	display_height=gr_draw->height - 2*display_off_y;
 	//-----------------------------------------------------------------------------------
+	printf("screen adf[%d,%d,%d,%d]\r\n",display_off_x,display_off_y,display_width,display_height);
 	tp_flag1 = 0;	//0 为双画布，1为单画布
 	return 1;
 }
