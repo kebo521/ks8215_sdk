@@ -5,16 +5,16 @@ LOCAL_MODULE:= sdk
 
 LOCAL_ALLOW_UNDEFINED_SYMBOLS := true
 #LOCAL_CFLAGS := -DSCX15 -I$(LOCAL_PATH)
-#LOCAL_CFLAGS += -lpthread 
+LOCAL_CFLAGS +=  -Wall -lpthread
 
 LOCAL_SRC_FILES:= sys_sdk.c esm_sdk.c
 
 LOCAL_C_INCLUDES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_C_INCLUDES +=\
 	$(LOCAL_PATH)/. \
-    $(LOCAL_PATH)/../
+    $(LOCAL_PATH)/../	
 
-#LOCAL_MODULE_TAGS:= optional
+LOCAL_MODULE_TAGS:= optional
 LOCAL_SHARED_LIBRARIES:= libc libcutils
 
 NDK_APP_DST_DIR = $(LOCAL_PATH)/../sdk/
