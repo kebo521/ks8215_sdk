@@ -8,18 +8,21 @@
 
 #include "comm_type.h"
 #include "EvenMsg.h"
-#include "key_hard.h"
+#include "input_hand.h"
 #include "sdk/sys_sdk.h"
 
-
+typedef struct
+{
+	unsigned int		Id;
+	unsigned int		Par;
+}CMessageItem;
+#define 	MESSAGE_MAX	128
 
 typedef struct _CMessageTable
 {
 	unsigned int		ReadID;
 	unsigned int		WriteID;
-	unsigned short		MessageID[4];
-	unsigned short		MessagePar[4];
-	//MERCURY_MESSAGE_S	tEvenMsg[4];
+	CMessageItem		fifo[MESSAGE_MAX];
 	pthread_t			threadID;
 	fPushTaskMsg		pFunMessageTask;
 	//------------------------------------
@@ -41,14 +44,14 @@ void FIFO_OperatDeInit(void)
 }
 
 
-void FIFO_OperatSetMsg(u16 MessageID,u16 Message)
+void FIFO_OperatSetMsg(u32 MessageID,u32 Message)
 {
 	if(pMessageTable)
 	{//----------FIFO------------------------
 		register unsigned int WriteID;
-		WriteID=0x03&(pMessageTable->WriteID++);	
-		pMessageTable->MessageID[WriteID]=MessageID;
-		pMessageTable->MessagePar[WriteID]=Message;
+		WriteID=(MESSAGE_MAX-1)&(pMessageTable->WriteID++);	
+		pMessageTable->fifo[WriteID].Id= MessageID;
+		pMessageTable->fifo[WriteID].Par= Message;
 		sem_post(&g_sem_event);
 		//-----检查消息堆已满,覆盖最第一条倒入的消息---------
 		//if(!((pMessageTable->WriteID ^ pMessageTable->ReadID)&0x03))
@@ -57,36 +60,33 @@ void FIFO_OperatSetMsg(u16 MessageID,u16 Message)
 	}
 }
 //阻塞式接收消息接口
-int  FIFO_OperatGetMsg(u16 *pMessageID,u16 *pMessage)
+int  FIFO_OperatGetMsg(u32 *pMessageID,u32 *pMessage)
 {
 	if(pMessageTable)
 	{
-		register unsigned int ReadID=0x03&pMessageTable->ReadID;
+		register unsigned int ReadID;
 	Adder_ReOperatGetMsgRead:
-		if(!(ReadID ^ (pMessageTable->WriteID&0x03)))
+		ReadID=pMessageTable->ReadID;
+		if(ReadID == pMessageTable->WriteID)
 		{//-------没消息读消息----------
 			sem_wait(&g_sem_event);
 		}
 		//--------有消息取消息--------------------
-		if(ReadID ^ (pMessageTable->WriteID&0x03))
+		if(ReadID ^ pMessageTable->WriteID)
 		{//----------FIFO------------------------
-			register unsigned short MessageID,MessagePar;
 			pMessageTable->ReadID++;
-			MessageID=pMessageTable->MessageID[ReadID];
-			MessagePar=pMessageTable->MessagePar[ReadID];
+			ReadID &= (MESSAGE_MAX-1);
 			//----------极限任务-----------
-			if(MessageID == EVEN_ID_MSG_TASK)
+			if(pMessageTable->fifo[ReadID].Id== EVEN_ID_MSG_TASK)
 			{
 				if(pMessageTable->pFunMessageTask)
-					(*pMessageTable->pFunMessageTask)(MessagePar);
-				ReadID++;
-				ReadID &= 0x03;
+					(*pMessageTable->pFunMessageTask)(pMessageTable->fifo[ReadID].Par);
 				goto Adder_ReOperatGetMsgRead;
 			}					
 			if(pMessageID)
-				*pMessageID=MessageID;
+				*pMessageID=pMessageTable->fifo[ReadID].Id;
 			if(pMessage)
-				*pMessage=MessagePar;
+				*pMessage=pMessageTable->fifo[ReadID].Par;
 			//LOG(LOG_INFO,"FIFO_OperatGetMsg[%X]ReadID[%d]MessageID[%d]Message[%d]\r\n",pMessageTable->threadID,ReadID, *pMessageID, *pMessage);
 			return 1;
 		}
@@ -95,31 +95,28 @@ int  FIFO_OperatGetMsg(u16 *pMessageID,u16 *pMessage)
 }
 
 //=====非阻塞式接收消息接口=========================
-int  FIFO_OperatPeekGetMsg(u16 *pMessageID,u16 *pMessage)
+int  FIFO_OperatPeekGetMsg(u32 *pMessageID,u32 *pMessage)
 {
 	if(pMessageTable)
 	{
-		register unsigned int ReadID=0x03&pMessageTable->ReadID;
+		register unsigned int ReadID;
 	Adder_ReOperatPeekGetMsg:
-		if(ReadID ^ (pMessageTable->WriteID&0x03))
+		ReadID=pMessageTable->ReadID;
+		if(ReadID ^ pMessageTable->WriteID)
 		{//----------FIFO----有消息---------------------
-			register unsigned short MessageID,MessagePar;
 			pMessageTable->ReadID++;
-			MessageID=pMessageTable->MessageID[ReadID];
-			MessagePar=pMessageTable->MessagePar[ReadID];
-			//----------消息任务-----------
-			if(MessageID == EVEN_ID_MSG_TASK)
+			//----------极限任务-----------
+			ReadID &= (MESSAGE_MAX-1);
+			if(pMessageTable->fifo[ReadID].Id== EVEN_ID_MSG_TASK)
 			{
 				if(pMessageTable->pFunMessageTask)
-					pMessageTable->pFunMessageTask(MessagePar);
-				ReadID++;
-				ReadID &= 0x03;
+					(*pMessageTable->pFunMessageTask)(pMessageTable->fifo[ReadID].Par);
 				goto Adder_ReOperatPeekGetMsg;
 			}					
 			if(pMessageID)
-				*pMessageID=MessageID;
+				*pMessageID=pMessageTable->fifo[ReadID].Id;
 			if(pMessage)
-				*pMessage=MessagePar;
+				*pMessage=pMessageTable->fifo[ReadID].Par;
 			return 1;
 		}
 		/*
@@ -135,7 +132,7 @@ int  FIFO_OperatPeekGetMsg(u16 *pMessageID,u16 *pMessage)
 
 
 
-void APP_PushMessageTask(fPushTaskMsg pFun,u16 par)
+void APP_PushMessageTask(fPushTaskMsg pFun,u32 par)
 {
 	if(pMessageTable)
 	{
@@ -353,7 +350,7 @@ WAIT_EVENT_MSG tWaitEventMsg={0};
 
 u32  API_WaitEvent(int tTimeOutMs,...)
 {
-	u16 MessageID,Message;
+	u32 MessageID,Message;
 	u32 Event,EventControl=0x00000000;
 	va_list arg;
 	va_start( arg, tTimeOutMs );
@@ -375,74 +372,74 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 	{//---------------阻塞处理-----------------------------------
 		if(FIFO_OperatGetMsg(&MessageID,&Message))
 		{
-			if(MessageID==EVEN_ID_KEY_DOWN)
+			switch(MessageID)
 			{
-				if(tWaitEventMsg.EventControl&EVENT_UI)
-				{
-					if(Message==K_OK)
+				case EVEN_ID_KEY_DOWN:
+					if(tWaitEventMsg.EventControl&EVENT_UI)
 					{
-						Event=EVENT_OK;
-						break;
+						if((Message&0xff)==K_OK)
+						{
+							Event=EVENT_OK;
+							break;
+						}
+						if((Message&0xff)==K_CANCEL)
+						{
+							Event=EVENT_CANCEL;
+							break;
+						}
 					}
-					if(Message==K_CANCEL)
+					if(tWaitEventMsg.EventControl&EVENT_MISC)
 					{
-						Event=EVENT_CANCEL;
-						break;
+						if((Message&0xff)==K_FUNC)
+						{
+							Event=EVENT_QUIT;
+							break;
+						}
 					}
-				}
-				if(tWaitEventMsg.EventControl&EVENT_MISC)
-				{
-					if(Message==K_FUNC)
+					if(tWaitEventMsg.pFunEvenKey)
 					{
-						Event=EVENT_QUIT;
-						break;
+						Event=(*tWaitEventMsg.pFunEvenKey)(Message);
 					}
-				}
-				if(tWaitEventMsg.pFunEvenKey)
-				{
-					Event=(*tWaitEventMsg.pFunEvenKey)(Message);
-				}
-				else if(tWaitEventMsg.EventControl&EVENT_KEY)
-				{
-					Event=EVENT_KEY|Message;
-				}
-				if(Event==EVENT_NONE)
-				{
-					externalLoadTimeMs = tTimeOutMs;
-				}
-			}
-			else if(MessageID==EVEN_ID_UART_RECV)
-			{
-				Event=EVENT_UART;
-			}
-			else if(MessageID==EVEN_ID_TIME_OUT)
-			{
-				Event=EVENT_TIMEOUT;
-			}
-			else if(MessageID==EVEN_ID_SCAN)
-			{
-				Event=EVENT_SCAN;
-			}
-			else if(MessageID==EVEN_ID_ICC_MSG)
-			{
-				Event=EVENT_ICC|Message;
-			}
-			else if(MessageID==EVEN_ID_SHOW_UI)
-			{
-				if(tWaitEventMsg.pFunEvenUI)
-				{
-					fEven_Process	pOldEvenKey;
-					pOldEvenKey=tWaitEventMsg.pFunEvenKey;
-					Event=(*tWaitEventMsg.pFunEvenUI)(Message);
-					
-					tWaitEventMsg.EventControl=EventControl;
-					if(tTimeOutMs>0)
+					else if(tWaitEventMsg.EventControl&EVENT_KEY)
 					{
-						tWaitEventMsg.EventControl |= EVENT_TIMEOUT;
+						Event=EVENT_KEY|(Message&0xff);
+					}
+					if(Event==EVENT_NONE)
+					{
 						externalLoadTimeMs = tTimeOutMs;
 					}
-					tWaitEventMsg.pFunEvenKey=pOldEvenKey;
-				}
+					break;
+				case EVEN_ID_ABS:
+					if(tWaitEventMsg.pFunEvenKey)
+					{
+						Event=(*tWaitEventMsg.pFunEvenKey)(Message);
+					}
+					break;
+				case EVEN_ID_TIME_OUT:
+					Event=EVENT_TIMEOUT;
+					break;
+				case EVEN_ID_SHOW_UI:
+					if(tWaitEventMsg.pFunEvenUI)
+					{
+						fEven_Process	pOldEvenKey;
+						pOldEvenKey=tWaitEventMsg.pFunEvenKey;
+						Event=(*tWaitEventMsg.pFunEvenUI)(Message);
+						
+						tWaitEventMsg.EventControl=EventControl;
+						if(tTimeOutMs>0)
+						{
+							tWaitEventMsg.EventControl |= EVENT_TIMEOUT;
+							externalLoadTimeMs = tTimeOutMs;
+						}
+						tWaitEventMsg.pFunEvenKey=pOldEvenKey;
+					}
+					break;
+				case EVEN_ID_UART_RECV:
+					Event=EVENT_UART;
+					break;
+				case EVEN_ID_ICC_MSG:
+					Event=EVENT_ICC|(Message&0xff);
+					break;
 			}
 		}
 	}while(Event == EVENT_NONE);

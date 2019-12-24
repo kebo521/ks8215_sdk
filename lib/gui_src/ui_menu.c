@@ -304,7 +304,7 @@ int APP_ShowProsseMenu(void)
 		//----------显示菜单---------------------
 	//	pMenuUiTable->ShowState=_GUI_MENU_PROCESS;
 		//----------处理菜单----------------------
-		event=API_WaitEvent(pMenuUiTable->TimeOutMs,EVENT_UI,EVENT_NONE);	
+		event=API_WaitEvent(pMenuUiTable->TimeOutMs,EVENT_UI|EVENT_ABS,EVENT_NONE);	
 		if(event==EVENT_INDEX)
 		{
 			int index,head;

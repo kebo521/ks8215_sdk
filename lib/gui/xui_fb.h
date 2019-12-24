@@ -36,23 +36,26 @@ typedef enum
 #define SCREEN_HEIGT		(320) 
 
 //===========================================================================================
-extern void SetRotationAngle(XuiTransform Angle);
 
+extern void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow);
 
-extern int open_screen(const char* filename,XuiWindow *pHardWindow);
+extern int open_screen(const char* filename,int tpFlag);
 extern void close_screen(void);
 
-extern int xui_fb_line(int xs, int ys, int xe, int ye, A_RGB argb);
-extern int xui_fb_circle(signed short x, signed short y, signed short r, A_RGB argb);
-extern int xui_fb_fill_circle(signed short x, signed short y, signed short r,signed short ar,A_RGB argb);
-extern int xui_fb_vline(int x, int y, int h, A_RGB argb);
-extern int xui_fb_hline(int x, int y, int w, A_RGB argb);
-//extern int xui_fb_fill_rect(int x, int y, int w, int h,A_RGB argb);
-extern int xui_fb_stroke_rect(int x, int y, int w, int h,A_RGB argb);
-//extern int xui_fb_close(screen_buffer* fb);
-extern int xui_fb_show_rect(int x, int y, int w, int h,A_RGB* argb);
-extern int xui_fb_rect_push(int x, int y, int w, int h,A_RGB* pInrgb);
-extern int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb);
+extern void fb_ui_point(int x,int y,A_RGB Inrgb);
+extern void fb_ui_vline(int x, int y, int h, A_RGB argb);
+extern void fb_ui_hline(int x, int y, int w, A_RGB argb);
+extern void fb_ui_line(int xs, int ys, int xe, int ye, A_RGB argb);
+extern void fb_ui_circle(signed short x, signed short y, signed short r, A_RGB argb);
+extern void fb_ui_fill_circle(signed short x, signed short y, signed short r,signed short ar,A_RGB argb);
+extern void fb_ui_fill_rect(int x, int y, int w, int h,A_RGB argb); 
+extern void fb_ui_set_rect(int x, int y, int w, int h,A_RGB* pArgb);
+extern A_RGB* xui_fb_GetScreenMsg(RECTL* pRect,int *pLineWidth);
+extern void xui_fb_pull(RECTL* pRect,A_RGB* pOutRGB);
+extern void xui_fb_push(RECTL* pRect,A_RGB* pInRGB);
+
+extern void xui_fb_syn(void);
+extern void xui_window_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb);
 
 
 #endif /*LINUX_FB_H*/

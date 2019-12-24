@@ -17,7 +17,7 @@ typedef struct _CMenuListPar
 	struct _CMenuListPar *pNext;
 	fMenuFun		pFunMenu;	//功能项
 	int				TextLen;	//显示内容长度
-	char			Text[4];	//显示内容,编译器支持的话 Text[0]
+	char			Text[0];	//显示内容,编译器支持的话 Text[0]
 }CMenuListPar;
 
 extern int APP_CreateNewMenuByStr(char *pTitle,int tNum,char* *pMenuText,const APP_IndexH pUnifiedFunc,int TimeOutMs);
