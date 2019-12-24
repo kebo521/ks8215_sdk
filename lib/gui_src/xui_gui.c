@@ -12,7 +12,7 @@
 #include "xui_font.h"
 #include "xui_gui.h"
 
-#include "key_hard.h"
+#include "input_hand.h"
 #include "language.h"
 #include "sdk/sys_sdk.h"
 
@@ -33,6 +33,77 @@ typedef struct {
 
 static GUI_THEME_MSG tGuiThemeMsg={0};
 
+
+typedef struct{
+	u16 sX,eX;
+	u16 sY,eY;
+}ABS_RECT;
+
+typedef struct{
+	u16 Num;
+	u8 vNum,hNum;
+	ABS_RECT tRect[8]; 
+}ABS_RECT_Menu;
+
+static ABS_RECT_Menu tAbsGuiRectMenu={0};
+
+
+int AbsAnalytical_Menu(u16* pX,u16* pY)
+{
+	u16 left,middle,right,y;
+	gUiDataAll.fTransformCoord(pX,pY);
+//	if(x < 0 || y < 0) return -1;
+	if(*pX >= tAbsGuiRectMenu.tRect[0].sX && *pX<tAbsGuiRectMenu.tRect[0].eX)
+	{
+		left = 0;
+		right= tAbsGuiRectMenu.hNum;
+		middle= (left+right)>>1;
+		y = *pY;
+		for(;;)
+		{
+			if(y < tAbsGuiRectMenu.tRect[middle].sY)
+			{
+				if(middle == 0) 
+					break;
+				middle = (left+middle)>>1;
+				continue;
+			}
+			if(y >= tAbsGuiRectMenu.tRect[middle].eY)
+			{
+				if(middle == (right-1))
+					break;
+				middle = (right+middle)>>1;
+				continue;
+			}
+			printf("middle[%d][%d,%d]\r\n",middle,tAbsGuiRectMenu.tRect[middle].sY,tAbsGuiRectMenu.tRect[middle].eY);
+			*pX = K_1+middle;
+			return EVEN_ID_KEY_DOWN;
+
+		}
+	}
+	return -1;
+}
+
+
+void LoadMenuMsg_ABS(void)
+{
+	int i,hoffset,staX,endX;
+	staX = tGuiThemeMsg.pWindow->left;
+	endX = staX+tGuiThemeMsg.width;
+	hoffset=tGuiThemeMsg.pWindow->top + tGuiThemeMsg.htitle;
+	tAbsGuiRectMenu.Num = tGuiThemeMsg.hn;
+	tAbsGuiRectMenu.vNum=1;
+	tAbsGuiRectMenu.hNum=tAbsGuiRectMenu.Num;
+	for(i=0;i<tAbsGuiRectMenu.Num;i++)
+	{
+		tAbsGuiRectMenu.tRect[i].sX = staX;
+		tAbsGuiRectMenu.tRect[i].eX = endX;	
+		tAbsGuiRectMenu.tRect[i].sY=hoffset;
+		hoffset += tGuiThemeMsg.hmc;
+		tAbsGuiRectMenu.tRect[i].eY=hoffset;
+	}
+}
+
 void API_GUI_LoadWindow(XuiWindow *pWindow)
 {
 	tGuiThemeMsg.hfont = FONT_SIZE;
@@ -51,8 +122,8 @@ void API_GUI_LoadWindow(XuiWindow *pWindow)
 	tGuiThemeMsg.contFclr = RGB565_TIEM_FONT;
 	tGuiThemeMsg.pWindow = pWindow;
 //	LOG(LOG_INFO,"Theme[%d][%d][%d][%d][%d]\r\n",tGuiThemeMsg.hfont,tGuiThemeMsg.hn,tGuiThemeMsg.hmc,tGuiThemeMsg.htitle,tGuiThemeMsg.hcont);
+	LoadMenuMsg_ABS();
 }
-
 
 XuiWindow *API_GUI_GetCurrWindow(void)
 {
@@ -325,6 +396,22 @@ void API_GUI_Show(void)
 	UI_Push(tGuiThemeMsg.pWindow,NULL);
 }
 
+void API_GUI_ShowTitle(const char* pTitle)
+{
+	//-------------------显示标题--------------------------------
+	POINT	tFontXY;
+	int 	sWidth;
+	sWidth=API_strlen(pTitle)*tGuiThemeMsg.hfont/2;
+	if(sWidth > tGuiThemeMsg.width)
+		tFontXY.left=0;
+	else
+		tFontXY.left=(tGuiThemeMsg.width-sWidth)/2;
+	tFontXY.top =(tGuiThemeMsg.htitle - tGuiThemeMsg.hfont)/2;
+	UI_SetFontColor(tGuiThemeMsg.titleFclr,RGB565_CLEAR);
+	UI_DrawLineString(tGuiThemeMsg.pWindow,&tFontXY,pTitle);
+}
+
+
 int  API_GUI_CreateWindow(const char* pTitle,const char* pOk,const char* pCancel,FunFillColour fBackColour)
 {
 	int ret;
@@ -335,27 +422,20 @@ int  API_GUI_CreateWindow(const char* pTitle,const char* pOk,const char* pCancel
 		return ret;
 	}
 	if(pTitle!=NULL)
-	{
-		//-------------------显示标题--------------------------------
-		POINT	tFontXY;
-		int 	sWidth;
-		sWidth=API_strlen(pTitle)*tGuiThemeMsg.hfont/2;
-		if(sWidth > tGuiThemeMsg.width)
-			tFontXY.left=0;
-		else
-			tFontXY.left=(tGuiThemeMsg.width-sWidth)/2;
-		tFontXY.top =(tGuiThemeMsg.htitle - tGuiThemeMsg.hfont)/2;
-		UI_SetFontColor(tGuiThemeMsg.titleFclr,RGB565_CLEAR);
-		UI_DrawLineString(tGuiThemeMsg.pWindow,&tFontXY,pTitle);
-	}
+		API_GUI_ShowTitle(pTitle);
 	return 0;
 }
+
+typedef int (*DefCoordinateConversion)(u16*,u16*); 
+
+extern DefCoordinateConversion pCoordinateConversion;
 
 
 int  API_GUI_Info(const IMAGE* pImg,u32 tTextType,const char* pTextBuf)
 {
 	RECTL tCoordinate={0};
 	u16 sLen,offset,i,line,fontN,fontSize;
+	pAbsAnalytical = NULL;
 	fontSize=tTextType&TEXT_SIZE;
 	if(fontSize==0)
 	{//------没有字体加入默认字体-----------
@@ -452,6 +532,7 @@ int  API_GUI_Info(const IMAGE* pImg,u32 tTextType,const char* pTextBuf)
 
 void API_GUI_Edit_Prompt(u32 tFrontTextType,char* pFrontTextBuf,u32 tAfterTextType,char* pAfterTextBuf)
 {
+	pAbsAnalytical = NULL;
 	if(pFrontTextBuf)
 		API_GUI_Info(NULL,tFrontTextType|TEXT_ALIGN_LEFT|TEXT_VALIGN_TOP|TEXT_EXSTYLE_UNDERLINE,pFrontTextBuf);
 	if(pAfterTextBuf)
@@ -459,29 +540,28 @@ void API_GUI_Edit_Prompt(u32 tFrontTextType,char* pFrontTextBuf,u32 tAfterTextTy
 }
 
 typedef struct {
+	char	*pShowInfo;
+	char	*pAfterText;				//最后一行提示信息
 	u32		Limit,Way;		//控制不要输入法切换,IME_TYPE(多选),输入法,IME_TYPE(其中之一)
 	Fun_ShowNum ShowNum;	//显示内容 (u32 flagPs,char* pStrNum)	bit31=1,init,bit0~bit7 showCode
-	int		oldTimeMs;
 	RECTL	Rect;
+	u16		oldTimeMs;
 	u8		Min,Max;	//最小最大输入范围
 	u8		KeyTimes,oldKey;
 	u8		MaxS,MaskCode;
 	u8		indexEdit,indexShow;	//当前输入长度与显示长度
-	char	sEditBuff[64];
-
-	char	*pShowInfo;
-	char	*pAfterText;				//最后一行提示信息
+	char	sEditBuff[64-2];
 	//int		InfoMax,InfoIndex,InfoOffset;
 }UI_EDIT_MSG;
 
 UI_EDIT_MSG tGuiEditMsg;
 
 
-u32 API_UI_EditShow(u16 keyNum)
+u32 API_UI_EditShow(u32 InEvent)
 {
 	int 	newTimeMs;
-	u8		WayChange,i,KeyValABC;
-
+	u8		WayChange,i,KeyValABC,keyNum;
+	keyNum=InEvent&0xff;
 	if(keyNum)
 	{
 		if(keyNum==K_IME)
@@ -693,13 +773,15 @@ void API_GUI_Edit(u32 tTextType,char* pTextDef,int tMaxLen,u32 tImeType,u32 tIme
 	else
 		tGuiEditMsg.MaskCode=0x00;
 	tGuiEditMsg.KeyTimes=0;
+	pAbsAnalytical = NULL;
 	//---------------------------------------------------
 	tWaitEventMsg.pFunEvenKey=&API_UI_EditShow;
 	API_UI_EditShow(0);
 }
 
-u32 API_UI_OprInfo(u16 keyNum)
+u32 API_UI_OprInfo(u32 InEvent)
 {
+	u8 keyNum=InEvent&0xff;
 	if(keyNum)
 	{
 		if(keyNum==K_UP || keyNum==K_8)
@@ -750,6 +832,7 @@ u32 API_UI_OprInfo(u16 keyNum)
 
 void API_GUI_OprInfo(char* pShowInfo,char *pAfterText)
 {
+	pAbsAnalytical = NULL;
 	tGuiEditMsg.Rect.left	= 0;
 	tGuiEditMsg.Rect.top	= tGuiThemeMsg.htitle;
 	tGuiEditMsg.Rect.width= tGuiThemeMsg.width;
@@ -800,12 +883,12 @@ typedef struct {
 
 static UI_MENU_MSG tGuiMenuMsg={0};
 
-u32 API_UI_MenuShow(u16 keyNum)
+u32 API_UI_MenuShow(u32 InEvent)
 {
-	u16 i,MaxLine;
+	u16 i,MaxLine,keyNum;
 	MaxLine=tGuiThemeMsg.hn;
 	if(tGuiMenuMsg.pAfterText) MaxLine--;
-		
+	keyNum	= InEvent&0xffff;
 	if(keyNum)
 	{
 		if(keyNum>=K_1 && keyNum<(K_1+MaxLine))
@@ -905,7 +988,7 @@ int API_GUI_Menu(void* pMenu,void (*pShowItem)(void *,int,int,char*),int tNum,in
 		tGuiMenuMsg.KeyFunEn=FALSE;
 	tGuiMenuMsg.pMenu=pMenu;
 	tGuiMenuMsg.ShowItem=pShowItem;
-
+	pAbsAnalytical = &AbsAnalytical_Menu;
 	//-----------------------------------------------------
 	API_UI_MenuShow(0);
 	tWaitEventMsg.pFunEvenKey=&API_UI_MenuShow;
@@ -915,8 +998,11 @@ int API_GUI_Menu(void* pMenu,void (*pShowItem)(void *,int,int,char*),int tNum,in
 
 
 //========================输入==============================================
-u32 API_UI_InputEdit(u16 keyNum)
+u32 API_UI_InputEdit(u32 InEvent)
 {
+	u16 newTimeMs,keyNum;
+	newTimeMs = InEvent/0x10000;
+	keyNum=InEvent&0xffff;
 	if(keyNum)
 	{
 		if(keyNum==K_IME)
@@ -971,38 +1057,35 @@ u32 API_UI_InputEdit(u16 keyNum)
 				return EVENT_NONE;
 			if(keyNum!=K_D && (tGuiEditMsg.Way&(IME_ABC|IME_abc)))
 			{//---0~9 的数字转化--多输入法输入----
-				unsigned long	newTimeMs;
-				u8				KeyValABC;
+				u8		KeyValABC,newFlag;
 				if(tGuiEditMsg.oldKey != keyNum)
 				{
 					tGuiEditMsg.oldKey=keyNum;
-					newTimeMs=0;
+					newFlag = 0;
 					tGuiEditMsg.KeyTimes=0;
 				}
 				else 
 				{
-					newTimeMs= (int)OsGetTickCount();
-					newTimeMs -= tGuiEditMsg.oldTimeMs;
-					if(newTimeMs>700)
+					if((newTimeMs-tGuiEditMsg.oldTimeMs) > 700)
 					{
-						newTimeMs=0;
+						newFlag=0;
 						tGuiEditMsg.KeyTimes=0;
 					}
 					else	//连续快按
 					{
-						newTimeMs=1;
+						newFlag=1;
 						if(++tGuiEditMsg.KeyTimes >= API_strlen(KeyMsgABC[keyNum-K_0]))
 							tGuiEditMsg.KeyTimes=0;
 					}
 				}
-				tGuiEditMsg.oldTimeMs=(int)OsGetTickCount();
+				tGuiEditMsg.oldTimeMs=newTimeMs;
 				KeyValABC=KeyMsgABC[keyNum-K_0][tGuiEditMsg.KeyTimes];
 				if(tGuiEditMsg.Way == IME_abc)
 				{//-------大写转小写----------
 					if(KeyValABC>='A' && KeyValABC<='Z')
 						KeyValABC |= 0x20;
 				}
-				if(newTimeMs)
+				if(newFlag)
 				{//------短按改变原来值--------
 					tGuiEditMsg.indexEdit--;
 					tGuiEditMsg.indexShow--;//驱动显示
@@ -1099,6 +1182,7 @@ void API_GUI_InputEdit(char* pStrDef,int tMaxLen,u32 Way,Fun_ShowNum pShow)
 	{
 		tWaitEventMsg.pFunEvenKey=&API_UI_InputEdit;
 	}
+	pAbsAnalytical = NULL;
 }
 //=======================================================================================
 
@@ -1212,6 +1296,7 @@ int APP_ShowQrCode(char *pTitle,const char* pInfo,A_RGB Color)
 	tRect.height= tGuiThemeMsg.hcont;
 	UI_ShowQrCode(tGuiThemeMsg.pWindow,&tRect,pInfo,Color);
 	API_GUI_Show();
+	pAbsAnalytical = NULL;
 	return 0;
 }
 
@@ -1266,6 +1351,7 @@ int APP_GUI_Menu(char* pTitle,int stratIndex,int tNum,int tCurInx,char** pMenuTe
 		tFontXY.top += tGuiThemeMsg.hmc;
 	}
 	API_GUI_Show();
+	pAbsAnalytical = &AbsAnalytical_Menu;
 	return 0;
 }
 
@@ -1352,7 +1438,69 @@ int gShowTimeS_GetOut(void)
 	return 0;//EVENT_NONE;
 }
 
+int AbsAnalytical_DrawBoard(u16* pX,u16* pY)
+{
+	int x,y;
+	gUiDataAll.fTransformCoord(pX,pY);
+	x = *pX-tGuiThemeMsg.pWindow->left;
+	y = *pY-tGuiThemeMsg.pWindow->top;
+	if(x < 0 || y < 0 || x >= tGuiThemeMsg.pWindow->width ||  y >= tGuiThemeMsg.pWindow->height)
+		return -1;
+	*pX = x;
+	*pY = y;
+	return EVEN_ID_ABS;
+}
 
+u32 API_UI_DrawBoard(u32 InEvent)
+{
+	A_RGB pinRGB,*pInput;
+	u16 x,y,w,h;
+	RECTL tRect;
+	y = InEvent/0x10000;
+	x = InEvent&0xffff;
+
+	if(x == 0)
+		x++;
+	if(y == 0)
+		y++;
+	w = tGuiThemeMsg.width;
+	h = tGuiThemeMsg.pWindow->height-2;
+	if(x > (w-2))
+		x = w-2;
+	if(y > h)
+		y = h;
+
+
+	tRect.left = x-1;
+	tRect.top = y-1;
+	tRect.width = 3;
+	tRect.height = 3;
+	//----------------3x3 的点----------
+	pInput = tGuiThemeMsg.pWindow->widget + tRect.top*w + tRect.left;
+	pinRGB = RGB_CURR(0,0,0);
+	*pInput++ = pinRGB;
+	*pInput++ = pinRGB;
+	*pInput = pinRGB;
+	pInput += w;
+	*pInput-- = pinRGB;
+	*pInput-- = pinRGB;
+	*pInput = pinRGB;
+	pInput += w;
+	*pInput++ = pinRGB;
+	*pInput++ = pinRGB;
+	*pInput = pinRGB;
+	UI_Push(tGuiThemeMsg.pWindow,&tRect);
+	return EVENT_NONE;
+}
+
+
+void APP_ShowDrawBoard(char *pTitle)
+{
+	API_GUI_CreateWindow(pTitle,NULL,NULL,API_FillShowBack);
+	pAbsAnalytical = &AbsAnalytical_DrawBoard;
+	tWaitEventMsg.pFunEvenKey=&API_UI_DrawBoard;
+	API_GUI_Show();
+}
 
 /*
 const API_GUI_Def ApiGUI={

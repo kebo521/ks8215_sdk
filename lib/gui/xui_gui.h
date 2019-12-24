@@ -252,6 +252,8 @@ extern void gShowTimeS_SetInit(u32 tTextType,int len,int timeS);
 //=======刷新到计时显示并返回计时结果:===时间到了返回:EVENT_TIMEOUT,没到返回:0=======
 extern int gShowTimeS_GetOut(void);
 
+//==============显示
+extern void APP_ShowDrawBoard(char *pTitle);
 
 
 /*

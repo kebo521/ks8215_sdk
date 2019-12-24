@@ -1,6 +1,6 @@
 #include "comm_type.h"
 #include "EvenMsg.h"
-#include "key_hard.h"
+#include "input_hand.h"
 #include "xui_ui.h"
 #include "xui_font.h"
 #include "xui_gui.h"

@@ -13,7 +13,7 @@ LOCAL_MODULE := libgui
 
 #graphics_adf.c graphics_fbdev.c xui_afb.c
 LOCAL_SRC_FILES := graphics_adf.c graphics_fbdev.c xui_afb.c xui_ui.c xui_font.c xui_gui.c \
-                   ui_menu.c QR_Encode.c language.c key_hard.c EvenMsg.c
+                   ui_menu.c QR_Encode.c language.c input_hand_arm.c EvenMsg.c
 
 LOCAL_C_INCLUDES +=\
 	$(LOCAL_PATH)/ \

@@ -2,29 +2,30 @@
 #define _UI_DISPLAY_
 
 //===============色彩参数定义========================================
+#if(0)
+//-----------------M1901定义----------------------------
+typedef unsigned int  			A_RGB;		// <= RGB_CURR
+#define	RGB_CURR(r,g,b)		(r|(g*0x100)|(b*0x10000))	//(u32)(rgba_t)(b,g,r,0xff))
+#define RGB565_CLEAR			0xFF000000		// Transparent color
+#else
+//-----------------ubuntu定义----------------------------
+typedef unsigned int  			A_RGB;		// <= RGB_CURR
 #define	RGB_CURR(r,g,b)		((r*0x10000)|(g*0x100)|b)	//(u32)(rgba_t)(b,g,r,0xff))
 #define RGB565_CLEAR			0xFF000000		// Transparent color
-
-typedef struct {
-  uint8_t b;
-  uint8_t g;
-  uint8_t r;
-  uint8_t a;
-} rgba_t;
-typedef unsigned int  			A_RGB;		// <= RGB_CURR
+#endif
 
 typedef void (*FunFillColour)(A_RGB*,int,int);		//色彩填充函数定义(data,w,h)
 //=====================================================================================================
 typedef struct{
-  u16 left;
-  u16 top;
+  int left;
+  int top;
 } POINT, *PPOINT;
 
 typedef struct{
-  u16 left;
-  u16 top;
-  u16 width;
-  u16 height;
+  int left;
+  int top;
+  int width;
+  int height;
 }RECTL,*LPRECTL;
 
 /**
@@ -41,12 +42,16 @@ typedef struct
 
 
 typedef struct _XuiWindow{
+	int left;
+	int top;
+	int width;
+	int height;
+	//---------------上面同RECTL-------------------------------------
 	struct _XuiWindow *pChild;	//父一个窗口
 	struct _XuiWindow *pParent;	//子窗口
 	struct _XuiWindow *pNext;		//子窗口....
 	
-	int left,top,width,height;
-	
+//	int left,top,width,height;
 //	unsigned short key;		//鍏宠仈鎸夐敭鍊?
 //	unsigned short type;	//Window 绐楀彛绫诲瀷锛岃瑙乆uiWindowType
 	
@@ -59,10 +64,12 @@ typedef struct _XuiWindow{
 typedef struct {
 	int SetFlag;	//是否初始化标记
 	int iRotate;	//旋转方向 0，90 ，180 ，270 
+	void (*fTransformCoord)(u16*,u16*);	//坐标转换 对应 iRotate
 	int iStatusbar;	///*状态栏高度（0-64，默认值0，设置不支持的值时均使用默认值）*/
-	int keys_fd;
+	
 	int TsDev_fd;
 	int Screen_fd;
+	char sInput[64];// keys_fd;
 	XuiWindow tHardWindow;
 //	u16 left,top;
 }gUi_def;

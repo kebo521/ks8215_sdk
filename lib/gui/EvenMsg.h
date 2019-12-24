@@ -3,11 +3,12 @@
 
 //typedef int (*Fun_KillThread)(void*); 
 
-typedef void (*fPushTaskMsg)(u16);
+typedef void (*fPushTaskMsg)(u32);
 
 typedef enum
 {
 	EVEN_ID_KEY_DOWN, 
+	EVEN_ID_ABS,
 	EVEN_ID_SCAN,
 	EVEN_ID_NOTIFY_NSG,
 	EVEN_ID_UART_RECV,
@@ -20,12 +21,12 @@ typedef enum
 } EVEN_MSG_STATE;
 
 extern void FIFO_Init(int pshared, unsigned int value);
-extern void FIFO_OperatSetMsg(u16 MessageID,u16 Message);
-extern int FIFO_OperatGetMsg(u16 *pMessageID,u16 *pMessage);
-extern int FIFO_OperatPeekGetMsg(u16 *pMessageID,u16 *pMessage);
+extern void FIFO_OperatSetMsg(u32 MessageID,u32 Message);
+extern int FIFO_OperatGetMsg(u32 *pMessageID,u32 *pMessage);
+extern int FIFO_OperatPeekGetMsg(u32 *pMessageID,u32 *pMessage);
 
 
-extern void APP_PushMessageTask(fPushTaskMsg pFun,u16 par);
+extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
 
 //extern void APP_OperationKillThread(void* threadID);
 //extern void APP_OperationCreateThread(void *(*pFunThread)(void*));
@@ -50,7 +51,7 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u16 par);
 		EVENT_NET		=0x00000400,	//!< 网络通信接口			API_NetEvent
 		EVENT_SCAN		=0x00000800,	//!< 摄像头扫码						
 		EVENT_KEY		=0x00001000,	//!< 按键
-		EVENT_PEN		=0x00002000,	//!< 触摸屏
+		EVENT_ABS		=0x00002000,	//!< 触摸屏
 		EVENT_UART		=0x00004000,	//!< UART串口
 		EVENT_AUDIO		=0x00008000,	//!< 音频通信接口		
 		EVENT_UI		=0x00010000,	//!< 图形用户界面接口
@@ -73,7 +74,7 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u16 par);
 //	extern void Get_EventMsg(int *pTimeOutMs,u32 *pEventControl);
 	extern void Rewrite_WaitTime(int tTimeOutMs);
 
-	typedef u32 (*fEven_Process)(u16);
+	typedef u32 (*fEven_Process)(u32);
 	typedef struct 
 	{
 		u32 				EventControl;
@@ -101,9 +102,9 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u16 par);
 		char Mask[4]; 	// "Even"
 		void (*Init)(int,unsigned int);	//int pshared, unsigned int value
 		void (*DeInit)(void);
-		void (*SetMsg)(u16,u16);
-		int (*GetMsg)(u16*,u16*);
-		int (*GetMsgPeek)(u16*,u16*);
+		void (*SetMsg)(u32,u32);
+		int (*GetMsg)(u32*,u32*);
+		int (*GetMsgPeek)(u32*,u32*);
 		void (*KillThread)(void*);
 		void (*CreateThread)(void *(*pFunThread)(void*));
 		void (*LoadThread)(void*); 

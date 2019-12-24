@@ -6,7 +6,7 @@
 #include "xui_font.h"
 #include "xui_gui.h"
 
-#include "key_hard.h"
+#include "input_hand.h"
 #include "EvenMsg.h"
 
 #include "ui_menu.h"

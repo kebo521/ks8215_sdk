@@ -14,7 +14,7 @@
 #include "xui_gui.h"
 //#include "EvenMsg.h"
 #include "QR_Encode.h"
-#include "key_hard.h"
+#include "input_hand.h"
 #include "sdk/sys_sdk.h"
 
 
@@ -65,8 +65,31 @@ char *API_eStrstr(char* src1, const char* src2)
 }
 */
 
+//================坐标转换=======================
+void TransformCoord_0(u16 *pX,u16 *pY)
+{
+}
+void TransformCoord_90(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	buff = *pY;
+	*pY = (gUiDataAll.tHardWindow.height - *pX);
+	*pX = buff;
+}
+void TransformCoord_180(u16 *pX,u16 *pY)
+{
+	*pX = (gUiDataAll.tHardWindow.width - *pX);
+	*pY = (gUiDataAll.tHardWindow.height - *pY);
+}
 
-
+void TransformCoord_270(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	buff = (gUiDataAll.tHardWindow.width - *pY);
+	*pY = *pX;
+	*pX = buff;
+}
+	
 //argv 支持的格式为
 //FB=xxxxx /*framebuffer 设备节点（默认值"/dev/graphics/fb0"）*/
 //INPUT=xxxx /*input 设备节点，可以多个（默认值/dev/keypad 和/dev/tp）。只有在应用不设置该参数时，按照默认值加载输入设备，当应用设置了该参数时，则只加载所设置的设备节点，比如如果仅设置这个参数为INPUT=/dev/tp，那么XUI 初始化时则只加载默认触摸屏输入，而不加载物理键盘，这就等于是屏蔽了物理按键输入*/
@@ -75,7 +98,6 @@ char *API_eStrstr(char* src1, const char* src2)
 //STATUSBAR=xxx /*状态栏高度（0-64，默认值0，设置不支持的值时均使用默认值）*/
 //示例：char *xui_argv[] = {"ROTATE=90","STATUSBAR=18"};
 //XuiOpen(sizeof(xui_argv)/sizeof(xui_argv[0]), xui_argv);
-
 
 
 int XuiOpen(int argc,char **argv)
@@ -87,7 +109,7 @@ int XuiOpen(int argc,char **argv)
 		pTag=eStrstr(argv[i],"FB=");
 		if(pTag)
 		{
-			gUiDataAll.Screen_fd=open_screen(pTag);
+			gUiDataAll.Screen_fd=open_screen(pTag,1);
 			if(gUiDataAll.Screen_fd < 0) 
 			{
 				LOG(LOG_INFO,"->main open screen ret NULL \r\n");
@@ -99,10 +121,10 @@ int XuiOpen(int argc,char **argv)
 		if(pTag)
 		{
 			//LOG(LOG_INFO,"Open Input[%d]\r\n",pTag);
-			gUiDataAll.keys_fd = open(pTag,O_RDWR);  // O_RDONLY
-			if(gUiDataAll.keys_fd > 0)
+			strcpy(gUiDataAll.sInput,pTag);
+			if(gUiDataAll.sInput[0])
 			{
-				Start_Key_thread();
+				Start_HandInput();
 			}
 			continue;
 		}
@@ -137,23 +159,36 @@ int XuiOpen(int argc,char **argv)
 		}
 	}
 	if(gUiDataAll.iRotate==0)
+	{
 		SetRotationAngle(XUI_ROTATE_0,&gUiDataAll.tHardWindow);
+		gUiDataAll.fTransformCoord=&TransformCoord_0;
+	}
 	else if(gUiDataAll.iRotate==90)
+	{
 		SetRotationAngle(XUI_ROTATE_90,&gUiDataAll.tHardWindow);
+		gUiDataAll.fTransformCoord=&TransformCoord_90;
+
+	}
 	else if(gUiDataAll.iRotate==180)
+	{
 		SetRotationAngle(XUI_ROTATE_180,&gUiDataAll.tHardWindow);
+		gUiDataAll.fTransformCoord=&TransformCoord_180;
+	}
 	else if(gUiDataAll.iRotate==270)
+	{
 		SetRotationAngle(XUI_ROTATE_270,&gUiDataAll.tHardWindow);
+		gUiDataAll.fTransformCoord=&TransformCoord_270;
+	}
 	return 0;
 }
 
 //关闭XUI
 void XuiClose(void)
 {
-	if(gUiDataAll.keys_fd)
+	if(gUiDataAll.sInput[0])
 	{
-		Stop_Key_thread();
-		close(gUiDataAll.keys_fd);
+		Stop_HandInput();
+		gUiDataAll.sInput[0]=0;
 	}
 	if(gUiDataAll.TsDev_fd)
 	{
@@ -301,7 +336,10 @@ int XuiCanvasDrawText(XuiWindow *window,unsigned int x,unsigned int y,unsigned i
 */
 void UI_Push(XuiWindow *pWindow,RECTL *pRect)
 {
-	xui_fb_push(pWindow,pRect,pWindow->widget);
+	if(pRect == NULL)
+		xui_fb_push((RECTL*)pWindow,pWindow->widget);
+	else
+		xui_window_push(pWindow,pRect,pWindow->widget);
 }
 
 
@@ -326,7 +364,8 @@ void XuiCanvasSetBackground(XuiWindow *pWindow,int bgstyle,void *img,A_RGB bg)
 			*pWidget++ = bg;
 		}
 	}
-	xui_fb_push(pWindow,NULL,pWidget);
+	xui_fb_push((RECTL*)pWindow,pWidget);
+	//xui_window_push(pWindow,NULL,pWidget);
 	pWindow->wBack = pWidget;
 }
 
@@ -376,11 +415,12 @@ void XuiDestroyWindow(XuiWindow *window)
 		tRect.top= 	window->top - pParent->top;
 		tRect.width= window->width;
 		tRect.height= window->height;
-		xui_fb_push(pParent,&tRect,pParent->widget);
+		xui_window_push(pParent,&tRect,pParent->widget);
 	}
 	else if(window->wBack)
 	{//-----根画布------
-		xui_fb_push(window,NULL,window->wBack);
+		xui_fb_push((RECTL*)window,window->wBack);
+		//xui_window_push(window,NULL,window->wBack);
 	}
 	free(window->wBack);
 	free(window);
@@ -436,7 +476,7 @@ int XuiClearArea(XuiWindow *window, unsigned int x,unsigned int y, unsigned int 
 		tRect.top=	y;
 		tRect.width= width;
 		tRect.height= height;
-		xui_fb_push(window,&tRect,window->widget);
+		xui_window_push(window,&tRect,window->widget);
 	}*/
 	return 0;
 }
@@ -446,7 +486,8 @@ void XuiShowWindow(XuiWindow *window,int show, int flag)
 {
 	if(show == 1)
 	{
-		xui_fb_push(window,NULL,window->widget);
+		xui_fb_push((RECTL*)window,window->widget);
+		//xui_window_push(window,NULL,window->widget);
 	}
 	else
 	{
@@ -460,11 +501,12 @@ void XuiShowWindow(XuiWindow *window,int show, int flag)
 			window = window->pChild;
 			tRect.left -= window->left;	//取相对位置
 			tRect.top -= window->top;		//取相对位置
-			xui_fb_push(window,&tRect,window->widget);
+			xui_window_push(window,&tRect,window->widget);
 		}
 		else if(window->wBack)
 		{
-			xui_fb_push(window,NULL,window->wBack);
+			xui_fb_push((RECTL*)window,window->wBack);
+			//xui_window_push(window,NULL,window->wBack);
 		}
 	}
 }

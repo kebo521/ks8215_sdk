@@ -108,63 +108,25 @@ ret_t xui_fb_close(XuiWindow* fb) {
 */
 #if(1)
 
-static GRSurface* gr_draw = NULL;
-static int fb_fd = -1;
+typedef struct {
+	int off_X,off_Y;
+    int width,height;
+    int sWidth,sHeight,rWidth;
+	int RotationAngle;
+	A_RGB*	pARGB;	//原始地址
+    A_RGB* 	pStartPoint;
+} DefSurface;
+static DefSurface tSurface={0};
+
 static int flagRotationAngle=XUI_ROTATE_0;
-static int offsetScreen;
-static int display_off_x,display_off_y,display_width,display_height;
-
-void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
-{
-	flagRotationAngle=Angle;
-	if(gr_draw == NULL) return;
-	//--------------------计算起点偏移量----------------------------------------------
-	if(flagRotationAngle == XUI_ROTATE_0)
-	{
-		offsetScreen= display_off_y * gr_draw->row_bytes+ display_off_x*gr_draw->pixel_bytes;
-	}
-	else if(flagRotationAngle == XUI_ROTATE_90)
-	{
-		offsetScreen = display_off_y * gr_draw->row_bytes + (display_off_x+display_width-1)*gr_draw->pixel_bytes;
-	}
-	else if(flagRotationAngle == XUI_ROTATE_180)
-	{
-		offsetScreen = (display_off_y+display_height-1) *gr_draw->row_bytes + (display_off_x+display_width-1)*gr_draw->pixel_bytes;
-	}
-	else if(flagRotationAngle == XUI_ROTATE_270)
-	{
-		offsetScreen = (display_off_y+display_height-1) *gr_draw->row_bytes + display_off_x*gr_draw->pixel_bytes;
-	}
-
-	if(pHardWindow)
-	{
-		memset(pHardWindow,0x00,sizeof(XuiWindow));
-		//pHardWindow->left =0;
-		//pHardWindow->top =0;
-		if(flagRotationAngle == XUI_ROTATE_0 || flagRotationAngle == XUI_ROTATE_180)
-		{
-			pHardWindow->width=display_width;
-			pHardWindow->height=display_height;
-		}
-		else
-		{
-			pHardWindow->width=display_height;
-			pHardWindow->height=display_width;
-		}
-	}
-}
+static int fb_fd = -1;
 
 void close_screen(void)
 {
-	if(gr_draw)
+	if(tSurface.pARGB)
 	{
-		if(gr_draw->data)
-		{
-			/* Unmap the framebuffer*/
-			munmap(gr_draw->data,gr_draw->height * gr_draw->row_bytes);
-		}
-		free(gr_draw);
-		gr_draw = NULL;
+		/* Unmap the framebuffer*/
+		munmap(tSurface.pARGB,tSurface.sHeight * tSurface.rWidth * sizeof(A_RGB));
 	}
 	
 	if(fb_fd != -1)
@@ -173,10 +135,11 @@ void close_screen(void)
 		close(fb_fd);
 		fb_fd = -1;
 	}
+	memset(&tSurface,0x00,sizeof(tSurface));
 	
 }
 
-int open_screen(const char* filename) //XuiWindow *pHardWindow
+int open_screen(const char* filename,int tpFlag) //XuiWindow *pHardWindow
 {
 	struct fb_var_screeninfo var;
 	struct fb_fix_screeninfo fix;
@@ -204,265 +167,107 @@ int open_screen(const char* filename) //XuiWindow *pHardWindow
 	pixel_bytes = var.bits_per_pixel / 8;
 	if(pixel_bytes == 3)
 		pixel_bytes = 4;
-	if(gr_draw == NULL)
-		gr_draw = malloc(sizeof(GRSurface));
-	memset(gr_draw,0x00,sizeof(GRSurface));
-	gr_draw->width = var.xres;
-	gr_draw->height = var.yres;
-	gr_draw->pixel_bytes = pixel_bytes;
-	gr_draw->row_bytes=fix.line_length;
-	gr_draw->data = pMapdata;
-
-	display_width = SCREEN_WIDTH;
-	display_height = SCREEN_HEIGT;
-	display_off_x = var.xres-display_width-10;
-	display_off_y = var.yres-display_height-10;
+	tSurface.sWidth = var.xres;
+	tSurface.sHeight= var.yres;
+	tSurface.width=SCREEN_WIDTH;
+	tSurface.height=SCREEN_HEIGT;
+	tSurface.off_X=tSurface.sWidth - tSurface.width-10;
+	tSurface.off_Y=10;
+	tSurface.rWidth=fix.line_length/sizeof(A_RGB);
+	tSurface.pARGB=(A_RGB*)pMapdata;
 	//-----------------------------------------------------------------------------------
 	return 1;
 }
 
-int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb) 
+//=============================画点====================================
+void fb_ui_point(int x,int y,A_RGB Inrgb) 
 {
-	int i,j,x,y,w,h;
-	int swidth,wWidth;
-	A_RGB *pMapData;
-	A_RGB *destin,*source;
-	if(gr_draw == NULL)
-		return -1;
-	if(pRect)
-	{
-		x = pRect->left;
-		y = pRect->top;
-		w =x+ pRect->width;
-		h =y+ pRect->height;
-	}
-	else
-	{
-		x = 0;
-		y = 0;
-		w = window->width;
-		h = window->height;
-	}
-	wWidth = window->width;
-	swidth	=gr_draw->row_bytes/sizeof(A_RGB);
-	pMapData = (A_RGB *)(gr_draw->data + offsetScreen);
-	if(flagRotationAngle == XUI_ROTATE_0)
-	{
-		pMapData += window->top*swidth + window->left + x;
-		for (j = y; j < h; j++) 
-		{
-			destin =pMapData + j*swidth;
-			source=pInrgb+(j*wWidth + x);
-			for(i=x; i<w; i++)
-			{
-				*destin++ = *source++;
-			}
-		}
-	}
-	else if(flagRotationAngle == XUI_ROTATE_90)
-	{
-		pMapData +=  (window->left+x)*swidth - window->top;
-		for (j = y; j < h; j++) 
-		{
-			destin = pMapData - j;
-			source=pInrgb+(j*wWidth + x);
-			for(i=x; i<w; i++)
-			{
-				*destin = *source++;
-				destin += swidth;
-			}
-		}
-	}
-	else if(flagRotationAngle == XUI_ROTATE_180)
-	{
-		pMapData -= window->top*swidth + window->left + x;
-		for (j = y; j < h; j++) 
-		{
-			destin = pMapData - j*swidth;
-			source=pInrgb+(j*wWidth + x);
-			for(i=x; i<w; i++)
-			{
-				*destin-- = *source++;
-			}
-		}
-	}
-	else if(flagRotationAngle == XUI_ROTATE_270)
-	{
-		pMapData -=  (window->left+x)*swidth - window->top;
-		for (j = y; j < h; j++) 
-		{
-			destin = pMapData+j;
-			source=pInrgb+(j*wWidth + x);
-			for(i=x; i<w; i++)
-			{
-				*destin = *source++;
-				destin -= swidth;
-			}
-		}
-	}
-	return RET_OK;
+	tSurface.pARGB[y*tSurface.rWidth + x]=Inrgb;
 }
 
-
-
-#else
-typedef struct {
-	int dev_fd;
-	u16 openFlagOK;
-	u16 bytes_per_pixel;
-	u16 width,height;	
-	int line_length;
-	int memlen;
-	A_RGB *pARGB;
-}screen_buffer;
-
-static screen_buffer fb_screen={0};
-void close_screen(void)
+void fb_ui_vline(int x, int y, int h, A_RGB argb) 
 {
-	if(fb_screen.openFlagOK)
+	register A_RGB *pbgra;
+	register int rWidth;
+	if(x >= tSurface.sWidth) return;
+	if(y >= tSurface.sHeight) return;
+	if((y+h) > tSurface.sHeight) 
+		h = tSurface.sHeight-y;
+	rWidth = tSurface.rWidth;
+	pbgra=tSurface.pARGB+(y*rWidth+ x);
+	while(h--)
 	{
-		/* Unmap the framebuffer*/
-		munmap(fb_screen.pARGB, fb_screen.memlen);
-		/* Close framebuffer device */
-		close(fb_screen.dev_fd);
-		memset(&fb_screen,0x00,sizeof(fb_screen));
+		*pbgra = argb;
+		pbgra += rWidth;
+		//fb_ui_point(x, y + i, argb);
 	}
-	fb_screen.openFlagOK = 0;
 }
 
-int open_screen(const char* filename,XuiWindow *pHardWindow) //XuiWindow *pHardWindow
+void fb_ui_hline(int x, int y, int w, A_RGB argb) 
 {
-	int ret;
-	struct fb_var_screeninfo var;
-	struct fb_fix_screeninfo fix;
-	printf("open screen open[%s]\r\n",filename);
-	if(fb_screen.openFlagOK)
+	register A_RGB *pbgra;
+	if(y >= tSurface.sHeight) return; 
+	if(x >= tSurface.sWidth) return;
+	if((x+w) > tSurface.sWidth)
+		w = tSurface.sWidth - x;
+	pbgra=tSurface.pARGB+(y*tSurface.rWidth+ x);
+	while(w--)
 	{
-		printf("open screen open[%s]\r\n",filename);
-		close_screen();
+		*pbgra++ =argb;
+	//	fb_ui_point(x + i, y, rgba);
 	}
-	if ((fb_screen.dev_fd = open(filename, O_RDWR)) == -1) {
-		printf("open screen open[%s] Err\r\n",filename);
-		return -1;
-	}
-	ret = ioctl(fb_screen.dev_fd, FBIOGET_VSCREENINFO, &var);
-	if (ret) {
-		printf("open screen in %s line %d\r\n",__FUNCTION__,__LINE__);
-		return -2;
-	} else {
-		fb_screen.width = var.xres;
-		fb_screen.height = var.yres;
-		fb_screen.bytes_per_pixel = var.bits_per_pixel / 8;
-		if(fb_screen.bytes_per_pixel == 3)
-			fb_screen.bytes_per_pixel = 4;
-	}
-	if (ioctl(fb_screen.dev_fd, FBIOGET_FSCREENINFO, &fix) < 0) {
-		close(fb_screen.dev_fd);
-		printf("open screen ioctl FBIOGET_FSCREENINFO Err\r\n");
-		return -3;
-	}
-	fb_screen.memlen = fb_screen.height * fix.line_length;
-	fb_screen.pARGB = (A_RGB *) mmap(NULL, fb_screen.memlen, PROT_READ|PROT_WRITE, MAP_FILE|MAP_SHARED, fb_screen.dev_fd, 0);
-	if (fb_screen.pARGB == MAP_FAILED)
-	{
-		printf("rw_sd_inand.c: Can't mmap frame pARGB ++\r\n");
-		close(fb_screen.dev_fd);
-		return -4;
-	}
-	fb_screen.line_length=fix.line_length;
-	printf("open screen [%d,%d]]memlen[%d]bytes_per_pixel[%d]line_length[%d]\r\n",fb_screen.width,fb_screen.height,fb_screen.memlen,fb_screen.bytes_per_pixel,fb_screen.line_length);
-	//memset(pFb->buffer, 0, pFb->memlen);
-	fb_screen.openFlagOK=1;
-	if(pHardWindow)
-	{
-		memset(pHardWindow,0x00,sizeof(XuiWindow));
-		pHardWindow->width= fb_screen.width;
-		pHardWindow->height= fb_screen.height;
-		pHardWindow->widget = fb_screen.pARGB;
-	}
-	return 1;
-}
-
-typedef union {
-	A_RGB uPix;
-	rgba_t tPix;
-}Pixel_Color;
-
-
-#define xui_fb_get_addr(x,y) 	(fb_screen.pARGB + y * fb_screen.width+ x)
-
-
-static int xui_fb_set(int x, int y,A_RGB argb) 
-{
-	Pixel_Color rgba;
-	rgba.uPix = argb;
-	Pixel_Color* p = (Pixel_Color*)xui_fb_get_addr(x, y);
-	if(rgba.tPix.a == 0xff)
-	{
-		p->uPix = rgba.uPix;
-	}
-	else if(rgba.tPix.a == 0)
-	{
-		
-	}
-	else
-	{
-		u8 a,da;
-		a = rgba.tPix.a;
-		da = 256-a;
-		p->tPix.r=(rgba.tPix.r*a + p->tPix.r*da)/256;
-		p->tPix.g=(rgba.tPix.g*a + p->tPix.g*da)/256;
-		p->tPix.b=(rgba.tPix.b*a + p->tPix.b*da)/256;
-	}
-	return RET_OK;
 }
 
 //=============================画线，起到到终点，支持斜线====================================
-int xui_fb_line(int xs, int ys, int xe, int ye,A_RGB argb) 
+void fb_ui_line(int xs, int ys, int xe, int ye,A_RGB argb) 
 {
-	int w,h,max;
+	int w,h,min;
 	float xm,ym,wm,hm;
-	w = xe-xs;
-	h = ye-ys;
-	if(w >= 0)
+	if(xe >= xs)
 	{
-		if(xs >= fb_screen.width) return RET_BAD_PARAMS;
+		if(xs >= tSurface.sWidth) return;
+		if(xe > tSurface.sWidth) xe = tSurface.sWidth;
+		w = xe-xs;
 		wm = w;
 	}
 	else
 	{
-		if(xe >= fb_screen.width) return RET_BAD_PARAMS;
+		if(xe >= tSurface.sWidth) return;
+		if(xs > tSurface.sWidth) xs = tSurface.sWidth;
+		w = xe-xs;
 		wm = -w;
 	}
-		
-	if(h >= 0)
+	if(ye >= ys)
 	{
-		if(ys >= fb_screen.height) return RET_BAD_PARAMS;
+		if(ys >= tSurface.sHeight) return;
+		if(ye > tSurface.sHeight) ye=tSurface.sHeight;
+		h = ye-ys;
 		hm = h;
 	}
 	else
 	{
-		if(ye >= fb_screen.height) return RET_BAD_PARAMS;
+		if(ye >= tSurface.sHeight) return;
+		if(ys > tSurface.sHeight) ys=tSurface.sHeight;
+		h = ye-ys;
 		hm = -h;
 	}
-	if(wm<hm) max=wm;
-	else max=hm;
-	wm = (float)w/max;
-	hm = (float)h/max;
+	if(wm<hm) min=wm;
+	else min=hm;
+	wm = (float)w/min;
+	hm = (float)h/min;
 	xm	=	xs;
 	ym	=	ys;
 	//LOG(LOG_INFO,"xui fb line [%f,%f]-[%d,%d],%d,[%f,%f]\r\n",xm,ym,xe,ye,max,wm,hm);
-	while(max--) 
+	while(min--) 
 	{
-		if(ys<fb_screen.height && xs<fb_screen.width)
-			xui_fb_set(xs,ys,argb);
+		tSurface.pARGB[ys*tSurface.rWidth+xs]=argb;
 		xm += wm;
 		ym += hm;
 		xs = xm;
 		ys = ym;
 	}
-	return RET_OK;
 }
+
 
 
 
@@ -478,15 +283,15 @@ typedef union {
 
 
 
-int xui_fb_circle(signed short x, signed short y, signed short r,A_RGB argb) 
+void fb_ui_circle(signed short x, signed short y, signed short r,A_RGB argb) 
 {
 	double sci,scs;
 	int jdm;
 	pixel_Data curr,old;
 	signed short xr,yr,xMax,yMax;
 
-	xMax=fb_screen.width;
-	yMax=fb_screen.height;
+	xMax=tSurface.sWidth;
+	yMax=tSurface.sHeight;
 	
 	jdm = r*M_PI;
 	scs = M_PI/jdm;
@@ -507,34 +312,34 @@ int xui_fb_circle(signed short x, signed short y, signed short r,A_RGB argb)
 		xr=x - curr.pix.x;
 		yr=y - curr.pix.y;
 		if(xr < xMax && yr < yMax)
-			xui_fb_set(fb,xr,yr,rgba);
+			fb_ui_point(fb,xr,yr,rgba);
 
 		xr= x + curr.pix.y;
 		yr= y - curr.pix.x;
 		if(xr < xMax && yr < yMax)
-			xui_fb_set(fb,xr,yr,rgba);
+			fb_ui_point(fb,xr,yr,rgba);
 
 		xr= x + curr.pix.x;
 		yr= y + curr.pix.y;
 		if(xr < xMax && yr < yMax)
-			xui_fb_set(fb,xr,yr,rgba);
+			fb_ui_point(fb,xr,yr,rgba);
 		
 		xr=x - curr.pix.y;
 		yr=y + curr.pix.x;
 		if(xr < xMax && yr < yMax)
-			xui_fb_set(fb,xr,yr,rgba);
+			fb_ui_point(fb,xr,yr,rgba);
 	#else
 		yr=y - curr.pix.y;
 		if(yr < yMax)
 		{
 			xr=x - curr.pix.x;
 			if( x < xMax)
-				xui_fb_set(xr,yr,argb);
+				fb_ui_point(xr,yr,argb);
 			if(curr.pix.x)
 			{
 				xr= x + curr.pix.x;
 				if( x < xMax)
-					xui_fb_set(xr,yr,argb);
+					fb_ui_point(xr,yr,argb);
 			}
 		}
 		yr= y + curr.pix.y;
@@ -542,12 +347,12 @@ int xui_fb_circle(signed short x, signed short y, signed short r,A_RGB argb)
 		{
 		//	xr= x + curr.pix.x;
 			if( x < xMax)
-				xui_fb_set(xr,yr,argb);
+				fb_ui_point(xr,yr,argb);
 			if(curr.pix.x)
 			{
 				xr=x - curr.pix.x;
 				if( x < xMax)
-					xui_fb_set(xr,yr,argb);
+					fb_ui_point(xr,yr,argb);
 			}
 		}
 		xr= x + curr.pix.y;
@@ -555,12 +360,12 @@ int xui_fb_circle(signed short x, signed short y, signed short r,A_RGB argb)
 		{
 			yr= y - curr.pix.x;
 			if( yr < yMax)
-				xui_fb_set(xr,yr,argb);
+				fb_ui_point(xr,yr,argb);
 			if(curr.pix.x)
 			{
 				yr= y + curr.pix.x;
 				if( yr < yMax)
-					xui_fb_set(xr,yr,argb);
+					fb_ui_point(xr,yr,argb);
 			}
 		}
 		xr=x - curr.pix.y;
@@ -568,30 +373,28 @@ int xui_fb_circle(signed short x, signed short y, signed short r,A_RGB argb)
 		{
 		//	yr=y + curr.pix.x;
 			if( yr < yMax)
-				xui_fb_set(xr,yr,argb);
+				fb_ui_point(xr,yr,argb);
 			if(curr.pix.x)
 			{
 				yr=y - curr.pix.x;
 				if( yr < yMax)
-					xui_fb_set(xr,yr,argb);
+					fb_ui_point(xr,yr,argb);
 			}
 		}	
 	#endif
 		old.uXY = curr.uXY;
-//	sleep(1);
 	}		
-	return RET_OK;
 }
 
 
-int xui_fb_fill_circle(signed short x, signed short y, signed short r,signed short ar, A_RGB argb) 
+void fb_ui_fill_circle(signed short x, signed short y, signed short r,signed short ar, A_RGB argb) 
 {
 	double sci,scs;
 	int jdm;
 	pixel_Data curr,old;
 	signed short xr,yr,xtwo,yMax;
 
-	yMax=fb_screen.height;
+	yMax=tSurface.sHeight;
 	
 	jdm = r*M_PI;
 	scs = M_PI/jdm;
@@ -616,11 +419,11 @@ int xui_fb_fill_circle(signed short x, signed short y, signed short r,signed sho
 			{
 				if(curr.pix.x)
 				{
-					xui_fb_hline(xr,yr,curr.pix.x*2,argb);
+					fb_ui_hline(xr,yr,curr.pix.x*2,argb);
 				}
 				else
 				{
-					xui_fb_set(xr,yr,argb);
+					fb_ui_point(xr,yr,argb);
 				}
 			}
 			yr= y + curr.pix.y;
@@ -628,11 +431,11 @@ int xui_fb_fill_circle(signed short x, signed short y, signed short r,signed sho
 			{
 				if(curr.pix.x)
 				{
-					xui_fb_hline(xr,yr,curr.pix.x*2,argb);
+					fb_ui_hline(xr,yr,curr.pix.x*2,argb);
 				}
 				else
 				{
-					xui_fb_set(xr,yr,argb);
+					fb_ui_point(xr,yr,argb);
 				}
 			}
 		}
@@ -642,161 +445,258 @@ int xui_fb_fill_circle(signed short x, signed short y, signed short r,signed sho
 			yr=y - curr.pix.y;
 			if(yr>=0 && yr < yMax)
 			{
-				xui_fb_hline(xr,yr,curr.pix.x-xtwo,argb);
-				xui_fb_hline(x+xtwo+1,yr,curr.pix.x-xtwo,argb);
+				fb_ui_hline(xr,yr,curr.pix.x-xtwo,argb);
+				fb_ui_hline(x+xtwo+1,yr,curr.pix.x-xtwo,argb);
 			}
 			yr= y + curr.pix.y;
 			if(yr < yMax)
 			{
-				xui_fb_hline(xr,yr,curr.pix.x-xtwo,argb);
-				xui_fb_hline(x+xtwo+1,yr,curr.pix.x-xtwo,argb);
+				fb_ui_hline(xr,yr,curr.pix.x-xtwo,argb);
+				fb_ui_hline(x+xtwo+1,yr,curr.pix.x-xtwo,argb);
 			}
 		}
 		old.uXY = curr.uXY;
 	}		
-	return RET_OK;
 }
 
 
 
-int xui_fb_vline(int x, int y, int h, A_RGB argb) 
+void fb_ui_fill_rect(int x, int y, int w, int h,A_RGB argb) 
 {
-	int i;
-	if(x >= fb_screen.width) 
-		return RET_BAD_PARAMS;
-	for (i = 0; i < h; i++) 
-	{
-		if((y+i) >= fb_screen.height) break;
-		xui_fb_set(x, y + i, argb);
-	}
-	return RET_OK;
-}
-
-int xui_fb_hline(int x, int y, int w, A_RGB argb) 
-{
-	int i;
-	A_RGB *pbgra;
-	if(y >= fb_screen.height) 
-		return RET_BAD_PARAMS;
-	pbgra=&fb_screen.pARGB[y*fb_screen.width + x];
-	for (i = 0; i < w; i++) 
-	{
-		if((x+i) >= fb_screen.width) break;
-		*pbgra++ =argb;
-	//	xui_fb_set(fb, x + i, y, rgba);
-	}
-	return RET_OK;
-}
-
-int xui_fb_fill_rect(int x, int y, int w, int h,A_RGB argb) 
-{
-	int i,j;
-	A_RGB *pbgra;
+	register A_RGB *pbgra;
+	register int i;
 	w += x;
 	h += y;
 
-	if(w > fb_screen.width) w=fb_screen.width;
-	if(h > fb_screen.height) h=fb_screen.height;
-	for (j = y; j < h; j++) 
+	if(w > tSurface.sWidth) w=tSurface.sWidth;
+	if(h > tSurface.sHeight) h=tSurface.sHeight;
+	for (;y < h; y++) 
 	{
-		pbgra=&fb_screen.pARGB[j*fb_screen.width + x];
+		//fb_ui_hline(fb, x, y + i, w, rgba);
+		pbgra=tSurface.pARGB+(y*tSurface.rWidth + x);
 		for(i=x; i<w; i++)
 		{
 			*pbgra++ = argb;
 		}
-		//xui_fb_hline(fb, x, y + i, w, rgba);
 	}
-	return RET_OK;
 }
 
-int xui_fb_stroke_rect(int x, int y, int w, int h,A_RGB argb) 
+void fb_ui_set_rect(int x, int y, int w, int h,A_RGB* pArgb) 
 {
-	if(x >= fb_screen.width || y >= fb_screen.height) 
-		return RET_BAD_PARAMS;
-	xui_fb_hline(x, y, w, argb);
-	xui_fb_hline(x, y + h - 1, w, argb);
-	xui_fb_vline(x, y, h, argb);
-	xui_fb_vline(x + w - 1, y, h, argb);
-	return RET_OK;
-}
-
-
-int xui_fb_show_rect(int x, int y, int w, int h,A_RGB* pArgb) 
-{
-	int i,j,imax,jmax;
-	Pixel_Color *pbgra;
-	Pixel_Color *prgb;
-	imax = x+w;
-	jmax = y+h;
-
-	if(imax > fb_screen.width) imax=fb_screen.width;
-	if(jmax > fb_screen.height) jmax=fb_screen.height;
-	prgb=(Pixel_Color *)pArgb;
-	for (j = y; j < jmax; j++) 
-	{
-		pbgra=(Pixel_Color *)(fb_screen.pARGB+(j*fb_screen.width + x));
-		for(i=x; i<imax; i++)
-		{
-			if(prgb->tPix.a == 0xff)
-			{
-				pbgra->uPix = prgb->uPix;
-			}
-			else if(prgb->tPix.a)
-			{
-				uint8_t a,ca;
-				a=prgb->tPix.a; ca=256-a;
-				pbgra->tPix.r=(prgb->tPix.r * a + pbgra->tPix.r * ca)/256;
-				pbgra->tPix.g=(prgb->tPix.g * a + pbgra->tPix.g * ca)/256;
-				pbgra->tPix.b=(prgb->tPix.b * a + pbgra->tPix.b * ca)/256;
-			}
-			pbgra++; prgb++;
-		}
-	}
-	return RET_OK;
-}
-
-int xui_fb_rect_push(int x, int y, int w, int h,A_RGB *pInrgb) 
-{
-	int i,j;
-	A_RGB *destin,*source;
-	source=pInrgb;
-	#ifdef DISPLAY_HORIZONTAL_SCREEN
-	destin=fb_screen.pARGB;
-	w += y;
-	h += x;
-	for(i=x; i<h; i++)
-	{
-		j = w;
-		while(j-- > y) 
-		{
-			destin[j*fb_screen.width + i] = *source++;
-		}
-	}
-	#else
+	register A_RGB *pbgra;
+	register int i;
 	w += x;
 	h += y;
-	for (j = y; j < h; j++) 
+
+	if(w > tSurface.sWidth) w=tSurface.sWidth;
+	if(h > tSurface.sHeight) h=tSurface.sHeight;
+	for (;y < h; y++) 
 	{
-		destin=(u32*)&fb_screen.pARGB[j*fb_screen.width + x];
+		pbgra=tSurface.pARGB+(y*tSurface.rWidth + x);
 		for(i=x; i<w; i++)
 		{
-			*destin++ = *source++;
+			*pbgra++ = *pArgb++;
 		}
 	}
-	#endif
-	return RET_OK;
 }
 
 
-int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb) 
-{
-	u16 i,j,x,y,w,h,mWidth;
-	u16 fbX,fbY;
-	A_RGB *destin,*source;
-	fbX = window->left;
-	fbY = window->top;
-	mWidth = window->width;
 
+A_RGB* xui_fb_GetScreenMsg(RECTL* pRect,int *pLineWidth) 
+{
+	pRect->left = tSurface.off_X;
+	pRect->top = tSurface.off_Y;
+	pRect->width = tSurface.width;
+	pRect->height = tSurface.height;
+	if(pLineWidth)
+		*pLineWidth=tSurface.rWidth;
+	return tSurface.pARGB;
+}
+
+void xui_fb_push(RECTL* pRect,A_RGB* pInRGB) 
+{
+	register int w,h,i;
+	register A_RGB *pStartPoint,*source;
+	w = pRect->width;
+	h = pRect->height;
+	if(flagRotationAngle == XUI_ROTATE_0)
+	{
+		pStartPoint = tSurface.pStartPoint + tSurface.rWidth*pRect->top + pRect->left;
+		while(h--)
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*source++ = *pInRGB++;
+			}
+			pStartPoint += tSurface.rWidth;
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_90)
+	{
+		register int rWidth = tSurface.rWidth;
+		pStartPoint = tSurface.pStartPoint+ pRect->left*tSurface.rWidth - pRect->top;
+		while(h--) 
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*source = *pInRGB++;
+				source += rWidth;
+			}
+			pStartPoint--;
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_180)
+	{
+		pStartPoint = tSurface.pStartPoint - pRect->top*tSurface.rWidth - pRect->left;
+		while(h--) 
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*source-- = *pInRGB++;
+			}
+			pStartPoint -= tSurface.rWidth;
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_270)
+	{
+		register int rWidth = tSurface.rWidth;
+		pStartPoint = tSurface.pStartPoint - tSurface.rWidth*pRect->left + pRect->top;
+		while(h--) 
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*source = *pInRGB++;
+				source -= rWidth;
+			}
+			pStartPoint++;
+		}
+	}
+}
+
+
+void xui_fb_pull(RECTL* pRect,A_RGB* pOutRGB) 
+{
+	register int w,h,i;
+	register A_RGB *pStartPoint,*source;
+	w = pRect->width;
+	h = pRect->height;
+	if(flagRotationAngle == XUI_ROTATE_0)
+	{
+		pStartPoint = tSurface.pStartPoint + tSurface.rWidth*pRect->top + pRect->left;
+		while(h--)
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*pOutRGB++ = *source++;
+			}
+			pStartPoint += tSurface.rWidth;
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_90)
+	{
+		register int rWidth = tSurface.rWidth;
+		pStartPoint = tSurface.pStartPoint+ pRect->left*tSurface.rWidth - pRect->top;
+		while(h--) 
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*pOutRGB++ = *source;
+				source += rWidth;
+			}
+			pStartPoint--;
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_180)
+	{
+		pStartPoint = tSurface.pStartPoint - pRect->top*tSurface.rWidth - pRect->left;
+		while(h--) 
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*pOutRGB++ = *source--;
+			}
+			pStartPoint -= tSurface.rWidth;
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_270)
+	{
+		register int rWidth = tSurface.rWidth;
+		pStartPoint = tSurface.pStartPoint - tSurface.rWidth*pRect->left + pRect->top;
+		while(h--) 
+		{
+			source =pStartPoint;
+			for(i=0; i<w; i++)
+			{
+				*pOutRGB++ = *source;
+				source -= rWidth;
+			}
+			pStartPoint++;
+		}
+	}
+}
+
+//=========================================================================================================
+int SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
+{
+	int offsetData=0;
+	if(tSurface.pARGB == NULL) return -1;
+	//--------------------计算起点偏移量----------------------------------------------
+	if(Angle == XUI_ROTATE_0)
+	{
+		offsetData = tSurface.off_Y * tSurface.rWidth + tSurface.off_X;
+	}
+	else if(Angle == XUI_ROTATE_90)
+	{
+		offsetData = tSurface.off_Y * tSurface.rWidth + (tSurface.off_X+tSurface.width-1);
+	}
+	else if(Angle == XUI_ROTATE_180)
+	{
+		offsetData = (tSurface.off_Y+tSurface.height-1) *tSurface.rWidth + (tSurface.off_X+tSurface.width-1);
+	}
+	else if(Angle == XUI_ROTATE_270)
+	{
+		offsetData = (tSurface.off_Y+tSurface.height-1) *tSurface.rWidth + tSurface.off_X;
+	}
+	tSurface.pStartPoint = tSurface.pARGB + offsetData;
+
+	if(pHardWindow)
+	{
+		memset(pHardWindow,0x00,sizeof(XuiWindow));
+		//pHardWindow->left =0;
+		//pHardWindow->top =0;
+		if(Angle == XUI_ROTATE_0 || Angle == XUI_ROTATE_180)
+		{
+			pHardWindow->width=tSurface.width;
+			pHardWindow->height=tSurface.height;
+		}
+		else
+		{
+			pHardWindow->width=tSurface.height;
+			pHardWindow->height=tSurface.width;
+		}
+	}
+	flagRotationAngle=Angle;
+	return 0;
+}
+
+void xui_fb_syn(void)
+{
+	
+}
+
+void xui_window_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb) 
+{
+	int i,j,x,y,w,h;
+	int wWidth;
+	A_RGB *pStartPoint;
+	register A_RGB *destin,*source;
 	if(pRect)
 	{
 		x = pRect->left;
@@ -808,85 +708,71 @@ int xui_fb_push(XuiWindow *window,RECTL* pRect,A_RGB* pInrgb)
 	{
 		x = 0;
 		y = 0;
-		w =x+ window->width;
-		h =y+ window->height;
+		w = window->width;
+		h = window->height;
 	}
-	
-	#ifdef DISPLAY_HORIZONTAL_SCREEN
-	destin=fb_screen.pARGB;
-	j = h;
-	while((j--) > y) 
+	wWidth = window->width;
+	if(flagRotationAngle == XUI_ROTATE_0)
 	{
-		source=&pInrgb[(h-j)*mWidth + x];
-		for(i=x; i<w; i++)
+		pStartPoint = tSurface.pStartPoint+ window->top*tSurface.rWidth + window->left + x;
+		for (j = y; j < h; j++) 
 		{
-			destin[(fbY+i)*fb_screen.width + (fbX+j)]  = *source++;
+			destin =pStartPoint + j*tSurface.rWidth;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin++ = *source++;
+			}
 		}
 	}
-	#else	//-----------------------------------------------------------
-	for (j = y; j < h; j++) 
+	else if(flagRotationAngle == XUI_ROTATE_90)
 	{
-		destin=fb_screen.pARGB+((u32)(fbY+j)*fb_screen.width + (fbX+x));
-		source=pInrgb+((u32)j*mWidth + x);
-		for(i=x; i<w; i++)
+		register int rWidth = tSurface.rWidth;
+		pStartPoint = tSurface.pStartPoint+ (window->left+x)*tSurface.rWidth - window->top;
+		for (j = y; j < h; j++) 
 		{
-			*destin++ = *source++;
+			destin = pStartPoint - j;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin = *source++;
+				destin += rWidth;
+			}
 		}
 	}
-	#endif
-	return RET_OK;
+	else if(flagRotationAngle == XUI_ROTATE_180)
+	{
+		pStartPoint = tSurface.pStartPoint - window->top*tSurface.rWidth - (window->left + x);
+		for (j = y; j < h; j++) 
+		{
+			destin = pStartPoint - j*tSurface.rWidth;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin-- = *source++;
+			}
+		}
+	}
+	else if(flagRotationAngle == XUI_ROTATE_270)
+	{
+		register int rWidth = tSurface.rWidth;
+		pStartPoint = tSurface.pStartPoint - (window->left+x)*tSurface.rWidth + window->top;
+		for (j = y; j < h; j++) 
+		{
+			destin = pStartPoint+j;
+			source=pInrgb+(j*wWidth + x);
+			for(i=x; i<w; i++)
+			{
+				*destin = *source++;
+				destin -= rWidth;
+			}
+		}
+	}
 }
+
+
+
 #endif
 
-/*
-int xui_fb_Init(XuiWindow *pWindow) 
-{
-	gr_draw = gr_draw_get();		 
-	fb_screen.width = gr_draw->width;		
-	fb_screen.height = gr_draw->height;		
-	fb_screen.line_length = gr_draw->row_bytes; 	   
-	fb_screen.bytes_per_pixel = gr_draw->pixel_bytes;		
-	fb_screen.pARGB = (A_RGB *)gr_draw->data;
 
-	if(pWindow)
-	{
-		memset(pWindow,0x00,sizeof(XuiWindow));
-		pWindow.left = 0;
-		pWindow.top = 0;
-		pWindow.width = fb_screen.width;
-		pWindow.height = fb_screen.height;
-		pWindow.widget = fb_screen.pARGB;
-	}
-	return 0;
-}
-
-//获取根画布
-XuiWindow *XuiRootCanvas(void)
-{
-	XuiWindow *Window;
-	u16 width,height;
-	int nWindLen;
-	gUiDataAll.iStatusbar = 24;
-
-	xui_fb_Init(&gUiDataAll.tHardWindow);
-	width=gUiDataAll.tHardWindow.width;
-	height= gUiDataAll.tHardWindow.height;
-	nWindLen =sizeof(XuiWindow) +  (height*width)*sizeof(A_RGB);
-	Window = (XuiWindow *)malloc(nWindLen);
-	if(Window==NULL)
-	{
-		LOG(LOG_INFO,"InitRootCanvas malloc(%d) is NULL\r\n",nWindLen);
-		return NULL;
-	}
-	u32_memset((u32*)Window,0x0000000,nWindLen/4);
-	Window->widget = (A_RGB*)((u8*)Window + sizeof(XuiWindow));	
-	Window->left=gUiDataAll.tHardWindow.left;
-	Window->top=gUiDataAll.tHardWindow.top + gUiDataAll.iStatusbar;
-	Window->width = width;
-	Window->height = height;
-	//LOG(LOG_INFO,"InitRootCanvas [%X][%X]\r\n",(u32)Window,(u32)Window->widget);
-	return Window;
-}
-
-*/
 
