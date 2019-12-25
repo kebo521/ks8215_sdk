@@ -87,7 +87,11 @@ int APP_QianTest(char *pTitle)
 {
 	XuiWindow *babyWindow,*pCurrWindow;
 	pCurrWindow = API_GUI_GetCurrWindow();
-	babyWindow = XuiCreateCanvas(pCurrWindow,24,60,192,296-130);
+	babyWindow = XuiCreateCanvas(pCurrWindow,40,40,160,160);
+	if(babyWindow==NULL)
+	{
+		return -1;
+	}
 	API_GUI_LoadWindow(babyWindow);
 
 	APP_QianMeun(pTitle);
@@ -104,13 +108,93 @@ int APP_QianTest(char *pTitle)
 	return 0;
 }
 
+int APP_UiBaseTest(char *pTitle)
+{
+	RECTL tRect;
+	u16 x,y,w,h;
+	xui_fb_GetScreenMsg(&tRect,NULL);
+	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB_CURR(127,127,127));
 
+	x=30;
+	y=30;
+	fb_ui_point(tRect.left+x,tRect.top+y,RGB_CURR(255,0,0));
+	x=40;
+	fb_ui_point(tRect.left+x,tRect.top+y,RGB_CURR(0,255,0));
+	x=50;
+	fb_ui_point(tRect.left+x,tRect.top+y,RGB_CURR(0,0,255));
+	
+	x=0;
+	w=tRect.width;
+	
+	y=60;
+	fb_ui_hline(tRect.left+x,tRect.top+y,w,RGB_CURR(255,0,0));
+	y=70;
+	fb_ui_hline(tRect.left+x,tRect.top+y,w,RGB_CURR(0,255,0));
+	y=80;
+	fb_ui_hline(tRect.left+x,tRect.top+y,w,RGB_CURR(0,0,255));
+
+	y=0;
+	h=tRect.height;
+	
+	x=60;
+	fb_ui_vline(tRect.left+x,tRect.top+y,h,RGB_CURR(255,0,0));
+	x=70;
+	fb_ui_vline(tRect.left+x,tRect.top+y,h,RGB_CURR(0,255,0));
+	x=80;
+	fb_ui_vline(tRect.left+x,tRect.top+y,h,RGB_CURR(0,0,255));
+
+	x=0;
+	y=0;
+	w=tRect.width;
+	h=tRect.height;
+	fb_ui_line(tRect.left+x,tRect.top+y,tRect.left+w,tRect.top+h,RGB_CURR(255,255,0));
+
+	x=tRect.width;
+	y=0;
+	w=0;
+	h=tRect.height;
+	fb_ui_line(tRect.left+x,tRect.top+y,tRect.left+w,tRect.top+h,RGB_CURR(0,255,255));
+
+	x=tRect.width/2;
+	y=tRect.height/2;
+	fb_ui_circle(tRect.left+x,tRect.top+y,100,RGB_CURR(255,0,255));
+
+	x=tRect.width/2-20;
+	y=tRect.height-40;
+	fb_ui_fill_rect(tRect.left+x,tRect.top+y,40,40,RGB_CURR(0,255,0));
+	return APP_WaitUiEvent(20*1000);
+
+}
+
+int APP_UiPullPush(char* title)
+{
+	RECTL tRect;
+	A_RGB *pRGB;
+	XuiWindow *pCurrWindow;
+	pCurrWindow = API_GUI_GetCurrWindow();
+	
+	tRect.left = pCurrWindow->left+50;
+	tRect.top= pCurrWindow->top+20;
+	tRect.width= 180;
+	tRect.height= 180;
+	pRGB=(A_RGB *)malloc(tRect.height * tRect.width * sizeof(A_RGB));
+	xui_fb_pull(&tRect,pRGB);
+	APP_ShowSta("≤‚ ‘±ÍÃ‚Â°","ƒ⁄¥Ê∏≤∏«");
+	sleep(3);
+	xui_fb_push(&tRect,pRGB);
+	free(pRGB);
+	sleep(3);
+	return 0;
+	//return APP_WaitUiEvent(3*1000);
+}
 
 int APP_HardTestMenu(char* title)
 {
 	CMenuItemStru MenuStruPar[]=
 	{
-		{"œ‘ æ∆¡≤‚ ‘",		APP_AutoTest},
+		{"UIª˘¥°≤‚ ‘",		APP_UiBaseTest},
+		{"UI_pull_push",	APP_UiPullPush},
+		//{"œ‘ æ∆¡≤‚ ‘",		APP_AutoTest},
 		{"∞¥º¸≤‚ ‘",		APP_AutoTest},
 		{"SIMø®≤‚ ‘",		APP_AutoTest},
 		{"…®¬ÎÕ∑≤‚ ‘",		APP_AutoTest},
@@ -204,6 +288,12 @@ int APP_AppHitShow(char *pTitle)
 	return 0;
 }
 
+int APP_TestDrawBoard(char *pTitle)
+{
+	APP_ShowDrawBoard(pTitle);
+	return API_WaitEvent(20*1000,EVENT_UI,EVENT_ABS,EVENT_NONE);
+}
+
 
 int APP_FactoryMeun(char* title)
 {
@@ -219,7 +309,7 @@ int APP_FactoryMeun(char* title)
 		{"µØ¥∞≤‚ ‘",			APP_AppHitShow},
 		{"∂˛Œ¨¬Î≤‚ ‘",			APP_QrCodeTest},
 		{"…Ë÷√”Ô—‘",			APP_SetLanguage},
-		
+		{"«©√˚∞Â≤‚ ‘",			APP_TestDrawBoard},
 	//	"µ•œÓ≤‚ ‘",				NULL,
 	//	"◊‘∂Ø≤‚ ‘",				NULL,
 	//	"≤‚ ‘Ω·π˚",				NULL,

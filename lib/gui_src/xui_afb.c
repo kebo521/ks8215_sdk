@@ -108,7 +108,7 @@ typedef struct {
 	int off_X,off_Y;
     int width,height;
     int sWidth,sHeight,rWidth;
-	int RotationAngle;
+//	int RotationAngle;
 	A_RGB*	pARGB;	//原始地址
     A_RGB* 	pStartPoint;
 } DefSurface;
@@ -154,9 +154,9 @@ int open_screen(const char* filename,int tpFlag) //XuiWindow *pHardWindow
 	tSurface.width = tSurface.sWidth - 2*tSurface.off_X;
 	tSurface.height= tSurface.sHeight - 2*tSurface.off_Y;
 
-	tSurface.pARGB = (A_RGB*)gr_draw.data;
+	tSurface.pARGB = (A_RGB*)gr_draw->data;
 	//-----------------------------------------------------------------------------------
-	printf("screen adf[%d,%d,%d,%d]\r\n",display_off_x,display_off_y,display_width,display_height);
+	printf("screen adf[%d,%d,%d,%d]\r\n",tSurface.off_X,tSurface.off_Y,tSurface.width,tSurface.height);
 	
 	tp_flag1 = tpFlag;	//0 为双画布，1为单画布
 
@@ -680,7 +680,7 @@ void xui_fb_syn(void)
 	gr_draw= gr_backend->flip(gr_backend);
 	if(!tp_flag1){
 		memcpy(gr_draw->data, tmpbuf, gr_draw->row_bytes*gr_draw->height);
-		tSurface.pARGB = (A_RGB*)gr_draw.data;
+		tSurface.pARGB = (A_RGB*)gr_draw->data;
 		tSurface.pStartPoint = tSurface.pARGB + offsetScreen;
 	}
 }
