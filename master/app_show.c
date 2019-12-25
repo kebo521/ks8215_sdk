@@ -23,6 +23,7 @@
 
 
 #include <time.h>
+//#include <sys/time.h>
 
 #include "comm_type.h"
 #include "xui_comm.h"
@@ -143,17 +144,35 @@ int APP_UiBaseTest(char *pTitle)
 	x=80;
 	fb_ui_vline(tRect.left+x,tRect.top+y,h,RGB_CURR(0,0,255));
 
+
+	w=tRect.width-1;
+	h=tRect.height-1;
+	fb_ui_point(tRect.left+w,tRect.top+h,RGB_CURR(255,0,0));
 	x=0;
 	y=0;
-	w=tRect.width;
-	h=tRect.height;
 	fb_ui_line(tRect.left+x,tRect.top+y,tRect.left+w,tRect.top+h,RGB_CURR(255,255,0));
 
-	x=tRect.width;
-	y=0;
 	w=0;
-	h=tRect.height;
+	h=tRect.height-1;
+	fb_ui_point(tRect.left+w,tRect.top+h,RGB_CURR(255,0,0));
+	x=tRect.width-1;
+	y=0;
 	fb_ui_line(tRect.left+x,tRect.top+y,tRect.left+w,tRect.top+h,RGB_CURR(0,255,255));
+
+
+	w=150;
+	h=tRect.height-1;
+	fb_ui_point(tRect.left+w,tRect.top+h,RGB_CURR(255,0,0));
+	x=150;
+	y=0;
+	fb_ui_line(tRect.left+x,tRect.top+y,tRect.left+w,tRect.top+h,RGB_CURR(0,127,127));
+
+	w=tRect.width-1;
+	h=150;
+	fb_ui_point(tRect.left+w,tRect.top+h,RGB_CURR(255,0,0));
+	x=0;
+	y=150;
+	fb_ui_line(tRect.left+x,tRect.top+y,tRect.left+w,tRect.top+h,RGB_CURR(0,0,127));
 
 	x=tRect.width/2;
 	y=tRect.height/2;
@@ -188,12 +207,65 @@ int APP_UiPullPush(char* title)
 	//return APP_WaitUiEvent(3*1000);
 }
 
+
+int APP_TestRun(char* title)
+{
+	float fa,fb;
+	u32 ua,ub,i,ta,sd;
+	struct timeval time_1,time_2;
+	APP_ShowSta(title,"≤‚ ‘ø™ º");
+	ta=31415;
+	ua=ta<<8;
+	ub=ta;
+	gettimeofday(&time_1, NULL);
+	i=100000;
+	while(i--)
+	{
+		ua+=ub;
+		sd = ua>>8;
+	}
+	gettimeofday(&time_2, NULL);
+	printf("---ua1->s=%d,us=%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec);
+
+
+	ua=ta<<8;
+	ub=ta;
+	gettimeofday(&time_1, NULL);
+	i=100000;
+	while(i--)
+	{
+		ua+=ub;
+		sd = ua/0x100;
+	}
+	gettimeofday(&time_2, NULL);
+	printf("---ua2->s=%d,us=%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec);
+
+	fa=ta/10;
+	fb=ta/1000;
+	gettimeofday(&time_1, NULL);
+	i=100000;
+	while(i--)
+	{
+		fa += fb;
+		sd = fa;
+	}
+	gettimeofday(&time_2, NULL);
+	printf("---fa->s=%d,us=%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec);
+
+
+	APP_ShowSta(title,"≤‚ ‘ÕÍ≥…");
+	
+	return 0;
+	//return APP_WaitUiEvent(3*1000);
+}
+
 int APP_HardTestMenu(char* title)
 {
 	CMenuItemStru MenuStruPar[]=
 	{
 		{"UIª˘¥°≤‚ ‘",		APP_UiBaseTest},
 		{"UI_pull_push",	APP_UiPullPush},
+		{"ÀŸ∂»≤‚ ‘",		APP_TestRun},
 		//{"œ‘ æ∆¡≤‚ ‘",		APP_AutoTest},
 		{"∞¥º¸≤‚ ‘",		APP_AutoTest},
 		{"SIMø®≤‚ ‘",		APP_AutoTest},

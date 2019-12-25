@@ -1360,7 +1360,7 @@ static void *get_EventMsg(void *args)
 					if(pAbsAnalytical)
 					{
 						int ret;
-						ret= (*pAbsAnalytical)(&varX,&varY);
+						ret= (*pAbsAnalytical)(&varX,&varY,timeMs);
 						if(ret == EVEN_ID_KEY_DOWN)
 							FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX);
 						else if(ret == EVEN_ID_ABS)

@@ -194,7 +194,7 @@ int APP_main(int argc, char* argv[]) {
 	char *pHardMsg[]={
 	"FB=/dev/fb0",
 	"INPUT=/dev/input",	//"INPUT=/dev/input/event2",
-	"ROTATE=0",
+	"ROTATE=270",
 //	"TSDEV=",
 	"STATUSBAR=24",
 	};
