@@ -221,7 +221,7 @@ void fb_ui_hline(int x, int y, int w, A_RGB argb)
 //=============================画线，起到到终点，支持斜线====================================
 void fb_ui_line(int xs, int ys, int xe, int ye,A_RGB argb) 
 {
-	int w,h,min;
+	int w,h,max;
 	float xm,ym,wm,hm;
 	if(xe >= xs)
 	{
@@ -251,20 +251,22 @@ void fb_ui_line(int xs, int ys, int xe, int ye,A_RGB argb)
 		h = ye-ys;
 		hm = -h;
 	}
-	if(wm<hm) min=wm;
-	else min=hm;
-	wm = (float)w/min;
-	hm = (float)h/min;
+	if(wm>hm) max=wm;
+	else max=hm;
+	tSurface.pARGB[ys*tSurface.rWidth+xs]=argb;
+	if(!max) return;
+	wm = (float)w/max;
+	hm = (float)h/max;
 	xm	=	xs;
 	ym	=	ys;
-	//LOG(LOG_INFO,"xui fb line [%f,%f]-[%d,%d],%d,[%f,%f]\r\n",xm,ym,xe,ye,max,wm,hm);
-	while(min--) 
+	max--;	//终点不画
+	while(max--) 
 	{
-		tSurface.pARGB[ys*tSurface.rWidth+xs]=argb;
 		xm += wm;
 		ym += hm;
 		xs = xm;
 		ys = ym;
+		tSurface.pARGB[ys*tSurface.rWidth+xs]=argb;
 	}
 }
 

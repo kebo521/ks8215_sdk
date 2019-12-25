@@ -2,7 +2,7 @@
 #ifndef _INPUT_HAND_
 #define _INPUT_HAND_
 
-typedef int (*DefAbsAnalytical)(u16*,u16*); 
+typedef int (*DefAbsAnalytical)(u16*,u16*,int); 
 
 extern DefAbsAnalytical pAbsAnalytical;
 

@@ -340,6 +340,7 @@ void UI_Push(XuiWindow *pWindow,RECTL *pRect)
 		xui_fb_push((RECTL*)pWindow,pWindow->widget);
 	else
 		xui_window_push(pWindow,pRect,pWindow->widget);
+	xui_fb_syn();
 }
 
 
@@ -366,6 +367,7 @@ void XuiCanvasSetBackground(XuiWindow *pWindow,int bgstyle,void *img,A_RGB bg)
 	}
 	xui_fb_push((RECTL*)pWindow,pWidget);
 	//xui_window_push(pWindow,NULL,pWidget);
+	xui_fb_syn();
 	pWindow->wBack = pWidget;
 }
 
@@ -422,6 +424,7 @@ void XuiDestroyWindow(XuiWindow *window)
 		xui_fb_push((RECTL*)window,window->wBack);
 		//xui_window_push(window,NULL,window->wBack);
 	}
+	xui_fb_syn();
 	free(window->wBack);
 	free(window);
 }
@@ -509,6 +512,7 @@ void XuiShowWindow(XuiWindow *window,int show, int flag)
 			//xui_window_push(window,NULL,window->wBack);
 		}
 	}
+	xui_fb_syn();
 }
 
 void UI_FillHitBack(A_RGB* pBack,int w,int h)

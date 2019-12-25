@@ -48,7 +48,7 @@ typedef struct{
 static ABS_RECT_Menu tAbsGuiRectMenu={0};
 
 
-int AbsAnalytical_Menu(u16* pX,u16* pY)
+int AbsAnalytical_Menu(u16* pX,u16* pY,int ctimeMs)
 {
 	u16 left,middle,right,y;
 	gUiDataAll.fTransformCoord(pX,pY);
@@ -1438,6 +1438,7 @@ int gShowTimeS_GetOut(void)
 	return 0;//EVENT_NONE;
 }
 
+/*
 int AbsAnalytical_DrawBoard(u16* pX,u16* pY)
 {
 	int x,y;
@@ -1492,7 +1493,48 @@ u32 API_UI_DrawBoard(u32 InEvent)
 	UI_Push(tGuiThemeMsg.pWindow,&tRect);
 	return EVENT_NONE;
 }
+*/
 
+static u16 abs_old_x,abs_old_y=0xffff;
+static int abs_old_timeMs;
+
+
+int AbsAnalytical_DrawBoard(u16* pX,u16* pY,int cTimeMs)
+{
+/*
+	int x,y;
+	x = *pX-tGuiThemeMsg.pWindow->left;
+	y = *pY-tGuiThemeMsg.pWindow->top;
+	if(x < 0 || y < 0 || x >= tGuiThemeMsg.pWindow->width ||  y >= tGuiThemeMsg.pWindow->height)
+		return -1;
+	*pX = x;
+	*pY = y;
+	*/
+	if((cTimeMs-abs_old_y) > 500)
+	{
+		abs_old_y = 0xffff;
+	}
+	abs_old_timeMs=cTimeMs;
+	
+	return EVEN_ID_ABS;
+}
+
+u32 API_UI_DrawBoard(u32 InEvent)
+{
+	u16 abs_x,abs_y;
+	abs_x=InEvent&0xffff;
+	abs_y=InEvent/0x10000;
+	
+	if(abs_old_y == 0xffff)
+		fb_ui_point(abs_x,abs_y,RGB_CURR(0,0,0));
+	else
+		fb_ui_line(abs_x,abs_y,abs_old_x,abs_old_y,RGB_CURR(0,0,0));
+	abs_old_x = abs_x;
+	abs_old_y = abs_y;
+		
+	xui_fb_syn();
+	return EVENT_NONE;
+}
 
 void APP_ShowDrawBoard(char *pTitle)
 {
