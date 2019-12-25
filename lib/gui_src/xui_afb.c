@@ -243,20 +243,23 @@ void fb_ui_line(int xs, int ys, int xe, int ye,A_RGB argb)
 	}
 	if(wm>hm) max=wm;
 	else max=hm;
+	tSurface.pARGB[ys*tSurface.rWidth+xs]=argb;
+	if(!max) return;
 	wm = (float)w/max;
 	hm = (float)h/max;
 	xm	=	xs;
 	ym	=	ys;
-	//LOG(LOG_INFO,"xui fb line [%f,%f]-[%d,%d],%d,[%f,%f]\r\n",xm,ym,xe,ye,max,wm,hm);
+	max--;	//÷’µ„≤ªª≠
 	while(max--) 
 	{
-		tSurface.pARGB[ys*tSurface.rWidth+xs]=argb;
 		xm += wm;
 		ym += hm;
 		xs = xm;
 		ys = ym;
+		tSurface.pARGB[ys*tSurface.rWidth+xs]=argb;
 	}
 }
+
 
 
 
