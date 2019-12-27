@@ -35,44 +35,86 @@ static GUI_THEME_MSG tGuiThemeMsg={0};
 
 
 typedef struct{
+	u16 sX,eX;
 	u16 sY,eY;
 }ABS_RECT;
+
+ABS_RECT tABSRectOk,tABSRectCancel;
+
+
+typedef struct{
+	u16 sY,eY;
+}ABS_UpDown;
 
 typedef struct{
 	u16 Num;
 	u8 vNum,hNum;
 	u16 sX,eX;
-	ABS_RECT tRect[8]; 
+	ABS_UpDown tRect[MENU_ITEM_MAX]; 
+	ABS_RECT* pCancel;
+	ABS_RECT* pOK;
 }ABS_RECT_Menu;
 
-static ABS_RECT_Menu tAbsGuiRectMenu={0};
+static ABS_RECT_Menu tAbsGuiRectOperat={0};
+int AbsAnalytical_Show(u16* pX,u16* pY)
+{
+	gUiDataAll.fTransformCoord_HS(pX,pY);
+	if(tAbsGuiRectOperat.pCancel)
+	{
+		if((*pX >= tAbsGuiRectOperat.pCancel->sX && *pX<tAbsGuiRectOperat.pCancel->eX) \
+			&& (*pY >= tAbsGuiRectOperat.pCancel->sY && *pY<tAbsGuiRectOperat.pCancel->eY))
+		{
+			*pX = K_CANCEL;
+			return EVEN_ID_KEY_DOWN;
+		}
+	}
+	if(tAbsGuiRectOperat.pOK)
+	{
+		if((*pX >= tAbsGuiRectOperat.pOK->sX && *pX<tAbsGuiRectOperat.pOK->eX) \
+			&& (*pY >= tAbsGuiRectOperat.pOK->sY && *pY<tAbsGuiRectOperat.pOK->eY))
+		{
+			*pX = K_OK;
+			return EVEN_ID_KEY_DOWN;
+		}
+	}
+	return -1;
+}
 
 int AbsAnalytical_Menu(u16* pX,u16* pY)
 {
 	u16 left,middle,right,y;
 	gUiDataAll.fTransformCoord_HS(pX,pY);
 //	if(x < 0 || y < 0) return -1;
-	if(*pX >= tAbsGuiRectMenu.sX && *pX<tAbsGuiRectMenu.eX)
+	if(*pX >= tAbsGuiRectOperat.sX && *pX<tAbsGuiRectOperat.eX)
 	{
 		left = 0;
-		right= tAbsGuiRectMenu.hNum-1;
+		right= tAbsGuiRectOperat.hNum-1;
 		y = *pY;
 		for(;;)
 		{
 			if(left > right) break;
 			middle= (left+right)>>1;
-			if(y < tAbsGuiRectMenu.tRect[middle].sY)
+			if(y < tAbsGuiRectOperat.tRect[middle].sY)
 			{
 				right = --middle;
 				continue;
 			}
-			if(y >= tAbsGuiRectMenu.tRect[middle].eY)
+			if(y >= tAbsGuiRectOperat.tRect[middle].eY)
 			{
 				left = ++middle;
 				continue;
 			}
 			//printf("middle[%d][%d,%d]\r\n",middle,tAbsGuiRectMenu.tRect[middle].sY,tAbsGuiRectMenu.tRect[middle].eY);
 			*pX = K_1+middle;
+			return EVEN_ID_KEY_DOWN;
+		}
+	}
+	if(tAbsGuiRectOperat.pCancel)
+	{
+		if((*pX >= tAbsGuiRectOperat.pCancel->sX && *pX<tAbsGuiRectOperat.pCancel->eX) \
+			&& (*pY >= tAbsGuiRectOperat.pCancel->sY && *pY<tAbsGuiRectOperat.pCancel->eY))
+		{
+			*pX = K_CANCEL;
 			return EVEN_ID_KEY_DOWN;
 		}
 	}
@@ -84,23 +126,23 @@ void LoadMenuMsg_ABS(void)
 {
 	int i,hoffset;
 	hoffset=tGuiThemeMsg.pWindow->top + tGuiThemeMsg.htitle;
-	tAbsGuiRectMenu.Num = tGuiThemeMsg.hn;
-	tAbsGuiRectMenu.vNum=1;
-	tAbsGuiRectMenu.hNum=tAbsGuiRectMenu.Num;
-	tAbsGuiRectMenu.sX = tGuiThemeMsg.pWindow->left;
-	tAbsGuiRectMenu.eX = tGuiThemeMsg.pWindow->left+tGuiThemeMsg.width;
-	for(i=0;i<tAbsGuiRectMenu.Num;i++)
+	tAbsGuiRectOperat.Num = tGuiThemeMsg.hn;
+	tAbsGuiRectOperat.vNum=1;
+	tAbsGuiRectOperat.hNum=tAbsGuiRectOperat.Num;
+	tAbsGuiRectOperat.sX = tGuiThemeMsg.pWindow->left;
+	tAbsGuiRectOperat.eX = tGuiThemeMsg.pWindow->left+tGuiThemeMsg.width;
+	for(i=0;i<tAbsGuiRectOperat.Num;i++)
 	{
-		tAbsGuiRectMenu.tRect[i].sY=hoffset;
+		tAbsGuiRectOperat.tRect[i].sY=hoffset;
 		hoffset += tGuiThemeMsg.hmc;
-		tAbsGuiRectMenu.tRect[i].eY=hoffset;
+		tAbsGuiRectOperat.tRect[i].eY=hoffset;
 	}
 }
 
 void API_GUI_LoadWindow(XuiWindow *pWindow)
 {
 	tGuiThemeMsg.hfont = FONT_SIZE;
-	tGuiThemeMsg.hn = 8+1;
+	tGuiThemeMsg.hn = MENU_ITEM_MAX+1;
 	do
 	{//------自动计算每行高度-------
 		tGuiThemeMsg.hn--;
@@ -413,8 +455,61 @@ int  API_GUI_CreateWindow(const char* pTitle,const char* pOk,const char* pCancel
 		LOG(LOG_INFO,"Set_Background [%d] ERR\r\n",ret);
 		return ret;
 	}
-	if(pTitle!=NULL)
+	if(pTitle)
 		API_GUI_ShowTitle(pTitle);
+	if(pCancel)
+	{
+		RECTL rect;
+		rect.top=0;
+		rect.left=0;
+		rect.height=tGuiThemeMsg.htitle;
+		rect.width= tGuiThemeMsg.hfont + tGuiThemeMsg.hfont/2;
+		tABSRectCancel.sX = tGuiThemeMsg.pWindow->left + rect.left;
+		tABSRectCancel.sY = tGuiThemeMsg.pWindow->top + rect.top;
+		tABSRectCancel.eX = tABSRectCancel.sX + rect.width;
+		tABSRectCancel.eY = tABSRectCancel.sY + rect.height;
+
+		rect.top++;
+		rect.left++;
+		rect.height--;rect.height--;
+		rect.width--; rect.width--;
+		API_GUI_ShowColorRect(&rect,1,tGuiThemeMsg.titleFclr);
+
+		rect.top--;
+		rect.left += tGuiThemeMsg.hfont/2;
+		UI_SetFontColor(tGuiThemeMsg.titleFclr,RGB565_CLEAR);
+		UI_DrawRectString(tGuiThemeMsg.pWindow,&rect,"<");
+		tAbsGuiRectOperat.pCancel = &tABSRectCancel;
+	}
+	else
+	{
+		tAbsGuiRectOperat.pCancel = NULL;
+	}
+	
+	if(pOk)
+	{
+		int sLen;
+		RECTL rect;
+		sLen = strlen(pOk);
+		rect.height=tGuiThemeMsg.hfont+2;
+		rect.width= sLen*tGuiThemeMsg.hfont/2 + 2;
+		rect.top = 1+ tGuiThemeMsg.pWindow->height - rect.height;
+		rect.left = (tGuiThemeMsg.width - rect.width)/2 -1;
+		API_GUI_ShowColorRect(&rect,1,tGuiThemeMsg.contFclr);
+		tABSRectOk.sX = tGuiThemeMsg.pWindow->left + rect.left;
+		tABSRectOk.sY = tGuiThemeMsg.pWindow->top + rect.top;
+		tABSRectOk.eX = tABSRectOk.sX + rect.width;
+		tABSRectOk.eY = tABSRectOk.sY + rect.height;
+		tAbsGuiRectOperat.pOK = &tABSRectOk;
+		rect.top += (rect.height-tGuiThemeMsg.hfont)/2;
+		rect.left ++;
+		UI_SetFontColor(tGuiThemeMsg.contFclr,RGB565_CLEAR);
+		UI_DrawRectString(tGuiThemeMsg.pWindow,&rect,pOk);
+	}
+	else
+	{
+		tAbsGuiRectOperat.pOK = NULL;
+	}
 	return 0;
 }
 
@@ -427,7 +522,6 @@ int  API_GUI_Info(const IMAGE* pImg,u32 tTextType,const char* pTextBuf)
 {
 	RECTL tCoordinate={0};
 	u16 sLen,offset,i,line,fontN,fontSize;
-	pAbsAnalytical = NULL;
 	fontSize=tTextType&TEXT_SIZE;
 	if(fontSize==0)
 	{//------没有字体加入默认字体-----------
@@ -524,7 +618,6 @@ int  API_GUI_Info(const IMAGE* pImg,u32 tTextType,const char* pTextBuf)
 
 void API_GUI_Edit_Prompt(u32 tFrontTextType,char* pFrontTextBuf,u32 tAfterTextType,char* pAfterTextBuf)
 {
-	pAbsAnalytical = NULL;
 	if(pFrontTextBuf)
 		API_GUI_Info(NULL,tFrontTextType|TEXT_ALIGN_LEFT|TEXT_VALIGN_TOP|TEXT_EXSTYLE_UNDERLINE,pFrontTextBuf);
 	if(pAfterTextBuf)
@@ -752,7 +845,6 @@ void API_GUI_Edit(u32 tTextType,char* pTextDef,int tMaxLen,u32 tImeType,u32 tIme
 	else
 		tGuiEditMsg.MaskCode=0x00;
 	tGuiEditMsg.KeyTimes=0;
-	pAbsAnalytical = NULL;
 	//---------------------------------------------------
 	tWaitEventMsg.pFunEvenKey=&API_UI_EditShow;
 	API_UI_EditShow(0,0);
@@ -811,7 +903,6 @@ u32 API_UI_OprInfo(u32 InEvent,int currTimeMs)
 
 void API_GUI_OprInfo(char* pShowInfo,char *pAfterText)
 {
-	pAbsAnalytical = NULL;
 	tGuiEditMsg.Rect.left	= 0;
 	tGuiEditMsg.Rect.top	= tGuiThemeMsg.htitle;
 	tGuiEditMsg.Rect.width= tGuiThemeMsg.width;
@@ -1153,7 +1244,6 @@ void API_GUI_InputEdit(char* pStrDef,int tMaxLen,u32 Way,Fun_ShowNum pShow)
 	{
 		tWaitEventMsg.pFunEvenKey=&API_UI_InputEdit;
 	}
-	pAbsAnalytical = NULL;
 }
 //=======================================================================================
 
@@ -1231,26 +1321,42 @@ make a QR code and display it to lcd
 
 int APP_WaitUiEvent(int tTimeOutMS)
 {
-	return API_WaitEvent(tTimeOutMS,EVENT_UI,EVENT_NONE);
+	return API_WaitEvent(tTimeOutMS,EVENT_UI|EVENT_ABS,EVENT_NONE);
 }
+
+int API_GUI_CreateShow(const char* pTitle,const char* pOk,const char* pCancel)
+{
+	API_GUI_CreateWindow(pTitle,pOk,pCancel,API_FillShowBack);
+	pAbsAnalytical = &AbsAnalytical_Show;
+}
+
+int API_GUI_CreateMenu(const char* pTitle,const char* pOk,const char* pCancel)
+{
+	API_GUI_CreateWindow(pTitle,pOk,pCancel,API_FillMenuBack);
+	pAbsAnalytical = &AbsAnalytical_Menu;
+}
+
+
 
 
 void APP_ShowSta(char *pTitle,char *pMsg)
 {
-	API_GUI_CreateWindow(pTitle,NULL,NULL,API_FillShowBack);
+	API_GUI_CreateShow(pTitle,NULL,NULL);
 	API_GUI_Info(NULL,TEXT_ALIGN_CENTER|TEXT_VALIGN_CENTER,pMsg);
 	API_GUI_Show();
 }
 
 int APP_ShowMsg(char *pTitle,char *pMsg,int timeOutMs)
 {
-	APP_ShowSta(pTitle,pMsg);
+	API_GUI_CreateShow(pTitle,TOK,TCANCEL);
+	API_GUI_Info(NULL,TEXT_ALIGN_CENTER|TEXT_VALIGN_CENTER,pMsg);
+	API_GUI_Show();
 	return APP_WaitUiEvent(timeOutMs);
 }
 
 int APP_ShowInfo(char *pTitle,char *pInfo,int timeOutMs)
 {
-	API_GUI_CreateWindow(pTitle,TOK,TCANCEL,API_FillShowBack);
+	API_GUI_CreateShow(pTitle,NULL,TCANCEL);
 	API_GUI_OprInfo(pInfo,NULL);
 	API_GUI_Show();
 	return APP_WaitUiEvent(timeOutMs);
@@ -1260,14 +1366,13 @@ int APP_ShowInfo(char *pTitle,char *pInfo,int timeOutMs)
 int APP_ShowQrCode(char *pTitle,const char* pInfo,A_RGB Color)
 {
 	RECTL tRect;
-	API_GUI_CreateWindow(pTitle,NULL,NULL,API_FillShowBack);
+	API_GUI_CreateShow(pTitle,NULL,TCANCEL);
 	tRect.left=0;
 	tRect.top= tGuiThemeMsg.htitle;
 	tRect.width = tGuiThemeMsg.width;
 	tRect.height= tGuiThemeMsg.hcont;
 	UI_ShowQrCode(tGuiThemeMsg.pWindow,&tRect,pInfo,Color);
 	API_GUI_Show();
-	pAbsAnalytical = NULL;
 	return 0;
 }
 
@@ -1303,7 +1408,7 @@ int APP_GUI_Menu(char* pTitle,int stratIndex,int tNum,int tCurInx,char** pMenuTe
 	char sBuff[32+2];
 	u16 i;
 	//-------------------显示标题--------------------------------
-	API_GUI_CreateWindow(pTitle,NULL,TCANCEL,API_FillMenuBack);
+	API_GUI_CreateMenu(pTitle,NULL,TCANCEL);
 	//-------------------显示菜单项--------------------------------
 	//tGuiThemeMsg.hmc;
 	tFontXY.top =tGuiThemeMsg.htitle + (tGuiThemeMsg.hmc-tGuiThemeMsg.hfont)/2;
@@ -1322,7 +1427,6 @@ int APP_GUI_Menu(char* pTitle,int stratIndex,int tNum,int tCurInx,char** pMenuTe
 		tFontXY.top += tGuiThemeMsg.hmc;
 	}
 	API_GUI_Show();
-	pAbsAnalytical = &AbsAnalytical_Menu;
 	return 0;
 }
 
