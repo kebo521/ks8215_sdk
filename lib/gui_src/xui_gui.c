@@ -971,17 +971,35 @@ u32 API_UI_MenuShow(u32 InEvent,int currTimeMs)
 		}
 		else if(keyNum==K_UP || keyNum==(K_1+MaxLine))
 		{
+			if(tGuiMenuMsg.tCurHead == 0)
+				return EVENT_NONE;
 			if(tGuiMenuMsg.tCurHead >= MaxLine)
 				tGuiMenuMsg.tCurHead -= MaxLine;
 			else if(tGuiMenuMsg.tCurHead > 0)
 				tGuiMenuMsg.tCurHead=0;
-			else
-				return EVENT_NONE;
+			//-----------------------------------
+			{
+				RECTL tRect;
+				tRect.left=0;
+				tRect.top=tGuiThemeMsg.htitle;
+				tRect.width = tGuiThemeMsg.width;
+				tRect.height = tGuiThemeMsg.hcont;
+				API_GUI_ClearScreen(&tRect);
+			}
 		}
 		else if(keyNum==K_DOWN || keyNum==K_0)
 		{
 			if((tGuiMenuMsg.tCurHead+MaxLine) < tGuiMenuMsg.tNum)
+			{
+				RECTL tRect;
+				tRect.left=0;
+				tRect.top=tGuiThemeMsg.htitle;
+				tRect.width = tGuiThemeMsg.width;
+				tRect.height = tGuiThemeMsg.hcont;
+				API_GUI_ClearScreen(&tRect);
+
 				tGuiMenuMsg.tCurHead += MaxLine;
+			}
 			else
 				return EVENT_NONE;
 		}
@@ -1589,6 +1607,16 @@ int AbsAnalytical_DrawBoard(u16* pX,u16* pY)
 	if((*pX >= tAbsRect.left && *pX < tAbsRect.width) \
 		&& (*pY >= tAbsRect.top && *pY < tAbsRect.height))
 		return EVEN_ID_ABS;
+	if(tAbsGuiRectOperat.pCancel)
+	{
+		gUiDataAll.fTransformCoord_HS(pX,pY);
+		if((*pX >= tAbsGuiRectOperat.pCancel->sX && *pX<tAbsGuiRectOperat.pCancel->eX) \
+			&& (*pY >= tAbsGuiRectOperat.pCancel->sY && *pY<tAbsGuiRectOperat.pCancel->eY))
+		{
+			*pX = K_CANCEL;
+			return EVEN_ID_KEY_DOWN;
+		}
+	}
 	abs_old_y=0xffff;
 	return -1;
 }
@@ -1606,8 +1634,8 @@ u32 API_UI_DrawBoard(u32 InEvent,int currTimeMs)
 	abs_old_x = abs_x;
 	abs_old_y = abs_y;
 	abs_old_timeMs = currTimeMs;
-	//if(!FIFO_OperatGetNum())
-	xui_fb_syn();
+	if(!FIFO_OperatGetNum())
+		xui_fb_syn();
 	return EVENT_NONE;
 }
 
@@ -1615,7 +1643,7 @@ void APP_ShowDrawBoard(char *pTitle)
 {
 	RECTL tRect;
 	u16 xs,ys,xe,ye,houdu=3;
-	API_GUI_CreateWindow(pTitle,NULL,NULL,API_FillShowBack);
+	API_GUI_CreateWindow(pTitle,NULL,TCANCEL,API_FillShowBack);
 	tRect.left = 10,
 	tRect.top= tGuiThemeMsg.htitle+10;
 	tRect.width = tGuiThemeMsg.width - 20;

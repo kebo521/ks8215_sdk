@@ -17,7 +17,7 @@ typedef struct
 	unsigned int		Par;
 	int 		currtimeMs;
 }CMessageItem;
-#define 	MESSAGE_MAX	128
+#define 	MESSAGE_MAX	256
 
 typedef struct _CMessageTable
 {

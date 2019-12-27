@@ -181,6 +181,7 @@ int APP_UiBaseTest(char *pTitle)
 	x=tRect.width/2-20;
 	y=tRect.height-40;
 	fb_ui_fill_rect(tRect.left+x,tRect.top+y,40,40,RGB_CURR(0,255,0));
+	xui_fb_syn();
 	return APP_WaitUiEvent(20*1000);
 
 }
@@ -199,13 +200,28 @@ int APP_UiPullPush(char* title)
 	pRGB=(A_RGB *)malloc(tRect.height * tRect.width * sizeof(A_RGB));
 	xui_fb_pull(&tRect,pRGB);
 	APP_ShowSta("测试标题濉","内存覆盖");
-	sleep(3);
+	OsSleep(3000);
 	xui_fb_push(&tRect,pRGB);
 	free(pRGB);
-	sleep(3);
+	OsSleep(3000);
 	return 0;
 	//return APP_WaitUiEvent(3*1000);
 }
+
+int APP_TestShowBottom(char* title)
+{
+	int i;
+	APP_ShowSta(title,"显示进度");
+	for(i=0;i<=100;i++)
+	{
+		APP_ShowBottomProgress(i);
+		OsSleep(1000);
+	}
+	return 0;
+}
+
+
+
 
 /*
 int APP_TestRun(char* title)
@@ -349,6 +365,7 @@ int APP_HardTestMenu(char* title)
 	{
 		{"UI基础测试",		APP_UiBaseTest},
 		{"UI_pull_push",	APP_UiPullPush},
+		{"进度调测试",		APP_TestShowBottom},
 		//{"速度测试",		APP_TestRun},
 		{"显示屏测试",		APP_ScreenTest},
 		{"按键测试",		APP_AutoTest},
@@ -472,7 +489,7 @@ int APP_FactoryMeun(char* title)
 	//	"老化测试",				NULL,
 	//	"拨打电话测试",			NULL,
 	};
-	return APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,30*1000);
+	return APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,-1);
 }
 
 
@@ -480,7 +497,10 @@ int APP_FactoryMeun(char* title)
 int APP_EDIT_SetDateTime(char* title)
 {
 	ST_TIME tTime;
+	char sDateTime[24];
 	OsGetTime(&tTime);
+	sprintf(sDateTime,"%04d-%02d-%02d %02d:%02d-%02d",tTime.Year,tTime.Month,tTime.Day,tTime.Hour,tTime.Minute,tTime.Second);
+	APP_ShowMsg(title,sDateTime,3000);
 	return 0;
 }
 
@@ -523,8 +543,6 @@ int APP_InstallAPP(char *pTitle)
 {
 	ST_APP_INFO tAppInfo;
 	APP_ShowSta(pTitle,"应用安装中");
-	sleep(1);
-	APP_ShowSta(pTitle,"应用安装中...");
 	if(0==InstallAPP("app.ksp",&tAppInfo))
 	{
 		OsSaveAppInfo(&tAppInfo);
