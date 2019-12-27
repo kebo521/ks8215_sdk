@@ -139,24 +139,24 @@ static void *get_keyMsg(void *args)
 					timeMs -= oldTimsMs;
 					if(timeMs > 0xFFFF) timeMs=0xFFFF;
 				}
-				FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,timeMs*0x10000 + varX);
+				FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX,timeMs);
 			}
 			//printf("----KEY[%x] down[%02X],timeMs[%d]-----\r\n",code,varX,timeMs);
 		}
 		if((type == EV_ABS) && (tWaitEventMsg.EventControl & EVENT_ABS))
 		{
-			if(oldX != varX && oldY != varY)
+			if(oldX != varX || oldY != varY)
 			{
 				oldX=varX; oldY=varY;
 				printf("---ABS[%d,%d]%d,timeMs[%d]-----\r\n",varX,varY,code,timeMs);
 				if(pAbsAnalytical)
 				{
 					int ret;
-					ret= (*pAbsAnalytical)(&varX,&varY,timeMs);
+					ret= (*pAbsAnalytical)(&varX,&varY);
 					if(ret == EVEN_ID_KEY_DOWN)
-						FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX);
+						FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX,timeMs);
 					else if(ret == EVEN_ID_ABS)
-						FIFO_OperatSetMsg(EVEN_ID_ABS,varY*0x10000+varX);
+						FIFO_OperatSetMsg(EVEN_ID_ABS,varY*0x10000+varX,timeMs);
 				}
 			}
 		}

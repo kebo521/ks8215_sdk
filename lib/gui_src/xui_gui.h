@@ -154,7 +154,7 @@ extern int APP_WaitUiEvent(int tTimeOutMS);
 //extern void UI_DisplayBitMapGet(u16 x,u16 y,u16 w,u16 h);
 //extern void UI_DisplayBitMapSet(void);
 //extern void UI_DisplayBitMapEND(void);
-
+extern void API_GUI_FillRect(RECTL *pRect,A_RGB Color);
 //==================================================================================
 extern void API_GUI_ShowColorRect(RECTL *pRect,u16 Width,A_RGB Color);
 

@@ -3,7 +3,7 @@
 
 //typedef int (*Fun_KillThread)(void*); 
 
-typedef void (*fPushTaskMsg)(u32);
+typedef void (*fPushTaskMsg)(u32,int);
 
 typedef enum
 {
@@ -21,9 +21,10 @@ typedef enum
 } EVEN_MSG_STATE;
 
 extern void FIFO_Init(int pshared, unsigned int value);
-extern void FIFO_OperatSetMsg(u32 MessageID,u32 Message);
-extern int FIFO_OperatGetMsg(u32 *pMessageID,u32 *pMessage);
-extern int FIFO_OperatPeekGetMsg(u32 *pMessageID,u32 *pMessage);
+extern void FIFO_OperatSetMsg(u32 MessageID,u32 Message,int currtimeMs);
+extern int FIFO_OperatGetMsg(u32 *pMessageID,u32 *pMessage,int *pTimeMs);
+extern int FIFO_OperatPeekGetMsg(u32 *pMessageID,u32 *pMessage,int *pTimeMs);
+extern int FIFO_OperatGetNum(void);
 
 
 extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
@@ -74,7 +75,7 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
 //	extern void Get_EventMsg(int *pTimeOutMs,u32 *pEventControl);
 	extern void Rewrite_WaitTime(int tTimeOutMs);
 
-	typedef u32 (*fEven_Process)(u32);
+	typedef u32 (*fEven_Process)(u32,int);
 	typedef struct 
 	{
 		u32 				EventControl;
@@ -102,9 +103,9 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
 		char Mask[4]; 	// "Even"
 		void (*Init)(int,unsigned int);	//int pshared, unsigned int value
 		void (*DeInit)(void);
-		void (*SetMsg)(u32,u32);
-		int (*GetMsg)(u32*,u32*);
-		int (*GetMsgPeek)(u32*,u32*);
+		void (*SetMsg)(u32,u32,int);
+		int (*GetMsg)(u32*,u32*,int*);
+		int (*GetMsgPeek)(u32*,u32*,int*);
 		void (*KillThread)(void*);
 		void (*CreateThread)(void *(*pFunThread)(void*));
 		void (*LoadThread)(void*); 

@@ -78,7 +78,8 @@ typedef struct _XuiWindow{
 typedef struct {
 	int SetFlag;	//是否初始化标记
 	int iRotate;	//旋转方向 0，90 ，180 ，270 
-	void (*fTransformCoord)(u16*,u16*);	//坐标转换 对应 iRotate
+	void (*fTransformCoord_HS)(u16*,u16*);	//坐标转换 硬件到软甲 对应 iRotate
+	void (*fTransformCoord_SH)(u16*,u16*);	//坐标转换 软甲到硬件 对应 iRotate
 	int iStatusbar;	///*状态栏高度（0-64，默认值0，设置不支持的值时均使用默认值）*/
 	
 	int TsDev_fd;
