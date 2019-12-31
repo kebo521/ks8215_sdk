@@ -15,13 +15,13 @@ typedef struct
 {
 	unsigned int		Id;
 	unsigned int		Par;
+	int 		currtimeMs;
 }CMessageItem;
-#define 	MESSAGE_MAX	128
+#define 	MESSAGE_MAX	256
 
 typedef struct _CMessageTable
 {
-	unsigned int		ReadID;
-	unsigned int		WriteID;
+	int					WriteID,ReadID;
 	CMessageItem		fifo[MESSAGE_MAX];
 	pthread_t			threadID;
 	fPushTaskMsg		pFunMessageTask;
@@ -44,14 +44,14 @@ void FIFO_OperatDeInit(void)
 }
 
 
-void FIFO_OperatSetMsg(u32 MessageID,u32 Message)
+void FIFO_OperatSetMsg(u32 MessageID,u32 Message,int currtimeMs)
 {
 	if(pMessageTable)
 	{//----------FIFO------------------------
-		register unsigned int WriteID;
-		WriteID=(MESSAGE_MAX-1)&(pMessageTable->WriteID++);	
-		pMessageTable->fifo[WriteID].Id= MessageID;
-		pMessageTable->fifo[WriteID].Par= Message;
+		register CMessageItem *pFiFo = &pMessageTable->fifo[(MESSAGE_MAX-1)&(pMessageTable->WriteID++)];
+		pFiFo->Id= MessageID;
+		pFiFo->Par= Message;
+		pFiFo->currtimeMs= currtimeMs;
 		sem_post(&g_sem_event);
 		//-----检查消息堆已满,覆盖最第一条倒入的消息---------
 		//if(!((pMessageTable->WriteID ^ pMessageTable->ReadID)&0x03))
@@ -60,33 +60,32 @@ void FIFO_OperatSetMsg(u32 MessageID,u32 Message)
 	}
 }
 //阻塞式接收消息接口
-int  FIFO_OperatGetMsg(u32 *pMessageID,u32 *pMessage)
+int  FIFO_OperatGetMsg(u32 *pMessageID,u32 *pMessage,int *pTimeMs)
 {
 	if(pMessageTable)
 	{
-		register unsigned int ReadID;
 	Adder_ReOperatGetMsgRead:
-		ReadID=pMessageTable->ReadID;
-		if(ReadID == pMessageTable->WriteID)
+		if(pMessageTable->ReadID == pMessageTable->WriteID)
 		{//-------没消息读消息----------
 			sem_wait(&g_sem_event);
 		}
 		//--------有消息取消息--------------------
-		if(ReadID ^ pMessageTable->WriteID)
+		if(pMessageTable->ReadID ^ pMessageTable->WriteID)
 		{//----------FIFO------------------------
-			pMessageTable->ReadID++;
-			ReadID &= (MESSAGE_MAX-1);
+			register CMessageItem *pFiFo = &pMessageTable->fifo[(MESSAGE_MAX-1)&(pMessageTable->ReadID++)];
 			//----------极限任务-----------
-			if(pMessageTable->fifo[ReadID].Id== EVEN_ID_MSG_TASK)
+			if(pFiFo->Id == EVEN_ID_MSG_TASK)
 			{
 				if(pMessageTable->pFunMessageTask)
-					(*pMessageTable->pFunMessageTask)(pMessageTable->fifo[ReadID].Par);
+					(*pMessageTable->pFunMessageTask)(pFiFo->Par,pFiFo->currtimeMs);
 				goto Adder_ReOperatGetMsgRead;
 			}					
 			if(pMessageID)
-				*pMessageID=pMessageTable->fifo[ReadID].Id;
+				*pMessageID=pFiFo->Id;
 			if(pMessage)
-				*pMessage=pMessageTable->fifo[ReadID].Par;
+				*pMessage = pFiFo->Par;
+			if(pTimeMs)
+				*pTimeMs = pFiFo->currtimeMs;
 			//LOG(LOG_INFO,"FIFO_OperatGetMsg[%X]ReadID[%d]MessageID[%d]Message[%d]\r\n",pMessageTable->threadID,ReadID, *pMessageID, *pMessage);
 			return 1;
 		}
@@ -95,28 +94,27 @@ int  FIFO_OperatGetMsg(u32 *pMessageID,u32 *pMessage)
 }
 
 //=====非阻塞式接收消息接口=========================
-int  FIFO_OperatPeekGetMsg(u32 *pMessageID,u32 *pMessage)
+int  FIFO_OperatPeekGetMsg(u32 *pMessageID,u32 *pMessage,int *pTimeMs)
 {
 	if(pMessageTable)
 	{
-		register unsigned int ReadID;
 	Adder_ReOperatPeekGetMsg:
-		ReadID=pMessageTable->ReadID;
-		if(ReadID ^ pMessageTable->WriteID)
+		if(pMessageTable->ReadID ^ pMessageTable->WriteID)
 		{//----------FIFO----有消息---------------------
-			pMessageTable->ReadID++;
+			register CMessageItem *pFiFo = &pMessageTable->fifo[(MESSAGE_MAX-1)&(pMessageTable->ReadID++)];
 			//----------极限任务-----------
-			ReadID &= (MESSAGE_MAX-1);
-			if(pMessageTable->fifo[ReadID].Id== EVEN_ID_MSG_TASK)
+			if(pFiFo->Id == EVEN_ID_MSG_TASK)
 			{
 				if(pMessageTable->pFunMessageTask)
-					(*pMessageTable->pFunMessageTask)(pMessageTable->fifo[ReadID].Par);
+					(*pMessageTable->pFunMessageTask)(pFiFo->Par,pFiFo->currtimeMs);
 				goto Adder_ReOperatPeekGetMsg;
 			}					
 			if(pMessageID)
-				*pMessageID=pMessageTable->fifo[ReadID].Id;
+				*pMessageID=pFiFo->Id;
 			if(pMessage)
-				*pMessage=pMessageTable->fifo[ReadID].Par;
+				*pMessage = pFiFo->Par;
+			if(pTimeMs)
+				*pTimeMs = pFiFo->currtimeMs;
 			return 1;
 		}
 		/*
@@ -129,6 +127,10 @@ int  FIFO_OperatPeekGetMsg(u32 *pMessageID,u32 *pMessage)
 	return 0;
 }
 
+int	FIFO_OperatGetNum(void)
+{
+	return pMessageTable->WriteID - pMessageTable->ReadID;
+}
 
 
 
@@ -137,7 +139,7 @@ void APP_PushMessageTask(fPushTaskMsg pFun,u32 par)
 	if(pMessageTable)
 	{
 		pMessageTable->pFunMessageTask=pFun;
-		FIFO_OperatSetMsg(EVEN_ID_MSG_TASK,par);
+		FIFO_OperatSetMsg(EVEN_ID_MSG_TASK,par,0);
 	}
 }
 
@@ -159,7 +161,7 @@ void APP_OperationKillThread(void* threadID)
 		pMessageTable=pMsgTable->pPrevious;
 		free(pMsgTable);
 		//------通知上层应用继续执行-------
-		FIFO_OperatSetMsg(EVEN_ID_FUNTION_OUT,0);
+		FIFO_OperatSetMsg(EVEN_ID_FUNTION_OUT,0,0);
 		//------结束当前线程----------
 		//pthread_cancel((pthread_t)threadID);
 		pthread_kill((pthread_t)threadID, SIGQUIT);
@@ -213,7 +215,7 @@ void  TimedRefresh500Ms()
 		tTimeOutMsEvent -= 500;
 		if(tTimeOutMsEvent <= 0)
 		{
-			FIFO_OperatSetMsg(EVEN_ID_TIME_OUT,500);
+			FIFO_OperatSetMsg(EVEN_ID_TIME_OUT,500,0);
 		}
 	}
 }
@@ -350,6 +352,7 @@ WAIT_EVENT_MSG tWaitEventMsg={0};
 
 u32  API_WaitEvent(int tTimeOutMs,...)
 {
+	int MsgTimeMs;
 	u32 MessageID,Message;
 	u32 Event,EventControl=0x00000000;
 	va_list arg;
@@ -370,7 +373,7 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 	Event=EVENT_NONE;
 	do
 	{//---------------阻塞处理-----------------------------------
-		if(FIFO_OperatGetMsg(&MessageID,&Message))
+		if(FIFO_OperatGetMsg(&MessageID,&Message,&MsgTimeMs))
 		{
 			switch(MessageID)
 			{
@@ -398,7 +401,7 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 					}
 					if(tWaitEventMsg.pFunEvenKey)
 					{
-						Event=(*tWaitEventMsg.pFunEvenKey)(Message);
+						Event=(*tWaitEventMsg.pFunEvenKey)(Message,MsgTimeMs);
 					}
 					else if(tWaitEventMsg.EventControl&EVENT_KEY)
 					{
@@ -412,7 +415,7 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 				case EVEN_ID_ABS:
 					if(tWaitEventMsg.pFunEvenKey)
 					{
-						Event=(*tWaitEventMsg.pFunEvenKey)(Message);
+						Event=(*tWaitEventMsg.pFunEvenKey)(Message,MsgTimeMs);
 					}
 					break;
 				case EVEN_ID_TIME_OUT:
@@ -423,7 +426,7 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 					{
 						fEven_Process	pOldEvenKey;
 						pOldEvenKey=tWaitEventMsg.pFunEvenKey;
-						Event=(*tWaitEventMsg.pFunEvenUI)(Message);
+						Event=(*tWaitEventMsg.pFunEvenUI)(Message,MsgTimeMs);
 						
 						tWaitEventMsg.EventControl=EventControl;
 						if(tTimeOutMs>0)

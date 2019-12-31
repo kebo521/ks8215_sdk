@@ -23,7 +23,6 @@
 
 
 #include <time.h>
-//#include <sys/time.h>
 
 #include "comm_type.h"
 #include "xui_comm.h"
@@ -91,6 +90,7 @@ int APP_QianTest(char *pTitle)
 	babyWindow = XuiCreateCanvas(pCurrWindow,40,40,160,160);
 	if(babyWindow==NULL)
 	{
+		LOG(LOG_ERROR,"XuiCreateCanvas Err\r\n");
 		return -1;
 	}
 	API_GUI_LoadWindow(babyWindow);
@@ -99,12 +99,12 @@ int APP_QianTest(char *pTitle)
 	APP_ShowProsseMenu();
 
 	XuiShowWindow(babyWindow,0,1);
-	sleep(2);
+	OsSleep(2000);
 	XuiShowWindow(babyWindow,1,1);
-	sleep(2);
+	OsSleep(2000);
 	
 	XuiDestroyWindow(babyWindow);
-	sleep(2);
+	OsSleep(2000);
 	API_GUI_LoadWindow(pCurrWindow);
 	return 0;
 }
@@ -181,6 +181,7 @@ int APP_UiBaseTest(char *pTitle)
 	x=tRect.width/2-20;
 	y=tRect.height-40;
 	fb_ui_fill_rect(tRect.left+x,tRect.top+y,40,40,RGB_CURR(0,255,0));
+	xui_fb_syn();
 	return APP_WaitUiEvent(20*1000);
 
 }
@@ -199,15 +200,30 @@ int APP_UiPullPush(char* title)
 	pRGB=(A_RGB *)malloc(tRect.height * tRect.width * sizeof(A_RGB));
 	xui_fb_pull(&tRect,pRGB);
 	APP_ShowSta("测试标题濉","内存覆盖");
-	sleep(3);
+	OsSleep(3000);
 	xui_fb_push(&tRect,pRGB);
 	free(pRGB);
-	sleep(3);
+	OsSleep(3000);
 	return 0;
 	//return APP_WaitUiEvent(3*1000);
 }
 
+int APP_TestShowBottom(char* title)
+{
+	int i;
+	APP_ShowSta(title,"显示进度");
+	for(i=0;i<=100;i++)
+	{
+		APP_ShowBottomProgress(i);
+		OsSleep(1000);
+	}
+	return 0;
+}
 
+
+
+
+/*
 int APP_TestRun(char* title)
 {
 	float fa,fb;
@@ -225,7 +241,7 @@ int APP_TestRun(char* title)
 		sd = ua>>8;
 	}
 	gettimeofday(&time_2, NULL);
-	printf("---ua1->s=%d,us=%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec);
+	printf("---ua1->s=%d,us=%d,,%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec,time_1.tv_usec);
 
 
 	ua=ta<<8;
@@ -238,7 +254,7 @@ int APP_TestRun(char* title)
 		sd = ua/0x100;
 	}
 	gettimeofday(&time_2, NULL);
-	printf("---ua2->s=%d,us=%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec);
+	printf("---ua2->s=%d,us=%d,,%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec,time_1.tv_usec);
 
 	fa=ta/10;
 	fb=ta/1000;
@@ -250,7 +266,7 @@ int APP_TestRun(char* title)
 		sd = fa;
 	}
 	gettimeofday(&time_2, NULL);
-	printf("---fa->s=%d,us=%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec);
+	printf("---fa->s=%d,us=%d,,%d\r\n",time_2.tv_sec-time_1.tv_sec,time_2.tv_usec-time_1.tv_usec,time_1.tv_usec);
 
 
 	APP_ShowSta(title,"测试完成");
@@ -258,6 +274,90 @@ int APP_TestRun(char* title)
 	return 0;
 	//return APP_WaitUiEvent(3*1000);
 }
+*/
+int APP_ScreenTest(char *pTitle)
+{
+	RECTL tRect;
+	u8	ScreenBitFail=0x3f;
+	API_GUI_CreateShow(pTitle,NULL,TCANCEL);
+	API_GUI_Info(NULL,TEXT_ALIGN_CENTER|TEXT_VALIGN_CENTER,"红绿蓝白黑灰渐");
+	API_GUI_Info(NULL,TEXT_ALIGN_RIGHT|TEXT_VALIGN_BOTTOM|TEXT_EXSTYLE_OVERLINE,"按[确认]键表示正常");
+	API_GUI_Show();
+	APP_WaitUiEvent(3000);
+	//--------全屏显示不刷新状态栏-----------------
+	xui_fb_GetScreenMsg(&tRect,NULL);
+	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB565_RED);
+	xui_fb_syn();
+	if(EVENT_OK==APP_WaitUiEvent(10*1000))
+	{
+		ScreenBitFail &= ~0x01;
+	}
+	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB565_GREEN);
+	xui_fb_syn();
+	if(EVENT_OK==APP_WaitUiEvent(10*1000))
+	{
+		ScreenBitFail &= ~0x02;
+	}
+	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB565_BLUE);
+	xui_fb_syn();
+	if(EVENT_OK==APP_WaitUiEvent(10*1000))
+	{
+		ScreenBitFail &= ~0x04;
+	}
+	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB565_WITHE);
+	xui_fb_syn();
+	if(EVENT_OK==APP_WaitUiEvent(10*1000))
+	{
+		ScreenBitFail &= ~0x08;
+	}
+	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB_CURR(127,127,127));
+	xui_fb_syn();
+	if(EVENT_OK==APP_WaitUiEvent(10*1000))
+	{
+		ScreenBitFail &= ~0x20;
+	}
+	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB565_BLACK);
+	xui_fb_syn();
+	if(EVENT_OK==APP_WaitUiEvent(10*1000))
+	{
+		ScreenBitFail &= ~0x10;
+	}
+	
+	{
+		u8 rgb,w;
+		u16 i,max;
+		i=tRect.top;
+		max=tRect.top+tRect.height;
+		w = tRect.width/3;
+		for(rgb=0;i<max;i++)
+		{
+			fb_ui_hline(tRect.left,i,w,RGB_CURR(rgb,0,0));
+			fb_ui_hline(tRect.left+w,i,w,RGB_CURR(0,rgb,0));
+			fb_ui_hline(tRect.left+w+w,i,w,RGB_CURR(0,0,rgb));
+			rgb++;
+			if(rgb==0) break;
+		}
+		for(i++;i<max;i++,rgb++)
+		{
+			fb_ui_hline(tRect.left,i,w,RGB_CURR(0,rgb,rgb));
+			fb_ui_hline(tRect.left+w,i,w,RGB_CURR(rgb,0,rgb));
+			fb_ui_hline(tRect.left+w+w,i,w,RGB_CURR(rgb,rgb,0));
+		}
+		xui_fb_syn();
+	}
+	if(EVENT_OK==APP_WaitUiEvent(10*1000))
+	{
+		ScreenBitFail &= ~0x40;
+	}
+//	tFacTestResult.ScreenBitFail=ScreenBitFail;
+//	tFacTestResult.RunFlag |= 0x04;
+	//--------恢复刷新状态栏-----------------
+//	OldScreen.screenRefState=TRUE;
+//	OldScreen.ReDisplayScreen=0xff;//重新显示所有
+	return 0;
+}
+
+
 
 int APP_HardTestMenu(char* title)
 {
@@ -265,8 +365,9 @@ int APP_HardTestMenu(char* title)
 	{
 		{"UI基础测试",		APP_UiBaseTest},
 		{"UI_pull_push",	APP_UiPullPush},
-		{"速度测试",		APP_TestRun},
-		//{"显示屏测试",		APP_AutoTest},
+		{"进度调测试",		APP_TestShowBottom},
+		//{"速度测试",		APP_TestRun},
+		{"显示屏测试",		APP_ScreenTest},
 		{"按键测试",		APP_AutoTest},
 		{"SIM卡测试",		APP_AutoTest},
 		{"扫码头测试",		APP_AutoTest},
@@ -388,7 +489,7 @@ int APP_FactoryMeun(char* title)
 	//	"老化测试",				NULL,
 	//	"拨打电话测试",			NULL,
 	};
-	return APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,30*1000);
+	return APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,-1);
 }
 
 
@@ -396,7 +497,10 @@ int APP_FactoryMeun(char* title)
 int APP_EDIT_SetDateTime(char* title)
 {
 	ST_TIME tTime;
+	char sDateTime[24];
 	OsGetTime(&tTime);
+	sprintf(sDateTime,"%04d-%02d-%02d %02d:%02d-%02d",tTime.Year,tTime.Month,tTime.Day,tTime.Hour,tTime.Minute,tTime.Second);
+	APP_ShowMsg(title,sDateTime,3000);
 	return 0;
 }
 
@@ -439,8 +543,6 @@ int APP_InstallAPP(char *pTitle)
 {
 	ST_APP_INFO tAppInfo;
 	APP_ShowSta(pTitle,"应用安装中");
-	sleep(1);
-	APP_ShowSta(pTitle,"应用安装中...");
 	if(0==InstallAPP("app.ksp",&tAppInfo))
 	{
 		OsSaveAppInfo(&tAppInfo);

@@ -297,7 +297,7 @@ int APP_ShowProsseMenu(void)
 		else
 		{
 			if(pMenuUiTable->fBackColour==NULL) pMenuUiTable->fBackColour=&API_FillMenuBack;
-			API_GUI_CreateWindow(pMenuUiTable->pTitle,TOK,TCANCEL,pMenuUiTable->fBackColour);
+			API_GUI_CreateWindow(pMenuUiTable->pTitle,NULL,TCANCEL,pMenuUiTable->fBackColour);
 			API_GUI_Menu(pMenuUiTable->pItem,ShowMenuItem,pMenuUiTable->TeamTatla,pMenuUiTable->TeamCurr,pMenuUiTable->ShowHead,pMenuUiTable->pAfterText,pMenuUiTable->pKeyFunc);
 			API_GUI_Show();
 		}

@@ -37,7 +37,7 @@ typedef enum
 
 //===========================================================================================
 
-extern void SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow);
+extern int SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow);
 
 extern int open_screen(const char* filename,int tpFlag);
 extern void close_screen(void);

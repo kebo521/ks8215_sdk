@@ -65,30 +65,55 @@ char *API_eStrstr(char* src1, const char* src2)
 }
 */
 
-//================坐标转换=======================
-void TransformCoord_0(u16 *pX,u16 *pY)
+//===========硬件到软件=====坐标转换=======================
+void HSTransformCoord_0(u16 *pX,u16 *pY)
 {
 }
-void TransformCoord_90(u16 *pX,u16 *pY)
+void HSTransformCoord_90(u16 *pX,u16 *pY)
 {
 	u16 buff;
 	buff = *pY;
 	*pY = (gUiDataAll.tHardWindow.height - *pX);
 	*pX = buff;
 }
-void TransformCoord_180(u16 *pX,u16 *pY)
+void HSTransformCoord_180(u16 *pX,u16 *pY)
 {
 	*pX = (gUiDataAll.tHardWindow.width - *pX);
 	*pY = (gUiDataAll.tHardWindow.height - *pY);
 }
 
-void TransformCoord_270(u16 *pX,u16 *pY)
+void HSTransformCoord_270(u16 *pX,u16 *pY)
 {
 	u16 buff;
 	buff = (gUiDataAll.tHardWindow.width - *pY);
 	*pY = *pX;
 	*pX = buff;
 }
+//===========软件到硬件=====坐标转换=======================
+void SHTransformCoord_0(u16 *pX,u16 *pY)
+{
+}
+void SHTransformCoord_90(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	buff = (gUiDataAll.tHardWindow.height - *pY);
+	*pY = *pX;
+	*pX = buff;
+}
+void SHTransformCoord_180(u16 *pX,u16 *pY)
+{
+	*pX = (gUiDataAll.tHardWindow.width - *pX);
+	*pY = (gUiDataAll.tHardWindow.height - *pY);
+}
+
+void SHTransformCoord_270(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	buff = *pY;
+	*pY = (gUiDataAll.tHardWindow.width - *pX);
+	*pX = buff;
+}
+
 	
 //argv 支持的格式为
 //FB=xxxxx /*framebuffer 设备节点（默认值"/dev/graphics/fb0"）*/
@@ -161,23 +186,26 @@ int XuiOpen(int argc,char **argv)
 	if(gUiDataAll.iRotate==0)
 	{
 		SetRotationAngle(XUI_ROTATE_0,&gUiDataAll.tHardWindow);
-		gUiDataAll.fTransformCoord=&TransformCoord_0;
+		gUiDataAll.fTransformCoord_HS=&HSTransformCoord_0;
+		gUiDataAll.fTransformCoord_SH=&SHTransformCoord_0;
 	}
 	else if(gUiDataAll.iRotate==90)
 	{
 		SetRotationAngle(XUI_ROTATE_90,&gUiDataAll.tHardWindow);
-		gUiDataAll.fTransformCoord=&TransformCoord_90;
-
+		gUiDataAll.fTransformCoord_HS=&HSTransformCoord_90;
+		gUiDataAll.fTransformCoord_SH=&SHTransformCoord_90;
 	}
 	else if(gUiDataAll.iRotate==180)
 	{
 		SetRotationAngle(XUI_ROTATE_180,&gUiDataAll.tHardWindow);
-		gUiDataAll.fTransformCoord=&TransformCoord_180;
+		gUiDataAll.fTransformCoord_HS=&HSTransformCoord_180;
+		gUiDataAll.fTransformCoord_SH=&SHTransformCoord_180;
 	}
 	else if(gUiDataAll.iRotate==270)
 	{
 		SetRotationAngle(XUI_ROTATE_270,&gUiDataAll.tHardWindow);
-		gUiDataAll.fTransformCoord=&TransformCoord_270;
+		gUiDataAll.fTransformCoord_HS=&HSTransformCoord_270;
+		gUiDataAll.fTransformCoord_SH=&SHTransformCoord_270;
 	}
 	return 0;
 }
@@ -609,29 +637,41 @@ void UI_hline(XuiWindow *pWindow,POINT *pRect,int height,A_RGB Color)
 
 void UI_FillRectSingLe(XuiWindow *pWindow,RECTL *pRect,A_RGB Color)
 {
-	u16 sX,sY,eX,eY,i,mWidth;
-	A_RGB* pWidget;
 	A_RGB *destin;
-	sX = pRect->left;
-	sY = pRect->top;
-	if(sY >= pWindow->height || sX >= pWindow->width)
-		return;
-	mWidth	= pWindow->width;
-	eX = sX+pRect->width;
-	if(eX > mWidth) eX=mWidth;
-
-	eY = sY+pRect->height;
-	if(eY > pWindow->height) 
-		eY=pWindow->height;
-	pWidget = pWindow->widget;
-	while(sY < eY)
+	if(pRect)
 	{
-		destin=pWidget+(sY*mWidth + sX);
-		for(i=sX; i<eX; i++)
+		A_RGB* pWidget;
+		u16 sX,sY,eX,eY,i,mWidth;
+		sX = pRect->left;
+		sY = pRect->top;
+		if(sY >= pWindow->height || sX >= pWindow->width)
+			return;
+		mWidth	= pWindow->width;
+		eX = sX+pRect->width;
+		if(eX > mWidth) eX=mWidth;
+	
+		eY = sY+pRect->height;
+		if(eY > pWindow->height) 
+			eY=pWindow->height;
+		pWidget = pWindow->widget;
+		while(sY < eY)
+		{
+			destin=pWidget+(sY*mWidth + sX);
+			for(i=sX; i<eX; i++)
+			{
+				*destin++ = Color;
+			}
+			sY++;
+		}
+	}
+	else	//全屏显示
+	{
+		int max=pWindow->width*pWindow->height;
+		destin = pWindow->widget;
+		while(max--)
 		{
 			*destin++ = Color;
 		}
-		sY++;
 	}
 }
 

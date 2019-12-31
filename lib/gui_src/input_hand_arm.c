@@ -1345,7 +1345,7 @@ static void *get_EventMsg(void *args)
 						timeMs -= oldTimsMs;
 						if(timeMs > 0xFFFF) timeMs=0xFFFF;
 					}
-					FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,timeMs*0x10000 + varX);
+					FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX,timeMs);
 				}
 				else
 				{
@@ -1354,17 +1354,17 @@ static void *get_EventMsg(void *args)
 			}
 			if((type == EV_ABS) && (tWaitEventMsg.EventControl & EVENT_ABS))
 			{
-				if(oldX != varX && oldY != varY)
+				if(oldX != varX || oldY != varY)
 				{
 					oldX=varX; oldY=varY;
 					if(pAbsAnalytical)
 					{
 						int ret;
-						ret= (*pAbsAnalytical)(&varX,&varY,timeMs);
+						ret= (*pAbsAnalytical)(&varX,&varY);
 						if(ret == EVEN_ID_KEY_DOWN)
-							FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX);
+							FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX,timeMs);
 						else if(ret == EVEN_ID_ABS)
-							FIFO_OperatSetMsg(EVEN_ID_ABS,varY*0x10000+varX);
+							FIFO_OperatSetMsg(EVEN_ID_ABS,varY*0x10000+varX,timeMs);
 					}
 					else
 					{

@@ -4,6 +4,7 @@
 #define _GUI_DISPLAY_
 
 #define FONT_SIZE    		(24)    
+#define MENU_ITEM_MAX    	8    		//菜单最大项数
 
 #define RGB565_WITHE		RGB_CURR(0xff,0xff,0xff)	//0x0000FFFF
 #define RGB565_BLACK		RGB_CURR(0x00,0x00,0x00)	//0x00000000
@@ -149,12 +150,14 @@ extern void API_FillShowBack(A_RGB* pBack,int w,int h);
 //extern int API_Set_Background(FunFillColour pFillColour);
 
 extern int APP_WaitUiEvent(int tTimeOutMS);
+extern int API_GUI_CreateShow(const char* pTitle,const char* pOk,const char* pCancel);
+extern int API_GUI_CreateMenu(const char* pTitle,const char* pOk,const char* pCancel);
 //=================================================================================
 
 //extern void UI_DisplayBitMapGet(u16 x,u16 y,u16 w,u16 h);
 //extern void UI_DisplayBitMapSet(void);
 //extern void UI_DisplayBitMapEND(void);
-
+extern void API_GUI_FillRect(RECTL *pRect,A_RGB Color);
 //==================================================================================
 extern void API_GUI_ShowColorRect(RECTL *pRect,u16 Width,A_RGB Color);
 

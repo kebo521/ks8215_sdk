@@ -199,7 +199,7 @@ int OsSaveAppInfo(ST_APP_INFO* pAppInfo)
 				return -3;
 			memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
 			tSt_Sys.pSysMsg->mAppMax++;
-			fsync(tSt_Sys.shmAid);
+		//	fsync(tSt_Sys.shmAid);
 			//sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
 		}
 		return 0;

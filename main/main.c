@@ -555,6 +555,7 @@ int main(int argc, char* argv[])
 		{//---守护进程-------
 			pid_t _pid_t;
 			_pid_t = wait(&pid); //---等待孙进程结束------
+			fsync(shmAid);
 			printf("------reRunAPP-[%d,%d]---------\n",_pid_t,pid);
 			/*
 			{
