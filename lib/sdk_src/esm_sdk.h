@@ -7,8 +7,11 @@
 #define ERR_GEN_FAIL		-2402 //…˙≥… RSA √‹‘ø∂‘ ß∞‹
 
 
-
-
+#define SHA_TYPE_1			4
+#define SHA_TYPE_224		5
+#define SHA_TYPE_256		6
+#define SHA_TYPE_384		7
+#define SHA_TYPE_512		8
 
 
 

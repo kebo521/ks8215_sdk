@@ -277,7 +277,9 @@ void OsLogHex(char* msg,void* pBuff,int Len)
 
 		if((pSave+(3*nMax + 2)) > pEnd)
 		{
-			printf(sbuff,pSave-sbuff);	//two parameter ->warning: format not a string literal and no format arguments
+			//*pSave = '\0'; fputs(sbuff, stdout);
+			fwrite(sbuff,1,pSave-sbuff,stdout);
+			//printf(sbuff,pSave-sbuff);	//two parameter ->warning: format not a string literal and no format arguments
 			pSave = sbuff;
 		}
 		
@@ -292,7 +294,9 @@ void OsLogHex(char* msg,void* pBuff,int Len)
 		*pSave++ = '\n';
 		Len -= nMax;
 	}
-	printf(sbuff,pSave-sbuff); //two parameter ->warning: format not a string literal and no format arguments
+	//*pSave = '\0'; fputs(sbuff, stdout);
+	fwrite(sbuff,1,pSave-sbuff,stdout);
+	//printf(sbuff,pSave-sbuff); //two parameter ->warning: format not a string literal and no format arguments
 	#endif
 }
 

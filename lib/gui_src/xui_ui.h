@@ -108,6 +108,7 @@ extern void UI_ShowBackground(XuiWindow *pWindow);
 extern void UI_vline(XuiWindow *pWindow,POINT *pRect,int width,A_RGB Color);
 extern void UI_hline(XuiWindow *pWindow,POINT *pRect,int height,A_RGB Color);
 extern void UI_FillRectSingLe(XuiWindow *pWindow,RECTL *pRect,A_RGB Color);
+extern void UI_FillRectXor(XuiWindow *pWindow,RECTL *pRect,A_RGB Color);
 extern void UI_ShowQrCode(XuiWindow *pWindow,RECTL* pRect,const char* pInfo,A_RGB Color);
 
 extern void UI_ShowBottomProgress(XuiWindow *pWindow,RECTL *pRect,int thick,int ratio);

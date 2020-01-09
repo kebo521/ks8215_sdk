@@ -357,6 +357,60 @@ int APP_ScreenTest(char *pTitle)
 	return 0;
 }
 
+int APP_TestUart(char* pTitle)
+{
+	int ret,port;
+	char showBuff[256];
+	port = PORT_COM1;
+	API_GUI_CreateShow(pTitle,NULL,TCANCEL);
+	showBuff[0]='\0';
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"打开串口");
+	ret=OsPortOpen(port,"115200,8,n,1");
+	if(ret)
+	{
+		LOG(LOG_ERROR,"OsPortOpen Err[%d]\r\n",ret);
+		return 1;
+	}
+	OsPortReset(port);
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n发送起动数据");
+	OsPortSend(port,"com start..\n",13);
+	{
+		int offset=0;
+		char buff[1024];
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据",ret);
+		ret=OsPortRecv(port,buff,1,10*1000);
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d,%02X]",ret,buff[0]);
+		if(ret > 0)
+		{
+			while(ret>0)
+			{
+				offset += ret;
+				OsSleep(10);
+				ret=OsPortRecv(port,buff+offset,sizeof(buff)-offset,0);
+				APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d]",ret);
+			}
+			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n返回[%d]数据",offset);
+			OsPortSend(port,buff,offset);
+		}
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据",ret);
+		ret=OsPortRecv(port,buff,1,5*1000);
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d,%02X]",ret,buff[0]);
+		if(ret > 0)
+		{
+			while(ret>0)
+			{
+				offset += ret;
+				OsSleep(10);
+				ret=OsPortRecv(port,buff+offset,sizeof(buff)-offset,0);
+				APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d]",ret);
+			}
+		}
+	}
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n关闭串口",ret);
+	OsPortClose(port);
+	OsSleep(5000);
+	return 0;
+}
 
 
 int APP_HardTestMenu(char* title)
@@ -365,6 +419,7 @@ int APP_HardTestMenu(char* title)
 	{
 		{"UI基础测试",		APP_UiBaseTest},
 		{"UI_pull_push",	APP_UiPullPush},
+		{"串口测试",		APP_TestUart},
 		{"进度调测试",		APP_TestShowBottom},
 		//{"速度测试",		APP_TestRun},
 		{"显示屏测试",		APP_ScreenTest},

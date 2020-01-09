@@ -675,6 +675,47 @@ void UI_FillRectSingLe(XuiWindow *pWindow,RECTL *pRect,A_RGB Color)
 	}
 }
 
+void UI_FillRectXor(XuiWindow *pWindow,RECTL *pRect,A_RGB Color)
+{
+	A_RGB *destin;
+	if(pRect)
+	{
+		A_RGB* pWidget;
+		u16 sX,sY,eX,eY,i,mWidth;
+		sX = pRect->left;
+		sY = pRect->top;
+		if(sY >= pWindow->height || sX >= pWindow->width)
+			return;
+		mWidth	= pWindow->width;
+		eX = sX+pRect->width;
+		if(eX > mWidth) eX=mWidth;
+	
+		eY = sY+pRect->height;
+		if(eY > pWindow->height) 
+			eY=pWindow->height;
+		pWidget = pWindow->widget;
+		while(sY < eY)
+		{
+			destin=pWidget+(sY*mWidth + sX);
+			for(i=sX; i<eX; i++)
+			{
+				*destin++ ^= Color;
+			}
+			sY++;
+		}
+	}
+	else	//È«ÆÁÏÔÊ¾
+	{
+		int max=pWindow->width*pWindow->height;
+		destin = pWindow->widget;
+		while(max--)
+		{
+			*destin++ ^= Color;
+		}
+	}
+}
+
+
 /*
 void UI_SetRectBuff(XuiWindow *pWindow,RECTL *pRect,A_RGB *pRGB)
 {
