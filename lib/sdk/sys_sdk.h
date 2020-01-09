@@ -2,6 +2,8 @@
 #ifndef _SYS_SDK_
 #define _SYS_SDK_
 
+#include "sdk_port.h"
+
 //=================通用返回码==================================
 #define RET_OK						0 //成功
 #define ERR_INVALID_HANDLE	-1000 //非法句柄

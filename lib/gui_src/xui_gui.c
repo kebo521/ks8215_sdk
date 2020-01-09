@@ -475,7 +475,12 @@ int  API_GUI_CreateWindow(const char* pTitle,const char* pOk,const char* pCancel
 		rect.width--; rect.width--;
 		API_GUI_ShowColorRect(&rect,1,tGuiThemeMsg.titleFclr);
 
-		rect.top--;
+		if(rect.height <  tGuiThemeMsg.hfont)
+			rect.top--;
+		else
+		{
+			rect.top += (rect.height-tGuiThemeMsg.hfont)>>1;
+		}
 		rect.left += tGuiThemeMsg.hfont/2;
 		UI_SetFontColor(tGuiThemeMsg.titleFclr,RGB565_CLEAR);
 		UI_DrawRectString(tGuiThemeMsg.pWindow,&rect,"<");
@@ -966,6 +971,16 @@ u32 API_UI_MenuShow(u32 InEvent,int currTimeMs)
 			keyNum -= K_1;
 			if((tGuiMenuMsg.tCurHead+keyNum) >= tGuiMenuMsg.tNum)
 				return EVENT_NONE;
+			{//--------------添加选项效果---------------------
+				RECTL tRect;
+				tRect.left = 0;
+				tRect.top =tGuiThemeMsg.htitle+tGuiThemeMsg.hmc*keyNum;
+				tRect.width = tGuiThemeMsg.width;
+				tRect.height = tGuiThemeMsg.hmc;
+				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
+				UI_Push(tGuiThemeMsg.pWindow,&tRect);
+				OsSleep(100);
+			}
 			tGuiMenuMsg.tCurInx=(tGuiMenuMsg.tCurHead+keyNum);
 			return EVENT_INDEX;
 		}
@@ -1344,14 +1359,17 @@ int APP_WaitUiEvent(int tTimeOutMS)
 
 int API_GUI_CreateShow(const char* pTitle,const char* pOk,const char* pCancel)
 {
-	API_GUI_CreateWindow(pTitle,pOk,pCancel,API_FillShowBack);
+	int ret=API_GUI_CreateWindow(pTitle,pOk,pCancel,API_FillShowBack);
 	pAbsAnalytical = &AbsAnalytical_Show;
+	return ret;
 }
 
 int API_GUI_CreateMenu(const char* pTitle,const char* pOk,const char* pCancel)
 {
-	API_GUI_CreateWindow(pTitle,pOk,pCancel,API_FillMenuBack);
+	int ret;
+	ret= API_GUI_CreateWindow(pTitle,pOk,pCancel,API_FillMenuBack);
 	pAbsAnalytical = &AbsAnalytical_Menu;
+	return ret;
 }
 
 
