@@ -15,6 +15,8 @@ int UART0_Open(int fd,char*port)
         perror("Can't Open Serial Port");    
         return(FALSE);    
     }    
+	 tcflush(fd,TCIFLUSH);
+     sleep(1);
     //恢复串口为阻塞状态                                   
     if(fcntl(fd, F_SETFL, 0) < 0)    
     {    
