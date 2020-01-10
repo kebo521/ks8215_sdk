@@ -27,7 +27,9 @@ int main(int argc, char **argv)
     
         //return FALSE;    
     }    
-     fd = UART0_Open(fd,argv[1]); //打开串口，返回文件描述符   
+     fd = UART0_Open(fd,argv[1]); //打开串口，返回文件描述符
+     tcflush(fd,TCIFLUSH);
+     sleep(1);
     //fd=open("dev/ttyS2", O_RDWR);
     printf("fd=%d \n",fd);
      do  
