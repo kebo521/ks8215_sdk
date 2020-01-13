@@ -218,7 +218,7 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 		FD_SET(fd,&fs_read);	
 	
 		time.tv_sec = timeoutMs/1000;	
-		time.tv_usec = timeoutMs*1000;	 
+		time.tv_usec = (timeoutMs%1000)*1000;	 
 		//使用select实现串口的多路通信	
 		fs_sel = select(fd+1,&fs_read,NULL,NULL,&time);
 		//FD_CLR(fd,&fs_read);
