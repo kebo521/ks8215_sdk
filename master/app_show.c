@@ -413,6 +413,47 @@ int APP_TestUart(char* pTitle)
 }
 
 
+int APP_TestNet(char* pTitle)
+{
+	int ret;
+	char showBuff[2048];
+	API_GUI_CreateShow(pTitle,NULL,TCANCEL);
+	showBuff[0]='\0';
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"连接网络");
+	
+	ret=APP_Network_Connect("192.168.56.1",60000,0);
+	if(ret)
+	{
+		LOG(LOG_ERROR,"Network_Connect Err[%d]\r\n",ret);
+		return 1;
+	}
+	APP_Network_Send("guozu test00001",16);
+	{
+		int offset=0;
+		char buff[1024];
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据",ret);
+		ret=APP_Network_Recv(buff,1,10*1000,NULL);
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d,%02X]",ret,buff[0]);
+		if(ret > 0)
+		{
+			while(ret>0)
+			{
+				offset += ret;
+				OsSleep(10);
+				ret=APP_Network_Recv(buff+offset,sizeof(buff)-offset,0,NULL);
+				APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d]",ret);
+			}
+			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n返回[%d]数据",offset);
+			APP_Network_Send(buff,offset);
+		}
+	}
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n关闭网络",ret);
+	APP_Network_Disconnect(1000);
+	return 0;
+}
+
+
+
 int APP_HardTestMenu(char* title)
 {
 	CMenuItemStru MenuStruPar[]=
@@ -420,6 +461,7 @@ int APP_HardTestMenu(char* title)
 		{"UI基础测试",		APP_UiBaseTest},
 		{"UI_pull_push",	APP_UiPullPush},
 		{"串口测试",		APP_TestUart},
+		{"网络测试",		APP_TestNet},
 		{"进度调测试",		APP_TestShowBottom},
 		//{"速度测试",		APP_TestRun},
 		{"显示屏测试",		APP_ScreenTest},

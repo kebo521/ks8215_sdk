@@ -360,7 +360,7 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 	SocketFD = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (-1 == SocketFD)
 	{
-		perror("cannot create socket");
+		LOG(LOG_ERROR,"cannot create socket\r\n");
 		return -1;
 	}
 	{
@@ -371,7 +371,7 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		ret = setsockopt(SocketFD,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof(timeout));
 		if (-1 == ret)
 		{
-			perror("cannot set SNDTIMEO");
+			LOG(LOG_ERROR,"cannot set SNDTIMEO\r\n");
 			return -1;
 		}
 	}
@@ -380,7 +380,7 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		ret = setsockopt(SocketFD, SOL_SOCKET, SO_KEEPALIVE,&KeepAlive, sizeof(KeepAlive));
 		if (-1 == ret)
 		{
-			perror("cannot setkeepalive");
+			LOG(LOG_ERROR,"cannot setkeepalive\r\n");
 			return -1;
 		}
 	}
@@ -395,26 +395,26 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		/* 调用gethostbyname()。结果存在hptr结构中 */
 		if((hptr = gethostbyname(pHostIp)) == NULL)
 		{
-			printf(" gethostbyname error for host:%s\n", pHostIp);
-			return 0;
+			LOG(LOG_ERROR," gethostbyname error for host:%s\n", pHostIp);
+			return -103;
 		}
 
 		/* 将主机的规范名打出来 */
-    	printf("official hostname:%s\n", hptr->h_name);
+    	LOG(LOG_INFO,"official hostname:%s\n", hptr->h_name);
 
 
 		ret = inet_pton(hptr->h_addrtype,hptr->h_addr, &stSockAddr.sin_addr);
 		if (0 > ret)
 		{
-			perror("error: first parameter is not a valid address family");
+			LOG(LOG_ERROR,"error: first parameter is not a valid address family\r\n");
 			close(SocketFD);
-			exit(EXIT_FAILURE);
+			return -104;
 		}
 		else if (0 == ret)
 		{
-			perror("char string (second parameter does not contain validipaddress)");
+			LOG(LOG_ERROR,"char string (second parameter does not contain validipaddress)\r\n");
 			close(SocketFD);
-			exit(EXIT_FAILURE);
+			return -105;
 		}
 
 		/* 主机可能有多个别名，将所有别名分别打出来 
@@ -442,23 +442,23 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		ret = inet_pton(stSockAddr.sin_family,pHostIp, &stSockAddr.sin_addr);
 		if (0 > ret)
 		{
-			perror("error: first parameter is not a valid address family");
+			LOG(LOG_ERROR,"error: first parameter is not a valid address family\r\n");
 			close(SocketFD);
-			exit(EXIT_FAILURE);
+			return -106;
 		}
 		else if (0 == ret)
 		{
-			perror("char string (second parameter does not contain validipaddress)");
+			LOG(LOG_ERROR,"char string (second parameter does not contain validipaddress)\r\n");
 			close(SocketFD);
-			exit(EXIT_FAILURE);
+			return -107;
 		}
 	}
 
 	if (-1 == connect(SocketFD,(struct sockaddr *)&stSockAddr,sizeof(stSockAddr)))
 	{
-		perror("connect failed");
+		LOG(LOG_ERROR,"connect[%X][%d] failed\r\n",stSockAddr.sin_addr,stSockAddr.sin_port);
 		close(SocketFD);
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 	
 	tNetAddr.net[tNetAddr.NetIndex].SocketFD = SocketFD;
@@ -472,13 +472,13 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 //=======================网络发送=========================================================
 int  APP_Network_Send(char* pBuff,int len)
 {
-	
 	return send(tNetAddr.pNet->SocketFD, pBuff, len, 0); 
 }
 
 //=======================网络接收=========================================================
 int  APP_Network_Recv(char* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCheckFull)
 {
+	if(timeoutMs)
 	{//设置接收超时
 		struct timeval timeout; 
 		timeout.tv_sec = timeoutMs/1000;
@@ -505,7 +505,7 @@ int  APP_Network_Recv(char* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCh
 			}
 			else if(ret < 0)
 			{
-				printf("recv = %d,[%d,%d,%d]\r\n",ret,EAGAIN,EWOULDBLOCK,EINTR);
+				LOG(LOG_INFO,"recv = %d,[%d,%d,%d]\r\n",ret,EAGAIN,EWOULDBLOCK,EINTR);
 				if(ret == EAGAIN||ret == EWOULDBLOCK||ret == EINTR) //这几种错误码，认为连接是正常的，继续接收
 				{
 					continue;//继续接收数据
@@ -520,7 +520,7 @@ int  APP_Network_Recv(char* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCh
 int APP_Network_Disconnect(int timeOutMs)
 {
 	/* 执行读写操作*/
-	//shutdown(tNetAddr.pNet->SocketFD, SHUT_RDWR);
+	shutdown(tNetAddr.pNet->SocketFD, SHUT_RDWR);
 	close(tNetAddr.pNet->SocketFD);
 	return 0;
 }
