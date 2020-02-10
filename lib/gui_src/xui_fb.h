@@ -31,9 +31,6 @@ typedef enum
 	XUI_FLIP_VERT,	// 垂直翻转
 	XUI_FLIP_HORIZ,	// 横向翻转
 }XuiTransform;
-//--------------全屏参数---------测试用-------------
-#define SCREEN_WIDTH		(240) 
-#define SCREEN_HEIGT		(320) 
 
 //===========================================================================================
 typedef struct gr_surface {

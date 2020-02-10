@@ -228,8 +228,7 @@ int main(void)
 	stSockAddr.sin_family = AF_INET;
 	stSockAddr.sin_port = htons(1100);
 	stSockAddr.sin_addr.s_addr = INADDR_ANY;
-	if(-1 == bind(SocketFD,(struct sockaddr *)&stSockAddr,
-	sizeof(stSockAddr)))
+	if(-1 == bind(SocketFD,(struct sockaddr *)&stSockAddr,sizeof(stSockAddr)))
 	{
 		perror("error bind failed");
 		close(SocketFD);
