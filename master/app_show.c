@@ -29,6 +29,7 @@
 #include "sys_sdk.h"
 #include "main.h"
 
+#include "AdminTUSN.h"
 
 #include "szzt_tms.h"
 
@@ -604,11 +605,6 @@ int APP_EDIT_SetDateTime(char* title)
 int APP_WIFI_SetPar(char* title)
 {
 
-	return 0;
-}
-
-int Menu_TermSnProsee(char* title)
-{
 	return 0;
 }
 
