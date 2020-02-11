@@ -635,8 +635,14 @@ extern int OsSaveAppInfo(ST_APP_INFO* pAppInfo);
 int APP_InstallAPP(char *pTitle)
 {
 	ST_APP_INFO tAppInfo;
+	APP_ShowSta(pTitle,"向主机请求中...");
+	if(!APP_TmsProcess(COM_UART))
+	{
+		APP_ShowMsg(pTitle,"下载失败",3000);
+		return 1;
+	}
 	APP_ShowSta(pTitle,"应用安装中");
-	if(0==InstallAPP("app.ksp",&tAppInfo))
+	if(0==InstallAPP(&tAppInfo))
 	{
 		OsSaveAppInfo(&tAppInfo);
 		APP_ShowMsg(pTitle,"安装中成功",3000);
