@@ -28,33 +28,8 @@
 #define FONT_TITLE_COLOUR		RGB565_WITHE 
 
 
-#define		OPER_OK				0
-	
-#define	 	OPER_RET			-1
-#define	 	OPER_QUIT			-2
-#define	 	OPER_TIMEOUT		-3
-#define    	OPER_RDMagERR     	-4 		//读卡错
-#define    	OPER_CRCERR     	-5 		//校验失败
-#define		OPER_ERR			-6		//操作失败
-#define 	OPER_SYSTEM_ERROR	-7		//操作失败
-#define 	OPER_TRANS_OVER		-8	    //返回数据正确，显示失败msg
-#define		OPER_OFFLINE		-11		//下级
-#define		OPER_LOW_VOLTAGE	-15		//电压过低
-#define		OPER_HARD_Err		-16		//硬件错误
-#define		OPER_SEND_ERR		-1000	//发送数据失败
-#define		OPER_RECV_ERR		-2000	//发送数据失败
 
 
-#define		OPER_NO_CHECK		15		//无签名数据
-#define		OPER_NoEND 			6		//成功，但未结束	
-#define		OPER_NoHEAD  		5		//未找到头部
-#define		OPER_HARD			4		//手工输入
-#define		OPER_NEW			3		//进入新流程
-#define		OPER_PAY			1		//确认支付
-
-#define		SOCKET_UN_APN			-101		//未打开APN
-#define		SOCKET_UN_IP			-102		//未连接IP
-#define		SOCKET_UN				-200		//未连接IP
 
 
 typedef enum 

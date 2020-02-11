@@ -13,12 +13,14 @@
 
 #include "xui_comm.h"
 
+#include "dataconv.h"
+#include "app_sdk.h"
+
+#include "AdminTUSN.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
 
 
 #include <unistd.h>
@@ -35,10 +37,15 @@
 
 //--------------程序升级使用---------------------------
 #define Tms_Term_UpFlag		"appup.ini"  	// 应用参数标记
-#define Tms_Term_fAppUp		"appup.ksp"  	// 终端参数版本
 #define Tms_TMS_sAppUp		"tms_run"  		// 终端参数版本
+#define Tms_Term_fAppUp		"appup.ksp"  	// 终端参数版本
 #define Tms_APP_sAppUp		"app_run"  		// 应用程序
 #define Tms_APP_sLogo			"logo.bmp"  		// 应用程序
+
+#define TMS_CONNET_ADDER		tAdminTermPar.TmsAddre
+#define TMS_CONNET_POST		tAdminTermPar.TmsPost
+#define TMS_CONNET_SSLEN		tAdminTermPar.TmsSSL
+#define TMS_RECV_MAX			tAdminTermPar.TmsPackMax
 
 
 typedef struct
@@ -130,77 +137,633 @@ const char Develop_Channel_Cert_ZT[] =
 
 
 #if(1)
+
+
+
+
+
+
+u8* TMS_FindRecvData(tData_TMS_struct* pTms,u16 uInID,u16 *pOutLen)
+{
+	int i;
+	for(i=0; i< pTms->Total;i++)
+	{
+		if(pTms->Item[i].uID == uInID)
+		{
+			if(pOutLen)
+				*pOutLen = pTms->Item[i].len;
+			return pTms->Item[i].pData;
+		}
+	}
+	LOG(LOG_INFO,"Tms FindRecvData Nofind[%X] \r\n",uInID);
+	return NULL;
+}
+
+
+int TMS_CheckFullData(char *pIndata,int InLen)
+{
+	u16 Len=0;
+	//TRACE_HEX("TMS_CheckFullData",pIndata,InLen);
+	if(InLen > 2)
+	{
+		Len = (u8)*pIndata++;
+		Len *= 256;
+		Len |= (u8)*pIndata++;
+		Len += 2;
+		//if(Len > 4096) return -1;
+		if(InLen >= Len) return Len;
+	}
+	return 0;
+}
+
+
+
+u8* TMS_AddSendData(u8 *pSendData,u16 hID,char *format,...)
+{
+	int ret;
+	va_list arg;
+	*pSendData++ = hID/256;
+	*pSendData++ = hID&0xff;
+	va_start( arg, format);
+	ret=vsprintf((char*)pSendData+2,format,arg);
+	va_end( arg );
+	*pSendData++ = ret/256;
+	*pSendData++ = ret&0xff;
+	pSendData += ret;
+	return pSendData;
+}
+
+void TMS_LoadStructData(tData_TMS_struct* pTmsRecv,u8* pRecv,u16 reLen)
+{
+	u16 Len,Tag;
+	int cont = 0;
+	u8 *pEnd = pRecv+reLen;
+	while(pRecv < pEnd)
+	{	
+		Tag = *pRecv++;
+		Tag *= 256;
+		Tag |= *pRecv++;
+		
+		Len =* pRecv++;
+		Len *= 256;
+		Len |= *pRecv++;
+		pTmsRecv->Item[cont].uID=Tag;
+		pTmsRecv->Item[cont].len=Len;
+		pTmsRecv->Item[cont].pData=pRecv;
+		cont++;
+		//TRACE("TMS LoadStructData cont[%d] Tag[%X],Len[%d]\r\n",cont,Tag,Len);
+		if(cont>= (sizeof(pTmsRecv->Item)/sizeof(pTmsRecv->Item[0])))
+		{
+			LOG(LOG_ERROR,"tTmsRecv.Item[%d] is full \r\n",cont);
+			break;
+		}
+		pRecv += Len;
+	}
+	pTmsRecv->Total = cont;
+}
+
+
+
+int TMS_GetParVersion(char* pParVer,int sizeVer)
+{
 /*
-//=============================================================
-//====================================================================
-//功能:    保存参数到文件系统
-//输入数据:pfilePath(文件名),pBuff(参数缓冲区),Inlen(文件长度)
-//输出数据:写入结果 0 为成功
-//作者:     邓国祖	---	
-//创作时间:  20150916
-//---------------------------------------------------------------
-int APP_FileSaveBuff(const char* pfilePath,u32 offset,void* pBuff,u32 Inlen)
-{
-	int		fb;
-	int		ret;
-    fb = open(pfilePath,O_WRONLY|O_CREAT,0666);
-	if(fb == -1)
+	int cont;
+	if(0 < APP_FileReadBuff(TermParVersion,0,pParVer,sizeVer))
 	{
-		LOG(LOG_ERROR,"APP FileSaveBuff Open[%s] fail\r\n",pfilePath);
+		for(cont=0 ;cont<sizeVer ;cont++){
+			if((u8)pParVer[cont] < (u8)' ') {
+				pParVer[cont]='\0';
+				break;
+			}
+		}
+		if(cont ==	sizeVer)
+			pParVer[cont-1]='\0';
+		return cont;
+	}
+	else
+	{
+		API_strcpy(pParVer,"000000");
 		return -1;
 	}
-	if(offset)
-	{
-		lseek(fb,offset,SEEK_SET);
-	}
-	ret=write(fb,pBuff,Inlen);
-	close(fb);
-	if(Inlen != ret)
-	{
-		LOG(LOG_ERROR,"APP FileSaveBuff WriteFile[%s] Err ret[%d != %d]\r\n",pfilePath,Inlen,ret);
-		return -2;
-	}
-	return ret;
+	*/
+	API_strcpy(pParVer,"000000");
+	return -1;
 }
-//====================================================================
-//功能:    从文件系统读参数
-//输入数据:pfilePath(文件名),pBuff(参数缓冲区),pOutlen(输入文件长度)
-//输出数据:读取结果 0 为成功
-//作者:     邓国祖	---	
-//创作时间:  20150916
-//---------------------------------------------------------------
-int APP_FileReadBuff(const char* pfilePath,u32 offset,void* pBuff,u32 buffSize)
+
+
+//===================================文件下载========================================
+int TMS_UpApp_Init(char* pfilePath,u32 fSize)
 {
-	int		fd;
-	int 	ret=0;
-	fd = open(pfilePath,O_RDONLY);
-	if(fd == -1)
-	{
-		LOG(LOG_ERROR,"APP FileReadBuff Open[%s]fail, \r\n",pfilePath);
-		return -1;
-	}
-	if(pBuff)
-	{
-		if(offset)
-		{
-			lseek(fb,offset,SEEK_SET);
-		}
-		ret=read(fd, pBuff, buffSize);
-		if(buffSize != ret)
-		{
-			LOG(LOG_ERROR,"APP FileReadBuff Read[%s] Err nReadSize[%d,%d]\r\n",pfilePath,ret,buffSize);
-		}
-	}
-	else 
-	{
-		struct stat tFile;
-		fstat(fd, &tFile);
-		ret = tFile.st_size;
-	}
+	return open(pfilePath,O_WRONLY|O_CREAT,0666);
+}
+
+int APP_UpAPP_Load(int fb,u32 offset,u8* pBuff,u16 Inlen)
+{
+	lseek(fb,offset,SEEK_SET);
+	return write(fb,pBuff,Inlen);
+}
+
+
+
+
+void TMS_UpApp_End(int fd)
+{
 	close(fd);
-	return ret;
 }
+
+
+//======================================================================
+int APP_TmsSendS001(tData_TMS_Const *pFixed,u8* pUseBuff)
+{
+	u16 Len;
+	u8 *pSend,*pStart;
+	pStart=pUseBuff+2;
+	pSend=pStart;
+	pSend=TMS_AddSendData(pSend,0x3101,"S0001");
+	pSend=TMS_AddSendData(pSend,0x3103,pFixed->sTuSN);
+	pSend=TMS_AddSendData(pSend,0x3140,pFixed->sType);
+	pSend=TMS_AddSendData(pSend,0x3141,pFixed->sModel);
+	pSend=TMS_AddSendData(pSend,0x3001,"4.4");
+	pSend=TMS_AddSendData(pSend,0x3126,"{\"net\":\"%s\",\"app_v\":\"%s\",\"source_v\":\"%s\",\"life\":\"%d\",\"bat\":\"%d\"}", \
+		pFixed->sComType,tAdminTermPar.AppVer,pFixed->sParVer,APP_GetLifeCycle(),OldScreen.batteryLevel);
+	Len=pSend-pStart;
+	pUseBuff[0]=Len/256;
+	pUseBuff[1]=Len&0x0ff;
+	LOG_HEX(LOG_INFO,"TmsSendS001",pUseBuff,Len+2);
+	return APP_Network_Send((char*)pUseBuff,Len+2);
+}
+
+
+dfJsonTable* APP_TmsRecvS001(u8* pUseBuff,u16 BuffSize)
+{
+	int	ret;
+	u16 Len;
+	u8 *pRecv,*pIdData;
+	tData_TMS_struct tTmsRecv;
+	ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
+	OldScreen.TmsUpDataFlag = 1;
+	if(ret > 2)
+	{
+		//Len[2]+Data[Len]
+		LOG_HEX(LOG_INFO,"TmsRecvS001",pUseBuff,ret);
+		OldScreen.TmsUpDataFlag = 2;
+		TMS_LoadStructData(&tTmsRecv,pUseBuff+2,ret-2);
+/*
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3101,&Len);
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3103,&Len);
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3140,&Len);
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3141,&Len);
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3001,&Len);
+		*/
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3126,&Len);
+		if(pIdData)
+		{//date: '2018-05-01 10:00:00'
+			pRecv=(u8*)API_eStrstr((char*)pIdData,"\"date\"");
+			if(pRecv)
+			{
+				while(*pRecv++ != '\"');
+				LOG_HEX(LOG_INFO,"Set SysDateTime Buff",pRecv,19);
+				SetSysDateTime((char*)pRecv);
+				OldScreen.TmsUpDataFlag = 3;
+			}
+		}
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3106,&Len);
+		if(pIdData == NULL  && *pIdData != '1') 
+		{
+			LOG(LOG_ERROR,"pIdData 3106 No 1 Err\r\n");
+			return NULL;
+		}
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x4005,&Len);
+		if(pIdData)
+		{
+			return Conv_JSON_GetMsg((char*)pIdData,(char*)pIdData+Len);
+		}
+	}
+	LOG(LOG_ERROR,"APP TmsRecvData ret[%d]\r\n",ret);
+	return NULL;
+}
+
+/*
+3101 必填 交易代码(固定): S0001 , 详情可以查看交易代码字典 
+3103 必填 终端编号 
+3140 必填 终端类型(固定小写s -> 扫码终端): s 
+3141 必填 终端型号: 例如 KS8223 
+3111 必填 文件唯一号, fileNo 
+4007 必填 以k为单位, 默认1k 
+3114 必填 下载偏移量, 从0开始 
+3154 必填 文件md5散列 
 */
+int APP_TmsSendF011(tData_TMS_Const *pFixed,u8* pUseBuff,char *pFileNo,u32 offset,u32 ReadSize)
+{
+	u16 Len;
+	u8 *pSend,*pStart;
+	pStart=pUseBuff+2;
+	pSend=pStart;
+	pSend=TMS_AddSendData(pSend,0x3101,"F011");
+	pSend=TMS_AddSendData(pSend,0x3103,pFixed->sTuSN);
+	pSend=TMS_AddSendData(pSend,0x3140,pFixed->sType);
+	pSend=TMS_AddSendData(pSend,0x3141,pFixed->sModel);
+	pSend=TMS_AddSendData(pSend,0x3111,pFileNo);
+	pSend=TMS_AddSendData(pSend,0x4007,"%d",ReadSize);
+	pSend=TMS_AddSendData(pSend,0x3114,"%d",offset);
+	Len=pSend-pStart;
+	pUseBuff[0]=Len/256;
+	pUseBuff[1]=Len&0x0ff;
+	//LOG_HEX(LOG_INFO,"TmsSendF011",pUseBuff,Len+2);
+	return APP_Network_Send((char*)pUseBuff,Len+2);
+}
+
+
+/*
+3101 必填 交易代码(固定): S0001 , 详情可以查看交易代码字典 
+3103 必填 终端编号 
+3140 必填 终端类型(固定小写s -> 扫码终端): s 
+3111 必填 文件唯一号, fileNo 
+4007 必填 以k为单位, 默认1k 
+3115 必填 文件流片段 
+3154 必填 文件md5散列 
+*/
+u8* APP_TmsRecvF011(u8* pUseBuff,u16 BuffSize,u16 *ExtLen)
+{
+	int	ret;
+	u8 *pIdData;
+	tData_TMS_struct tTmsRecv;
+	ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
+	if(ret > 2)
+	{
+		//Len[2]+Data[Len]
+		//LOG_HEX(LOG_INFO,"TmsRecvF011",pUseBuff,ret);
+		TMS_LoadStructData(&tTmsRecv,pUseBuff+2,ret-2);
+		pIdData=TMS_FindRecvData(&tTmsRecv,0x3115,ExtLen);
+		return pIdData;
+	}
+	LOG(LOG_ERROR,"APP TmsRecvData ret[%d]\r\n",ret);
+	return NULL;
+}
+
+/*
+3101 必填 交易代码(固定): F012 , 详情可以查看交易代码字典 
+3103 必填 终端编号 
+3140 必填 终端类型(固定小写s -> 扫码终端): s 
+3111 必填 文件唯一号, fileNo 
+3116 必填 文件类型, type 
+3117 必填 上报状态
+3:下载完成
+4:正在覆盖
+9:覆盖完成(覆盖完成) 
+*/
+int APP_TmsSendF012(tData_TMS_Const *pFixed,u8* pUseBuff,char *pFileNo,char *pRetCode)
+{
+	u16 Len;
+	u8 *pSend,*pStart;
+	pStart=pUseBuff+2;
+	pSend=pStart;
+	pSend=TMS_AddSendData(pSend,0x3101,"F012");
+	pSend=TMS_AddSendData(pSend,0x3103,pFixed->sTuSN);
+	pSend=TMS_AddSendData(pSend,0x3140,pFixed->sType);
+	pSend=TMS_AddSendData(pSend,0x3141,pFixed->sModel);
+	pSend=TMS_AddSendData(pSend,0x3111,pFileNo);
+	pSend=TMS_AddSendData(pSend,0x3116,"img");
+	pSend=TMS_AddSendData(pSend,0x3117,pRetCode);
+	Len=pSend-pStart;
+	pUseBuff[0]=Len/256;
+	pUseBuff[1]=Len&0x0ff;
+	LOG_HEX(LOG_INFO,"TmsSendF012",pUseBuff,Len+2);
+	return APP_Network_Send((char*)pUseBuff,Len+2);
+}
+
+
+int APP_TmsRecvF012(u8* pUseBuff,u32 BuffSize)
+{
+	int ret;
+	//u8 *pIdData;
+	//tData_TMS_struct tTmsRecv;
+	ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
+	if(ret > 2)
+	{
+		//Len[2]+Data[Len]
+		LOG_HEX(LOG_INFO,"APP_TmsRecvF012",pUseBuff,ret);
+	//	TMS_LoadStructData(&tTmsRecv,pUseBuff+2,ret-2);
+	}
+	LOG(LOG_ERROR,"APP TmsRecvF012 ret[%d]\r\n",ret);
+	return 0;
+}
+
+
+extern tData_UpIni* OsSysGet_UpIni(void);
+extern tHardSN_Key* OsSysGet_SnKey(void);
+extern void OsSysGet_Sn(char *pSn,int size);
+
+extern 	void OsSysMsg_sync(void);
+
+
+typedef struct
+{
+	u32 uFileSize;
+	u32 uOffset;
+	u8	sFileMd5[20];
+	char sFileNo[64];
+	char sAppVer[15];
+	u8	upFlag;
+}tData_TMS_UpIni;
+
+
+int APP_TmsProcess(char *pTitle)
+{
+	int ret;
+	u16 UseSize,UpOk;
+	u8 SaveSleepEn;
+	u8* pUseBuff;
+	tData_TMS_Const tTermPar;
+	tData_UpIni *pTermIni;
+	APP_Network_KeyAccept(3);
+	ret=APP_Network_Connect(TMS_CONNET_ADDER,TMS_CONNET_POST,TMS_CONNET_SSLEN);
+	APP_Network_KeyAccept(0);
+	if(OPER_OK != ret) return -1;
+	//----------------------------------------------------
+	//if(OldScreen.mSignalType == SIGNAL_WIFI)
+		API_strcpy(tTermPar.sComType,"WIFI");
+	//else
+	//	API_strcpy(tTermPar.sComType,"2G");
+	//------------------------------------------------------------------------------------
+	OsSysGet_Sn(tTermPar.sParVer,sizeof(tTermPar.sParVer));	//TMS_GetParVersion(tTermPar.sParVer,sizeof(tTermPar.sParVer));
+	//--------------------------------------------------------------
+	
+	if(0 >= APP_GetHardMsg(TYPE_TERM_HARD_SN,tTermPar.sTuSN,sizeof(tTermPar.sTuSN)))
+	{
+		tTermPar.sTuSN[0]='K';
+		tTermPar.sTuSN[1]='0';
+		tTermPar.sTuSN[2]='\0';
+	}
+	API_strcpy(tTermPar.sModel,"KS8312");
+	API_strcpy(tTermPar.sType,"s");
+	//-----------------------------------------------------------
+	UseSize = 256+ TMS_RECV_MAX;
+	pUseBuff =	(u8*)malloc(UseSize+256);	//多256用于Wifi多余消耗。
+	UpOk = 0;
+	//--------------------------------------------------------
+	pTermIni=OsSysGet_UpIni();
+	//--------------------------------------------------------
+	if(pTermIni->upFlag == 2)
+	{
+		if(0 <= APP_TmsSendF012(&tTermPar,pUseBuff,pTermIni->sFileNo,"3"))
+				APP_TmsRecvF012(pUseBuff,UseSize);
+		/*
+		if(API_strcmp(tTermIni.sAppVer,tAdminTermPar.AppVer))
+		{//------更新成功-------
+			if(0 <= APP_TmsSendF012(&tTermPar,pUseBuff,tTermIni.sFileNo,"3"))
+				APP_TmsRecvF012(pUseBuff,UseSize);
+		}
+		else
+		{//------更新失败-------
+			if(0 <= APP_TmsSendF012(&tTermPar,pUseBuff,tTermIni.sFileNo,"-5"))
+				APP_TmsRecvF012(pUseBuff,UseSize);
+		}
+		*/
+		API_fremove(Tms_Term_fAppUp);
+		API_memset(pTermIni,0x00,sizeof(tData_UpIni));
+		APP_Network_Disconnect(5000);
+		ret=APP_Network_Connect(TMS_CONNET_ADDER,TMS_CONNET_POST,TMS_CONNET_SSLEN);
+	}
+	
+	while(OPER_OK == ret)
+	{
+		if(0 > APP_TmsSendS001(&tTermPar,pUseBuff))
+		{
+			LOG(LOG_ERROR,"APP TmsSendS001 fail\r\n");
+		}
+		else
+		{
+			char *pIdData;
+			dfJsonTable* pTable;
+			u8 Md5buff[20];
+			pTable=APP_TmsRecvS001(pUseBuff,UseSize);
+			if(pTable==NULL) break;
+			pIdData=Conv_GetJsonValue(pTable,"fileNo",NULL);
+			if(pIdData==NULL) break;
+			LOG(LOG_INFO,"fileNo[%s]\r\n",pIdData);
+			API_strcpy(pTermIni->sFileNo,pIdData);
+			
+			pIdData=Conv_GetJsonValue(pTable,"size",NULL);
+			if(pIdData==NULL) break;
+			pTermIni->uFileSize=API_atoi(pIdData);
+			LOG(LOG_INFO,"Filesize[%d]\r\n",pTermIni->uFileSize);
+			
+			pIdData=Conv_GetJsonValue(pTable,"md5",NULL);
+			if(pIdData==NULL) break;
+			LOG(LOG_INFO,"md5[%s]\r\n",pIdData);
+			Conv_StrToBcd_Left(pIdData,32,Md5buff);
+
+			if(memcmp(pTermIni->sFileMd5,Md5buff,16))
+			{//--文件内容不一样，重新下载所有
+				LOG_HEX(LOG_ERROR,"md5file",pTermIni->sFileMd5,16);
+				LOG_HEX(LOG_ERROR,"md5Load",Md5buff,16);
+				pTermIni->upFlag=0;	//重新下载所有
+				API_memcpy(pTermIni->sFileMd5,Md5buff,16);
+			}
+			//pIdData=Conv_GetParFindID(pTable,"v");
+			//pIdData=Conv_GetParFindID(pTable,"type");
+			Conv_JSON_free(pTable);
+			UpOk = 1;
+		}
+		break;
+	}
+	SaveSleepEn=OldScreen.SleepEn;
+	OldScreen.SleepEn=FALSE;
+	while(UpOk == 1)
+	{	
+		u32 	RecvMax;
+		u16		ErrTime,OutLen;
+		u8		OutMd5[20];
+		u8*		pRecvApp;
+		//mbedtls_md5_context ctx;
+		int	fb_In;
+		//-----------------休眠亮屏--------------------------------------------
+//		if(OldScreen.SleepState==TRUE) DisplayScreenOn();
+		//-------------------------------------------------------------	
+		if(pTermIni->upFlag==0)
+		{
+			API_GUI_CreateWindow(STR_SOFTWARE_UPDATA,TOK,TCANCEL,0);
+			API_GUI_Info(NULL,TEXT_ALIGN_CENTER|TEXT_VALIGN_CENTER,STR_CHECK_UPDATA);
+			API_GUI_Info(NULL,TEXT_ALIGN_RIGHT|TEXT_VALIGN_BOTTOM|TEXT_EXSTYLE_OVERLINE,STR_PRESS_OK_CONNET);
+			API_GUI_Show();
+			if(EVENT_CANCEL == APP_WaitUiEvent(5*1000))
+			{
+				APP_ShowSta(pTitle,"EXIT");
+				UpOk = 0x434C;
+				break;
+			}
+			fb_In = open(Tms_Term_fAppUp,O_WRONLY|O_CREAT,0666);
+			//flieHandle=TMS_UpApp_Init(Tms_Term_fAppUp,tTermIni.uFileSize);
+		}
+		else 
+		{//----------------断点续传----------------
+			//flieHandle=TMS_UpApp_Init(Tms_Term_fAppUp,0);
+			fb_In = open(Tms_Term_fAppUp,O_WRONLY|O_APPEND,0666);
+		}
+		if(fb_In <= 0)
+		{
+			APP_ShowSta(pTitle,STR_CREATE_FILE_FAILED);
+			UpOk = 0x4641;
+			break;
+		}
+		//--------------------------------------------------------------
+		APP_ShowSta(pTitle,STR_PRESS_OK_UPDATE);
+		//--------------------------------------------------------------
+		//mbedtls_md5_starts_ret(&ctx);
+		//----------断点续传-----------------------
+		if(pTermIni->upFlag==1 && pTermIni->uOffset>0)
+		{
+			LOG(LOG_WARN," ->断点续传 fileLen[%d]uOffset[%d]\r\n",pTermIni->uOffset);
+		}
+		else pTermIni->uOffset=0;	//首次更新
+		//-------------------------------------------------------------------
+		APP_ShowBottomProgress(pTermIni->uOffset*100/pTermIni->uFileSize);
+		RecvMax = TMS_RECV_MAX;
+		ErrTime = 0;
+		while(pTermIni->uOffset< pTermIni->uFileSize)
+		{
+			if(0 > APP_TmsSendF011(&tTermPar,pUseBuff,pTermIni->sFileNo,pTermIni->uOffset,RecvMax))
+				break;
+			pRecvApp=APP_TmsRecvF011(pUseBuff,UseSize,&OutLen);
+			if(pRecvApp)
+			{
+				ret=APP_UpAPP_Load(fb_In,pTermIni->uOffset,pRecvApp,OutLen);
+				if(ret <= 0) {
+					UpOk =0x5345;
+					break;
+				}
+			//	mbedtls_md5_update_ret(&ctx, pRecvApp, ret);
+				RecvMax = ret;
+			}
+			else
+			{
+				if(++ErrTime > 3)
+				{
+					UpOk = 0x4146;
+					LOG(LOG_ERROR," 失败次数超限ErrTime=%dr\n",ErrTime);
+					break;
+				}
+				LOG(LOG_WARN," uOffset=%d,->断点续传[%d]....\r\n",pTermIni->uOffset,ErrTime);
+				APP_Network_Disconnect(15000);
+				ret=APP_Network_Connect(TMS_CONNET_ADDER,TMS_CONNET_POST,TMS_CONNET_SSLEN);
+				if(OPER_OK != ret)
+				{
+					UpOk = 0x4146;
+					LOG(LOG_ERROR," 再次连接中心失败=%dr\n",ret);
+					break;
+				}
+				continue;
+			}
+			pTermIni->uOffset += RecvMax;
+			//----------显示进度条--------------------------------
+			APP_ShowBottomProgress(pTermIni->uOffset*100/pTermIni->uFileSize);
+		}
+		TMS_UpApp_End(fb_In);
+		if(pTermIni->uOffset >= pTermIni->uFileSize)
+		{
+			APP_ShowSta(pTitle,STR_DOWNLOAD_COMPLETED);
+		//	mbedtls_md5_finish_ret(&ctx,OutMd5);
+			if(memcmp(pTermIni->sFileMd5,OutMd5,16)==0)
+			{
+				UpOk = 0x4B4F;
+				APP_ShowSta(pTitle,STR_INSTALLING); 
+				pTermIni->upFlag=2;
+				API_strcpy(pTermIni->sAppVer,tAdminTermPar.AppVer);
+				
+				if(0 > APP_TmsSendF012(&tTermPar,pUseBuff,pTermIni->sFileNo,"2"))
+					break;
+				APP_TmsRecvF012(pUseBuff,UseSize);
+			}
+			else
+			{
+				UpOk = 0x5243;
+				APP_ShowSta(pTitle,STR_VERIFY_FAILED);  
+				pTermIni->upFlag=0;
+				
+				LOG(LOG_ERROR,"uFileSize=%d,Check MD5 Err....\r\n",pTermIni->uFileSize);
+				LOG_HEX(LOG_ERROR,"sFileMd5",pTermIni->sFileMd5,16);
+				LOG_HEX(LOG_ERROR,"OutMd5",OutMd5,16);
+				if(0 > APP_TmsSendF012(&tTermPar,pUseBuff,pTermIni->sFileNo,"-2"))
+					break;
+				APP_TmsRecvF012(pUseBuff,UseSize);
+			}
+		}
+		else
+		{
+			APP_ShowSta(pTitle,STR_DOWNLOAD_FAILED);
+			pTermIni->upFlag=1;
+			
+			LOG(LOG_ERROR," uOffset=%d,uFileSize=%d,Err[%x]....\r\n",pTermIni->uOffset,pTermIni->uFileSize,UpOk);
+			LOG_HEX(LOG_ERROR,"sFileMd5",pTermIni->sFileMd5,16);
+			LOG_HEX(LOG_ERROR,"OutMd5",OutMd5,16);
+			/*
+			if(0 > APP_TmsSendF012(&tTermPar,pUseBuff,tTermIni.sFileNo,"-1"))
+				break;
+			APP_TmsRecvF012(pUseBuff,UseSize);
+			*/
+		}
+		break;
+	}
+	free(pUseBuff);
+	APP_Network_Disconnect(5000);
+	APP_WaitUiEvent(2000);
+	OldScreen.SleepEn=SaveSleepEn;
+	//---------------------------升级应用---------------------------------
+	if(UpOk == 0x4B4F)
+	{
+//		PowerReboot();
+	}
+	if(UpOk > 0)
+		return 1;
+	return 0;
+}
+
+
+
+int APP_TmsSetIp(char *pTitle)
+{
+	#ifdef HARD_WIFI
+	char sBuff[32];
+	int ret;
+	EDIT_DATA tEdit;
+	tEdit.pTitle=pTitle;
+	tEdit.pFrontText="设置IP地址";
+	tEdit.pAfterText=STR_EDIT_SWITCH_ALPHA;
+	tEdit.Way=IME_NUM;
+	tEdit.Limit=IME_NUM|IME_ABC;
+	tEdit.Max=32;
+	tEdit.Min=8;
+	tEdit.timeOutMs=30*1000;
+	sBuff[0]='\0';
+	ret=APP_Edit(&tEdit,sBuff);
+	if(ret <  tEdit.Min)
+		return 0;
+	APP_ShowSta("正在导入",sBuff);
+	WIFI_LoadDestIp(SOCKETA_TCP_C,sBuff,TMS_CONNET_POST);
+	#endif
+	return 0;
+}
+
+u32 APP_TMS_UpAPP(u16 Msg)
+{
+	int cTimeMS;
+	static int OldTimeMS=0;
+	cTimeMS=OsGetTickCount();
+
+	LOG(LOG_INFO,"APP TMS UpAPP GetCurrentTime[%d]\r\n",cTimeMS);
+	if(OldTimeMS)
+	{//------------6个小时发一次心跳-------------------
+		if(((int)cTimeMS - OldTimeMS) < (6*60*60*1000))
+			return EVENT_NONE;
+	}
+	OldTimeMS=cTimeMS;
+	
+	if(0 < APP_TmsProcess(STR_SOFTWARE_UPDATA))
+		return EVENT_CANCEL;	//刷新外层界面
+	return EVENT_NONE;
+}
+
 //#include <direct.h>
 int InstallAPP(const char* pKspPath,ST_APP_INFO* pAppInfo)
 { // 从文件系统中读取应用

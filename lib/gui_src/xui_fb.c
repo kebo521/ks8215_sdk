@@ -169,8 +169,9 @@ int open_screen(const char* filename,int tpFlag) //XuiWindow *pHardWindow
 		pixel_bytes = 4;
 	tSurface.sWidth = var.xres;
 	tSurface.sHeight= var.yres;
-	tSurface.width=SCREEN_WIDTH;
-	tSurface.height=SCREEN_HEIGT;
+	//--------------È«ÆÁ²ÎÊý----------------------
+	tSurface.width =	320;
+	tSurface.height=	240;
 	tSurface.off_X=tSurface.sWidth - tSurface.width-10;
 	tSurface.off_Y=10;
 	tSurface.rWidth=fix.line_length/sizeof(A_RGB);

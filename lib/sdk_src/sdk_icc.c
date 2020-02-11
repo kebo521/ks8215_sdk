@@ -75,14 +75,21 @@ int OsIccInit(int Slot,unsigned long Option,unsigned char *Atr)
 }
 
 //功能 与 IC 卡进行命令交互。
-/*
-CtrlFlag:
-	1. Bit0 表示 T=0 协议下是否自动发送
-			GET RESPONSE 指令：
-			1-是
-			0-否
+/*参数
+Slot :IC 卡通道号：
+	ICC_USER_SLOT 用户卡
+	ICC_SAM1_SLOT SAM 卡卡座1
+	ICC_SAM2_SLOT SAM 卡卡座2
+	ICC_SAM3_SLOT SAM 卡卡座3
+	ICC_SAM4_SLOT SAM 卡卡座4
+CtrlFlag
+	1. Bit0 表示T=0 协议下是否自动发送
+		GET RESPONSE 指令：
+		1-是
+		0-否
 	2. Bit1~Bit31 保留
-*/
+ApduReq【输入】 发送给IC 卡命令数据结构
+ApduRsp【输出】 接收从IC 卡响应的数据结构 */
 int OsIccExchange(int Slot,int CtrlFlag,const ST_APDU_REQ *ApduReq,ST_APDU_RSP *ApduRsp)
 {
 	return RET_OK;

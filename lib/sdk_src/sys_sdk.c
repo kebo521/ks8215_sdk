@@ -25,26 +25,6 @@
 
 
 typedef struct{
-	int				pid,sig;	
-	unsigned short 	mAppMax,nCurrAppId;
-	unsigned short 	nDefAppId,nNouser;
-	ST_APP_INFO 	AppInfo[6];
-	unsigned short 	mOptMax,nOptId;
-	ST_OPT_INFO 	OptInfo[10];
-} ST_SYS_MSG;
-
-typedef struct{
-	int 			AppExitCode;
-	unsigned short 	nCurrAppId,pNextAppId;
-	unsigned char  aAppIDStack[20];
-	unsigned short	sWriteLen,sReadLen;
-	unsigned char  sendBuff[2048];
-	unsigned short	rWriteLen,rReadLen;
-	unsigned char  readBuff[2048];
-} ST_SYS_DATA;
-
-
-typedef struct{
 	int 			shmAid;
 	ST_SYS_MSG		*pSysMsg;
 	int 			shmDid;
@@ -92,7 +72,7 @@ char *eStrstr(char* src1, const char* src2)
 
 
 
-
+//==================内部接口==========================================
 int OsSysInit(char* pInTag)
 {
 	#if(0)//def ANDROID_DEF
@@ -175,6 +155,34 @@ int OsSysInit(char* pInTag)
 	#endif
 	return 0;
 }
+
+
+tData_Set* OsSysGet_TermSet(void)
+{
+	return &(tSt_Sys.pSysMsg->tTermSet);
+}
+
+tData_UpIni* OsSysGet_UpIni(void)
+{
+	return &(tSt_Sys.pSysMsg->tUpIni);
+}
+
+tHardSN_Key* OsSysGet_SnKey(void)
+{
+	return &(tSt_Sys.pSysMsg->tHardSnKey);
+}
+
+void OsSysGet_Sn(char *pSn,int size)
+{
+	memcpy(pSn,tSt_Sys.pSysMsg->tHardSnKey.HardSN,size);
+}
+
+
+void OsSysMsg_sync(void)
+{
+	fsync(tSt_Sys.shmAid);
+}
+//=======================================================================
 
 int OsSaveAppInfo(ST_APP_INFO* pAppInfo)
 {

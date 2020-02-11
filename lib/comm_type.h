@@ -56,12 +56,18 @@ typedef unsigned int			u32;	//!< Define u32
 #endif /*bool_t*/
 
 //======================================================================
+#define API_atoi		atoi
+#define API_strstr		strstr
 #define API_strlen		strlen
 #define API_strcpy		strcpy
+#define API_strcmp		strcmp
+#define API_strcat		strcat
 #define API_memcpy		memcpy
+#define API_memcmp		memcmp
 #define API_memset		memset
 #define API_memmove	memmove
 #define API_sprintf	sprintf
+#define	CLEAR(st)		memset(&(st),0,sizeof(st))
 //===================================================================================
 typedef struct {
 	char Name[64];
@@ -80,5 +86,64 @@ typedef struct{
 } ST_APP_INFO;
 
 
+typedef struct
+{
+	u32 uFileSize;
+	u32 uOffset;
+	u8	upFlag;
+	char sAppVer[15];
+	u8	sFileMd5[20];
+	char sFileNo[64];
+}tData_UpIni;
+
+typedef struct
+{
+	u16	LightSleepTimeS;		//浅休眠时间
+	u16	DeepSleepTimeS;		//深度休眠时间
+	//-------------------------------
+	u16	TmsPackMax;			//Tms下载接收数据最大量
+	u16	TmsPost;				//Tms访问端口
+	char TmsAddre[35];			//Tms访问地址
+	u8	TmsSSL;				//Tms访问方式
+
+	u8	WifiOpen; 		//Wifi开关
+	u8	volume;		//音量大小
+	u8	language;		//语言
+	u8	DebugMode;		//调试开关
+}tData_Set;
+
+typedef struct
+{
+	char	HardSN[34];
+	u8		SnLen;
+	char	Life[4];	//HARD_SN_STATUS_WR -> HARD_SN_STATUS_UP -> HARD_SN_STATUS_DOWN -> HARD_SN_STATUS_DOWN
+	char	LifeEnd;	//'\0'
+	u8		KeyIndex;
+	u8		TMK[16];
+	u8		Addcheck;
+}tHardSN_Key;
+
+
+typedef struct{
+	int				pid,sig;
+	tData_UpIni		tUpIni;
+	tData_Set		tTermSet;
+	tHardSN_Key		tHardSnKey;
+	unsigned short 	mAppMax,nCurrAppId;
+	unsigned short 	nDefAppId,nNouser;
+	ST_APP_INFO 	AppInfo[6];
+	unsigned short 	mOptMax,nOptId;
+	ST_OPT_INFO 	OptInfo[10];
+} ST_SYS_MSG;
+
+typedef struct{
+	int 			AppExitCode;
+	unsigned short 	nCurrAppId,pNextAppId;
+	unsigned char  aAppIDStack[20];
+	unsigned short	sWriteLen,sReadLen;
+	unsigned char  sendBuff[2048];
+	unsigned short	rWriteLen,rReadLen;
+	unsigned char  readBuff[2048];
+} ST_SYS_DATA;
 
 #endif

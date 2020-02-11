@@ -71,8 +71,8 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
 	//-------¶¨Ê±Æ÷¿ØÖÆ---------------------
 	extern void StartTimed500ms(void);
 	extern void StopTimed500ms(void);
-//	extern void Set_WaitEvent(int tTimeOutMs,u32 EventControl);
-//	extern void Get_EventMsg(int *pTimeOutMs,u32 *pEventControl);
+	extern void Set_WaitEvent(int tTimeOutMs,u32 EventControl);
+	extern void Get_EventMsg(int *pTimeOutMs,u32 *pEventControl);
 	extern void Rewrite_WaitTime(int tTimeOutMs);
 
 	typedef u32 (*fEven_Process)(u32,int);
