@@ -175,4 +175,8 @@ extern int APP_FileReadBuff(const char* pfilePath,u32 offset,void* pBuff,u32 buf
 
 extern void SetSysDateTime(char *pInDateTime);
 
+extern int	APP_Uart_PackSend(int Channel,u8* pSendBuf,u32 sendLen);
+extern u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen);
+
+
 #endif

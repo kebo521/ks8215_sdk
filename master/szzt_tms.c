@@ -17,6 +17,7 @@
 #include "app_sdk.h"
 
 #include "AdminTUSN.h"
+#include "szzt_tms.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -61,14 +62,6 @@ typedef struct
 	tData_TMS	Item[40];
 }tData_TMS_struct;
 
-typedef struct
-{
-	char		sTuSN[32];
-	char		sModel[8];
-	char		sType[2];
-	char		sComType[6];
-	char		sParVer[12];
-}tData_TMS_Const;
 
 //===================应用签名RSA密钥====================================
 #ifdef CUSTOMER_DVI
@@ -143,7 +136,7 @@ const char Develop_Channel_Cert_ZT[] =
 
 
 
-u8* TMS_FindRecvData(tData_TMS_struct* pTms,u16 uInID,u16 *pOutLen)
+u8* TMS_FindRecvData(tData_TMS_struct* pTms,u16 uInID,u32 *pOutLen)
 {
 	int i;
 	for(i=0; i< pTms->Total;i++)
@@ -263,22 +256,102 @@ int APP_UpAPP_Load(int fb,u32 offset,u8* pBuff,u16 Inlen)
 	return write(fb,pBuff,Inlen);
 }
 
-
-
-
 void TMS_UpApp_End(int fd)
 {
 	close(fd);
 }
 
+//============================外部通信==========================================
+int tms_external_open(COM_TYPE type)
+{
+	int ret;
+	if(type == COM_NET)
+	{
+		APP_Network_KeyAccept(3);
+		ret=APP_Network_Connect(TMS_CONNET_ADDER,TMS_CONNET_POST,TMS_CONNET_SSLEN);
+		APP_Network_KeyAccept(0);
+	}
+	else
+	{
+		u8 buff[64],*p;
+		u32 OutLen;
+		ret=OsPortOpen(PORT_COM1,"115200,8,n,1");
+		if(ret != RET_OK) return ret;
+		
+		memcpy(buff+4,"ks8215->hello",14);
+		APP_Uart_PackSend(PORT_COM1,buff+4,14);
+		OutLen = sizeof(buff);
+		CLEAR(buff);
+		p=APP_Uart_PackRecv(PORT_COM1,buff,&OutLen);
+		if(p)
+		{
+			LOG(LOG_INFO,"tms__open ret[%s]\r\n",p);
+			return OPER_OK;
+		}
+		return OPER_TIMEOUT;
+	}
+	return ret;
+}
+
+int tms_external_send(COM_TYPE type,u8 *pSendBuf, funTmsPack pFunPack,tData_TMS_Const *pInBack)
+{
+	int dataLen;
+	if(type == COM_NET)
+	{
+		dataLen=pFunPack(pInBack,pSendBuf+2);
+		pSendBuf[0]=dataLen/256;
+		pSendBuf[1]=dataLen&0xff;
+		return APP_Network_Send((char*)pSendBuf,dataLen+2);
+	}
+	else
+	{
+		dataLen=pFunPack(pInBack,pSendBuf+4);
+		return APP_Uart_PackSend(PORT_COM1,pSendBuf+4,dataLen);
+	}
+}
+
+void* tms_external_read(COM_TYPE type,u8* pRecvBuf,u32 *pLen,funTmsParse pFunParse)
+{
+	int ret;
+	if(type == COM_NET)
+	{
+		ret=APP_Network_Recv((char*)pRecvBuf,*pLen,5000,TMS_CheckFullData);
+		if(ret > 2)
+		{
+			*pLen = pRecvBuf[0]*256 + pRecvBuf[1];
+			return pFunParse(pRecvBuf+2,pLen);
+		}
+	}
+	else
+	{
+		u8* pRecvData;
+		pRecvData =	APP_Uart_PackRecv(PORT_COM1,pRecvBuf,pLen);
+		if(pRecvData)
+		{
+			return pFunParse(pRecvData,pLen);
+		}
+	}
+	return NULL;
+}
+
+void tms_external_close(COM_TYPE type,int timeOutMs)
+{
+	if(type == COM_NET)
+	{
+		APP_Network_Disconnect(timeOutMs);
+	}
+	else
+	{
+		OsPortClose(PORT_COM1);
+		OsSleep(timeOutMs);
+	}
+}
 
 //======================================================================
-int APP_TmsSendS001(tData_TMS_Const *pFixed,u8* pUseBuff)
+int APP_TmsPackS001(tData_TMS_Const *pFixed,u8* pOutBuff)
 {
-	u16 Len;
-	u8 *pSend,*pStart;
-	pStart=pUseBuff+2;
-	pSend=pStart;
+	u8 *pSend;
+	pSend=pOutBuff;
 	pSend=TMS_AddSendData(pSend,0x3101,"S0001");
 	pSend=TMS_AddSendData(pSend,0x3103,pFixed->sTuSN);
 	pSend=TMS_AddSendData(pSend,0x3140,pFixed->sType);
@@ -286,60 +359,51 @@ int APP_TmsSendS001(tData_TMS_Const *pFixed,u8* pUseBuff)
 	pSend=TMS_AddSendData(pSend,0x3001,"4.4");
 	pSend=TMS_AddSendData(pSend,0x3126,"{\"net\":\"%s\",\"app_v\":\"%s\",\"source_v\":\"%s\",\"life\":\"%d\",\"bat\":\"%d\"}", \
 		pFixed->sComType,tAdminTermPar.AppVer,pFixed->sParVer,APP_GetLifeCycle(),OldScreen.batteryLevel);
-	Len=pSend-pStart;
-	pUseBuff[0]=Len/256;
-	pUseBuff[1]=Len&0x0ff;
-	LOG_HEX(LOG_INFO,"TmsSendS001",pUseBuff,Len+2);
-	return APP_Network_Send((char*)pUseBuff,Len+2);
+	LOG_HEX(LOG_INFO,"TmsSendS001",pOutBuff,(pSend-pOutBuff));
+	return (pSend-pOutBuff);
 }
 
 
-dfJsonTable* APP_TmsRecvS001(u8* pUseBuff,u16 BuffSize)
+void* APP_TmsParseS001(u8* pInData,u32* pinLen)
 {
-	int	ret;
-	u16 Len;
+	u32 Len;
 	u8 *pRecv,*pIdData;
 	tData_TMS_struct tTmsRecv;
-	ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
 	OldScreen.TmsUpDataFlag = 1;
-	if(ret > 2)
-	{
-		//Len[2]+Data[Len]
-		LOG_HEX(LOG_INFO,"TmsRecvS001",pUseBuff,ret);
-		OldScreen.TmsUpDataFlag = 2;
-		TMS_LoadStructData(&tTmsRecv,pUseBuff+2,ret-2);
+	//Len[2]+Data[Len]
+	LOG_HEX(LOG_INFO,"TmsRecvS001",pInData,*pinLen);
+	OldScreen.TmsUpDataFlag = 2;
+	TMS_LoadStructData(&tTmsRecv,pInData,*pinLen);
 /*
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3101,&Len);
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3103,&Len);
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3140,&Len);
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3141,&Len);
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3001,&Len);
-		*/
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3126,&Len);
-		if(pIdData)
-		{//date: '2018-05-01 10:00:00'
-			pRecv=(u8*)API_eStrstr((char*)pIdData,"\"date\"");
-			if(pRecv)
-			{
-				while(*pRecv++ != '\"');
-				LOG_HEX(LOG_INFO,"Set SysDateTime Buff",pRecv,19);
-				SetSysDateTime((char*)pRecv);
-				OldScreen.TmsUpDataFlag = 3;
-			}
-		}
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3106,&Len);
-		if(pIdData == NULL  && *pIdData != '1') 
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x3101,&Len);
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x3103,&Len);
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x3140,&Len);
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x3141,&Len);
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x3001,&Len);
+	*/
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x3126,&Len);
+	if(pIdData)
+	{//date: '2018-05-01 10:00:00'
+		pRecv=(u8*)API_eStrstr((char*)pIdData,"\"date\"");
+		if(pRecv)
 		{
-			LOG(LOG_ERROR,"pIdData 3106 No 1 Err\r\n");
-			return NULL;
-		}
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x4005,&Len);
-		if(pIdData)
-		{
-			return Conv_JSON_GetMsg((char*)pIdData,(char*)pIdData+Len);
+			while(*pRecv++ != '\"');
+			LOG_HEX(LOG_INFO,"Set SysDateTime Buff",pRecv,19);
+			SetSysDateTime((char*)pRecv);
+			OldScreen.TmsUpDataFlag = 3;
 		}
 	}
-	LOG(LOG_ERROR,"APP TmsRecvData ret[%d]\r\n",ret);
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x3106,&Len);
+	if(pIdData == NULL  && *pIdData != '1') 
+	{
+		LOG(LOG_ERROR,"pIdData 3106 No 1 Err\r\n");
+		return NULL;
+	}
+	pIdData=TMS_FindRecvData(&tTmsRecv,0x4005,&Len);
+	if(pIdData)
+	{
+		return Conv_JSON_GetMsg((char*)pIdData,(char*)pIdData+Len);
+	}
 	return NULL;
 }
 
@@ -353,24 +417,20 @@ dfJsonTable* APP_TmsRecvS001(u8* pUseBuff,u16 BuffSize)
 3114 必填 下载偏移量, 从0开始 
 3154 必填 文件md5散列 
 */
-int APP_TmsSendF011(tData_TMS_Const *pFixed,u8* pUseBuff,char *pFileNo,u32 offset,u32 ReadSize)
+int APP_TmsPackF011(tData_TMS_Const *pFixed,u8* pOutBuff)
 {
-	u16 Len;
-	u8 *pSend,*pStart;
-	pStart=pUseBuff+2;
-	pSend=pStart;
+	u8 *pSend;
+	pSend=pOutBuff;
 	pSend=TMS_AddSendData(pSend,0x3101,"F011");
 	pSend=TMS_AddSendData(pSend,0x3103,pFixed->sTuSN);
 	pSend=TMS_AddSendData(pSend,0x3140,pFixed->sType);
 	pSend=TMS_AddSendData(pSend,0x3141,pFixed->sModel);
-	pSend=TMS_AddSendData(pSend,0x3111,pFileNo);
-	pSend=TMS_AddSendData(pSend,0x4007,"%d",ReadSize);
-	pSend=TMS_AddSendData(pSend,0x3114,"%d",offset);
-	Len=pSend-pStart;
-	pUseBuff[0]=Len/256;
-	pUseBuff[1]=Len&0x0ff;
-	//LOG_HEX(LOG_INFO,"TmsSendF011",pUseBuff,Len+2);
-	return APP_Network_Send((char*)pUseBuff,Len+2);
+	pSend=TMS_AddSendData(pSend,0x3111,pFixed->pFileNo);
+	pSend=TMS_AddSendData(pSend,0x3114,"%d",*pFixed->pOffset);
+	pSend=TMS_AddSendData(pSend,0x4007,"%d",*pFixed->pReadMax);
+	//LOG_HEX(LOG_INFO,"TmsSendF011",pOutBuff,(pSend-pOutBuff));
+	return (pSend-pOutBuff);
+	
 }
 
 
@@ -383,22 +443,13 @@ int APP_TmsSendF011(tData_TMS_Const *pFixed,u8* pUseBuff,char *pFileNo,u32 offse
 3115 必填 文件流片段 
 3154 必填 文件md5散列 
 */
-u8* APP_TmsRecvF011(u8* pUseBuff,u16 BuffSize,u16 *ExtLen)
+void* APP_TmsParseF011(u8* pInData,u32* pLen)
 {
-	int	ret;
-	u8 *pIdData;
 	tData_TMS_struct tTmsRecv;
-	ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
-	if(ret > 2)
-	{
-		//Len[2]+Data[Len]
-		//LOG_HEX(LOG_INFO,"TmsRecvF011",pUseBuff,ret);
-		TMS_LoadStructData(&tTmsRecv,pUseBuff+2,ret-2);
-		pIdData=TMS_FindRecvData(&tTmsRecv,0x3115,ExtLen);
-		return pIdData;
-	}
-	LOG(LOG_ERROR,"APP TmsRecvData ret[%d]\r\n",ret);
-	return NULL;
+	//Len[2]+Data[Len]
+	//LOG_HEX(LOG_INFO,"TmsRecvF011",pUseBuff,ret);
+	TMS_LoadStructData(&tTmsRecv,pInData,*pLen);
+	return TMS_FindRecvData(&tTmsRecv,0x3115,pLen);
 }
 
 /*
@@ -412,41 +463,31 @@ u8* APP_TmsRecvF011(u8* pUseBuff,u16 BuffSize,u16 *ExtLen)
 4:正在覆盖
 9:覆盖完成(覆盖完成) 
 */
-int APP_TmsSendF012(tData_TMS_Const *pFixed,u8* pUseBuff,char *pFileNo,char *pRetCode)
+int APP_TmsPackF012(tData_TMS_Const *pFixed,u8* pOutBuff)
 {
-	u16 Len;
-	u8 *pSend,*pStart;
-	pStart=pUseBuff+2;
-	pSend=pStart;
+	u8 *pSend;
+	pSend=pOutBuff;
 	pSend=TMS_AddSendData(pSend,0x3101,"F012");
 	pSend=TMS_AddSendData(pSend,0x3103,pFixed->sTuSN);
 	pSend=TMS_AddSendData(pSend,0x3140,pFixed->sType);
 	pSend=TMS_AddSendData(pSend,0x3141,pFixed->sModel);
-	pSend=TMS_AddSendData(pSend,0x3111,pFileNo);
+	pSend=TMS_AddSendData(pSend,0x3111,pFixed->pFileNo);
 	pSend=TMS_AddSendData(pSend,0x3116,"img");
-	pSend=TMS_AddSendData(pSend,0x3117,pRetCode);
-	Len=pSend-pStart;
-	pUseBuff[0]=Len/256;
-	pUseBuff[1]=Len&0x0ff;
-	LOG_HEX(LOG_INFO,"TmsSendF012",pUseBuff,Len+2);
-	return APP_Network_Send((char*)pUseBuff,Len+2);
+	pSend=TMS_AddSendData(pSend,0x3117,pFixed->pRetCode);
+	//LOG_HEX(LOG_INFO,"TmsSendF012",pOutBuff,(pSend-pOutBuff));
+	return (pSend-pOutBuff);
+	
 }
 
 
-int APP_TmsRecvF012(u8* pUseBuff,u32 BuffSize)
+void* APP_TmsParseF012(u8* pIndata,u32 *Inlen)
 {
-	int ret;
 	//u8 *pIdData;
 	//tData_TMS_struct tTmsRecv;
-	ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
-	if(ret > 2)
-	{
-		//Len[2]+Data[Len]
-		LOG_HEX(LOG_INFO,"APP_TmsRecvF012",pUseBuff,ret);
-	//	TMS_LoadStructData(&tTmsRecv,pUseBuff+2,ret-2);
-	}
-	LOG(LOG_ERROR,"APP TmsRecvF012 ret[%d]\r\n",ret);
-	return 0;
+	//ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
+	//Len[2]+Data[Len]
+	LOG_HEX(LOG_INFO,"APP_TmsRecvF012",pIndata,*Inlen);
+	return NULL;
 }
 
 
@@ -457,28 +498,20 @@ extern void OsSysGet_Sn(char *pSn,int size);
 extern 	void OsSysMsg_sync(void);
 
 
-typedef struct
-{
-	u32 uFileSize;
-	u32 uOffset;
-	u8	sFileMd5[20];
-	char sFileNo[64];
-	char sAppVer[15];
-	u8	upFlag;
-}tData_TMS_UpIni;
 
 
-int APP_TmsProcess(char *pTitle)
+
+
+int APP_TmsProcess(COM_TYPE type)
 {
 	int ret;
 	u16 UseSize,UpOk;
+	u32 outLen;
 	u8 SaveSleepEn;
 	u8* pUseBuff;
 	tData_TMS_Const tTermPar;
 	tData_UpIni *pTermIni;
-	APP_Network_KeyAccept(3);
-	ret=APP_Network_Connect(TMS_CONNET_ADDER,TMS_CONNET_POST,TMS_CONNET_SSLEN);
-	APP_Network_KeyAccept(0);
+	ret=tms_external_open(type);
 	if(OPER_OK != ret) return -1;
 	//----------------------------------------------------
 	//if(OldScreen.mSignalType == SIGNAL_WIFI)
@@ -486,9 +519,8 @@ int APP_TmsProcess(char *pTitle)
 	//else
 	//	API_strcpy(tTermPar.sComType,"2G");
 	//------------------------------------------------------------------------------------
-	OsSysGet_Sn(tTermPar.sParVer,sizeof(tTermPar.sParVer));	//TMS_GetParVersion(tTermPar.sParVer,sizeof(tTermPar.sParVer));
+	TMS_GetParVersion(tTermPar.sParVer,sizeof(tTermPar.sParVer));
 	//--------------------------------------------------------------
-	
 	if(0 >= APP_GetHardMsg(TYPE_TERM_HARD_SN,tTermPar.sTuSN,sizeof(tTermPar.sTuSN)))
 	{
 		tTermPar.sTuSN[0]='K';
@@ -503,11 +535,17 @@ int APP_TmsProcess(char *pTitle)
 	UpOk = 0;
 	//--------------------------------------------------------
 	pTermIni=OsSysGet_UpIni();
+	tTermPar.pFileNo = pTermIni->sFileNo;
+	tTermPar.pOffset = &pTermIni->uOffset;
 	//--------------------------------------------------------
 	if(pTermIni->upFlag == 2)
 	{
-		if(0 <= APP_TmsSendF012(&tTermPar,pUseBuff,pTermIni->sFileNo,"3"))
-				APP_TmsRecvF012(pUseBuff,UseSize);
+		tTermPar.pRetCode = "3";
+		if(0 <= tms_external_send(type,pUseBuff,APP_TmsPackF012,&tTermPar))
+		{
+			outLen= UseSize;
+			tms_external_read(type,pUseBuff,&outLen,APP_TmsParseF012);
+		}
 		/*
 		if(API_strcmp(tTermIni.sAppVer,tAdminTermPar.AppVer))
 		{//------更新成功-------
@@ -520,15 +558,16 @@ int APP_TmsProcess(char *pTitle)
 				APP_TmsRecvF012(pUseBuff,UseSize);
 		}
 		*/
+		tms_external_close(type,5000);
+		
 		API_fremove(Tms_Term_fAppUp);
 		API_memset(pTermIni,0x00,sizeof(tData_UpIni));
-		APP_Network_Disconnect(5000);
-		ret=APP_Network_Connect(TMS_CONNET_ADDER,TMS_CONNET_POST,TMS_CONNET_SSLEN);
+		ret=tms_external_open(type);
 	}
 	
 	while(OPER_OK == ret)
 	{
-		if(0 > APP_TmsSendS001(&tTermPar,pUseBuff))
+		if(0 > tms_external_send(type,pUseBuff,APP_TmsPackS001,&tTermPar))
 		{
 			LOG(LOG_ERROR,"APP TmsSendS001 fail\r\n");
 		}
@@ -537,7 +576,8 @@ int APP_TmsProcess(char *pTitle)
 			char *pIdData;
 			dfJsonTable* pTable;
 			u8 Md5buff[20];
-			pTable=APP_TmsRecvS001(pUseBuff,UseSize);
+			outLen= UseSize;
+			pTable=(dfJsonTable*)tms_external_read(type,pUseBuff,&outLen,APP_TmsParseS001);
 			if(pTable==NULL) break;
 			pIdData=Conv_GetJsonValue(pTable,"fileNo",NULL);
 			if(pIdData==NULL) break;
@@ -573,7 +613,7 @@ int APP_TmsProcess(char *pTitle)
 	while(UpOk == 1)
 	{	
 		u32 	RecvMax;
-		u16		ErrTime,OutLen;
+		u16		ErrTime;
 		u8		OutMd5[20];
 		u8*		pRecvApp;
 		//mbedtls_md5_context ctx;
@@ -583,15 +623,18 @@ int APP_TmsProcess(char *pTitle)
 		//-------------------------------------------------------------	
 		if(pTermIni->upFlag==0)
 		{
-			API_GUI_CreateWindow(STR_SOFTWARE_UPDATA,TOK,TCANCEL,0);
-			API_GUI_Info(NULL,TEXT_ALIGN_CENTER|TEXT_VALIGN_CENTER,STR_CHECK_UPDATA);
-			API_GUI_Info(NULL,TEXT_ALIGN_RIGHT|TEXT_VALIGN_BOTTOM|TEXT_EXSTYLE_OVERLINE,STR_PRESS_OK_CONNET);
-			API_GUI_Show();
-			if(EVENT_CANCEL == APP_WaitUiEvent(5*1000))
+			if(type == COM_NET)
 			{
-				APP_ShowSta(pTitle,"EXIT");
-				UpOk = 0x434C;
-				break;
+				API_GUI_CreateWindow(STR_SOFTWARE_UPDATA,TOK,TCANCEL,0);
+				API_GUI_Info(NULL,TEXT_ALIGN_CENTER|TEXT_VALIGN_CENTER,STR_CHECK_UPDATA);
+				API_GUI_Info(NULL,TEXT_ALIGN_RIGHT|TEXT_VALIGN_BOTTOM|TEXT_EXSTYLE_OVERLINE,STR_PRESS_OK_CONNET);
+				API_GUI_Show();
+				if(EVENT_CANCEL == APP_WaitUiEvent(5*1000))
+				{
+					APP_ShowSta(STR_SOFTWARE_UPDATA,"EXIT");
+					UpOk = 0x434C;
+					break;
+				}
 			}
 			fb_In = open(Tms_Term_fAppUp,O_WRONLY|O_CREAT,0666);
 			//flieHandle=TMS_UpApp_Init(Tms_Term_fAppUp,tTermIni.uFileSize);
@@ -603,12 +646,12 @@ int APP_TmsProcess(char *pTitle)
 		}
 		if(fb_In <= 0)
 		{
-			APP_ShowSta(pTitle,STR_CREATE_FILE_FAILED);
+			APP_ShowSta(STR_SOFTWARE_UPDATA,STR_CREATE_FILE_FAILED);
 			UpOk = 0x4641;
 			break;
 		}
 		//--------------------------------------------------------------
-		APP_ShowSta(pTitle,STR_PRESS_OK_UPDATE);
+		APP_ShowSta(STR_SOFTWARE_UPDATA,STR_PRESS_OK_UPDATE);
 		//--------------------------------------------------------------
 		//mbedtls_md5_starts_ret(&ctx);
 		//----------断点续传-----------------------
@@ -621,14 +664,16 @@ int APP_TmsProcess(char *pTitle)
 		APP_ShowBottomProgress(pTermIni->uOffset*100/pTermIni->uFileSize);
 		RecvMax = TMS_RECV_MAX;
 		ErrTime = 0;
-		while(pTermIni->uOffset< pTermIni->uFileSize)
+		tTermPar.pReadMax = &RecvMax;
+		while(pTermIni->uOffset < pTermIni->uFileSize)
 		{
-			if(0 > APP_TmsSendF011(&tTermPar,pUseBuff,pTermIni->sFileNo,pTermIni->uOffset,RecvMax))
+			if(0 > tms_external_send(type,pUseBuff,APP_TmsPackF011,&tTermPar))
 				break;
-			pRecvApp=APP_TmsRecvF011(pUseBuff,UseSize,&OutLen);
+			outLen= UseSize;
+			pRecvApp=(u8*)tms_external_read(type,pUseBuff,&outLen,APP_TmsParseF011);
 			if(pRecvApp)
 			{
-				ret=APP_UpAPP_Load(fb_In,pTermIni->uOffset,pRecvApp,OutLen);
+				ret=APP_UpAPP_Load(fb_In,pTermIni->uOffset,pRecvApp,outLen);
 				if(ret <= 0) {
 					UpOk =0x5345;
 					break;
@@ -645,8 +690,8 @@ int APP_TmsProcess(char *pTitle)
 					break;
 				}
 				LOG(LOG_WARN," uOffset=%d,->断点续传[%d]....\r\n",pTermIni->uOffset,ErrTime);
-				APP_Network_Disconnect(15000);
-				ret=APP_Network_Connect(TMS_CONNET_ADDER,TMS_CONNET_POST,TMS_CONNET_SSLEN);
+				tms_external_close(type,15000);
+				ret=tms_external_open(type);
 				if(OPER_OK != ret)
 				{
 					UpOk = 0x4146;
@@ -662,36 +707,58 @@ int APP_TmsProcess(char *pTitle)
 		TMS_UpApp_End(fb_In);
 		if(pTermIni->uOffset >= pTermIni->uFileSize)
 		{
-			APP_ShowSta(pTitle,STR_DOWNLOAD_COMPLETED);
-		//	mbedtls_md5_finish_ret(&ctx,OutMd5);
-			if(memcmp(pTermIni->sFileMd5,OutMd5,16)==0)
+			mbedtls_md_context_t ctx;
+			u32 offset,fMaxlen;
+			APP_ShowSta(STR_SOFTWARE_UPDATA,STR_DOWNLOAD_COMPLETED);
+			
+			offset=0;
+			RecvMax = UseSize;
+			fMaxlen= pTermIni->uFileSize;
+			api_md_starts(&ctx,MBEDTLS_MD_MD5);
+			fb_In = open(Tms_Term_fAppUp,O_RDONLY|O_CREAT,0666);
+			while(offset < fMaxlen)
+			{
+				if(RecvMax > fMaxlen) RecvMax = fMaxlen;
+				ret= read(fb_In,pUseBuff,RecvMax);
+				if(ret < (int)RecvMax) break;
+				api_md_update(&ctx,pUseBuff,ret);
+				offset += RecvMax;
+			}
+			close(fb_In);
+			api_md_finish(&ctx,OutMd5,NULL);
+			
+			if((offset >= fMaxlen) && (memcmp(pTermIni->sFileMd5,OutMd5,16)==0))
 			{
 				UpOk = 0x4B4F;
-				APP_ShowSta(pTitle,STR_INSTALLING); 
+				APP_ShowSta(STR_SOFTWARE_UPDATA,STR_INSTALLING); 
 				pTermIni->upFlag=2;
 				API_strcpy(pTermIni->sAppVer,tAdminTermPar.AppVer);
-				
-				if(0 > APP_TmsSendF012(&tTermPar,pUseBuff,pTermIni->sFileNo,"2"))
+				tTermPar.pRetCode = "2";
+				if(0 > tms_external_send(type,pUseBuff,APP_TmsPackF012,&tTermPar))
 					break;
-				APP_TmsRecvF012(pUseBuff,UseSize);
+				outLen= UseSize;
+				tms_external_read(type,pUseBuff,&outLen,APP_TmsParseF012);
 			}
 			else
 			{
+				APP_ShowSta(STR_SOFTWARE_UPDATA,STR_VERIFY_FAILED);
+				API_fremove(Tms_Term_fAppUp);
+				memset(pTermIni,0x00,sizeof(tData_UpIni));
 				UpOk = 0x5243;
-				APP_ShowSta(pTitle,STR_VERIFY_FAILED);  
-				pTermIni->upFlag=0;
-				
 				LOG(LOG_ERROR,"uFileSize=%d,Check MD5 Err....\r\n",pTermIni->uFileSize);
 				LOG_HEX(LOG_ERROR,"sFileMd5",pTermIni->sFileMd5,16);
 				LOG_HEX(LOG_ERROR,"OutMd5",OutMd5,16);
-				if(0 > APP_TmsSendF012(&tTermPar,pUseBuff,pTermIni->sFileNo,"-2"))
+				pTermIni->upFlag=0;
+				tTermPar.pRetCode = "-2";
+				if(0 > tms_external_send(type,pUseBuff,APP_TmsPackF012,&tTermPar))
 					break;
-				APP_TmsRecvF012(pUseBuff,UseSize);
+				outLen= UseSize;
+				tms_external_read(type,pUseBuff,&outLen,APP_TmsParseF012);
 			}
 		}
 		else
 		{
-			APP_ShowSta(pTitle,STR_DOWNLOAD_FAILED);
+			APP_ShowSta(STR_SOFTWARE_UPDATA,STR_DOWNLOAD_FAILED);
 			pTermIni->upFlag=1;
 			
 			LOG(LOG_ERROR," uOffset=%d,uFileSize=%d,Err[%x]....\r\n",pTermIni->uOffset,pTermIni->uFileSize,UpOk);
@@ -706,13 +773,15 @@ int APP_TmsProcess(char *pTitle)
 		break;
 	}
 	free(pUseBuff);
-	APP_Network_Disconnect(5000);
+	OsSysMsg_sync();
+	tms_external_close(type,5000);
 	APP_WaitUiEvent(2000);
 	OldScreen.SleepEn=SaveSleepEn;
 	//---------------------------升级应用---------------------------------
 	if(UpOk == 0x4B4F)
 	{
-//		PowerReboot();
+	//	memcpy(&ret,"up",sizeof(ret));
+	//	OsExit(ret); //PowerReboot();
 	}
 	if(UpOk > 0)
 		return 1;
@@ -759,13 +828,13 @@ u32 APP_TMS_UpAPP(u16 Msg)
 	}
 	OldTimeMS=cTimeMS;
 	
-	if(0 < APP_TmsProcess(STR_SOFTWARE_UPDATA))
+	if(0 < APP_TmsProcess(COM_NET))
 		return EVENT_CANCEL;	//刷新外层界面
 	return EVENT_NONE;
 }
 
 //#include <direct.h>
-int InstallAPP(const char* pKspPath,ST_APP_INFO* pAppInfo)
+int InstallAPP(ST_APP_INFO* pAppInfo)
 { // 从文件系统中读取应用
 	u8  i,tmsSetup,appSetup,resLogoSetup; //ret bit0,logo bit1
 	int ks_fd,ret,kspoffset,totalLen,compLen;
@@ -776,6 +845,7 @@ int InstallAPP(const char* pKspPath,ST_APP_INFO* pAppInfo)
 	u32 	offset;
 	u8					signout[256];
 	KSP_SIGN_CONTEXT 	*tKspSignContext;
+	const char* pKspPath=Tms_Term_fAppUp;
 	LOG(LOG_INFO,"InstallMasterAPP[%s] Init\r\n",pKspPath);
 	//----------------读取KSP文件头----------------------------------
 	ks_fd=open(pKspPath,O_RDONLY);
