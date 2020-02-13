@@ -61,8 +61,7 @@ int OsSysSleepTime(int Time)
 //ÖØÆô»úÆ÷
 int OsReboot(void)
 {
-
-
+	system("shutdown -r");
 
 }
 
@@ -70,6 +69,7 @@ int OsReboot(void)
 int OsPowerOff (void)
 {
 
+	system("shutdown -h");
 
 }
 
