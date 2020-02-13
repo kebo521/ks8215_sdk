@@ -196,8 +196,8 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
     return 0;     
 }    
 
+extern unsigned long OsGetTickCount(void);
 //uart_set(fd,115200,0,8,1,'N')  
-  
 /*******************************************************************  
 * 名称：		uart_recv  
 * 功能：		接收串口数据  
@@ -211,23 +211,53 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 	int ret;
 	if(timeoutMs)
 	{
-		int fs_sel;  
+		int fs_sel,offset,tagTimeMs;  
 		fd_set fs_read;    
 		struct timeval time;  
 		FD_ZERO(&fs_read);	  
 		FD_SET(fd,&fs_read);	
-	
+
+		tagTimeMs=timeoutMs+OsGetTickCount();
 		time.tv_sec = timeoutMs/1000;	
 		time.tv_usec = (timeoutMs%1000)*1000;	 
 		//使用select实现串口的多路通信	
 		fs_sel = select(fd+1,&fs_read,NULL,NULL,&time);
 		//FD_CLR(fd,&fs_read);
-		printf("fs_sel=%d ",fs_sel);
-		if(fs_sel==0) return -1;
+		if(fs_sel==0)
+		{
+			printf("uart recv fs_sel=%d Err\r\n",fs_sel);
+			return -1;
+		}
+		ret = read(fd,rcv_buf,data_len);
+		if(ret < 0)
+		{
+			printf("uart recvt1 read=%d Err\r\n",ret);
+			tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
+		}
+		offset = ret;
+		while(offset < data_len)
+		{
+			if(((int)OsGetTickCount()-tagTimeMs)>=0)
+			{
+				printf("uart recvt timeOut[%d][%d]\r\n",(int)OsGetTickCount(),tagTimeMs);
+				break;
+			}
+			usleep(1000*5);
+			ret = read(fd,rcv_buf+offset,data_len-offset);
+			if(ret < 0)
+			{
+				printf("uart recvt2 read=%d Err\r\n",ret);
+				tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
+				break;
+			}
+			offset += ret;
+		}
+		return offset;
 	}
 	ret = read(fd,rcv_buf,data_len);
 	if(ret < 0)
 	{
+		printf("uart recv read=%d Err\r\n",ret);
 		tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
 	}
 	return ret;

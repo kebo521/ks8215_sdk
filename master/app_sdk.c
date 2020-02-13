@@ -372,10 +372,11 @@ u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen)
 		start++;
 		if(start == 5)
 		{
+			LOG(LOG_WARN,"***Uart_PackRecv recv Nouse DataD**\r\n",ret);
 			ret=OsPortRecv(Channel,pRecvBuf,5,100);
 			if(ret < 5) 
 			{
-				LOG(LOG_ERROR,"###Uart_PackRecv recv Nouse Datal##\r\n",ret);
+				LOG(LOG_ERROR,"###Uart_PackRecv recv[%d] Nouse DataL##\r\n",ret);
 				return NULL;
 			}
 			start = 0;
@@ -390,13 +391,15 @@ u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen)
 			recvSize = *recvLen;
 			if(recvSize >= (ulen+start+5))
 			{
-				recvSize = (ulen+start);
+				recvSize = (ulen+start+5);
 			}
 			else
 			{
 				LOG(LOG_WARN,"****recvSize to small***\r\n");
 			}
+			recvSize -= 5;
 			ret=OsPortRecv(Channel,pRecvBuf+5,recvSize,8000);
+			LOG(LOG_WARN,"recvSize ulen[%d]ret[%d]recvSize[%d]\r\n",ulen,ret,recvSize);
 		}
 		else
 		{

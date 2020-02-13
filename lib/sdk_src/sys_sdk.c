@@ -28,7 +28,7 @@ typedef struct{
 	int 			shmAid;
 	ST_SYS_MSG		*pSysMsg;
 	int 			shmDid;
-	ST_SYS_DATA	*pSysData;
+	ST_SYS_DATA		*pSysData;
 } ST_SYS_SHM;
 
 ST_SYS_SHM tSt_Sys={0};

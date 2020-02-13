@@ -394,7 +394,7 @@ void* APP_TmsParseS001(u8* pInData,u32* pinLen)
 		}
 	}
 	pIdData=TMS_FindRecvData(&tTmsRecv,0x3106,&Len);
-	if(pIdData == NULL  && *pIdData != '1') 
+	if(pIdData == NULL  ||  *pIdData != '1') 
 	{
 		LOG(LOG_ERROR,"pIdData 3106 No 1 Err\r\n");
 		return NULL;
