@@ -5,6 +5,8 @@
  *
  */
  #include "sdk_battery.h"
+#include "sys_sdk.h"
+
  //检测当前电量
  int OsCheckBattery(void)
  {
@@ -22,8 +24,8 @@
 //使终端进入休眠模式。
  int OsSysSleep(void)
  {
-	//将休眠状态置true
- 	pthread_kill((pthread_t)threadID, SIGQUIT);//threadID为屏幕刷新线程
+	//停止刷新状态栏ui线程
+ 	pthread_kill(Msg_data.threadID, SIGQUIT);//threadID为屏幕刷新线程
 
  }
 
@@ -34,14 +36,17 @@ int OsSysSleepEx(int level)
 		{
 		case 0:
 		case 1:
+			/*
 			if()//判断是否允许进入屏保模式
 				return ERR_DEV_BUSY;
 			OsSysSleep();
+			*/
 				return RET_OK;
 		case 2:	
-			if()//判断是否允许进行休眠
+			if(!Msg_data.DormancyEN)//判断是否允许进行休眠
 				return ERR_DEV_BUSY;
 			OsSysSleep();
+			Msg_data.DormancyState = TRUE;
 				return RET_OK;
 		default:return ERR_INVALID_PARAM
 	}

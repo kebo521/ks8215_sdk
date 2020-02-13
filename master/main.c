@@ -271,7 +271,6 @@ int APP_main(int argc, char* argv[]) {
 //	"TSDEV=",
 	"STATUSBAR=24",
 	};
-	pthread_t threadID;
 	XuiWindow* pWindow,*pStaWindow;
 //	OsLogSetTag("logo.txt");	
 	XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg);
@@ -279,7 +278,7 @@ int APP_main(int argc, char* argv[]) {
 	{
 		pStaWindow=XuiStatusbarCanvas();
 		//Ïß³Ì(UI_DisplaySysEn,pStaWindow)
-		pthread_create(threadID, NULL,StatusBar_Thread,pStaWindow);
+		pthread_create(Msg_data.threadID, NULL,StatusBar_Thread,pStaWindow);
 	
 		//UI_DisplaySysEn(pStaWindow,0,0,TEXT_12,"0 yz131234&&*()");
 		//UI_DisplaySysEn(pStaWindow,15*6,8,TEXT_16,"_+~!@#$%^&*");

@@ -63,6 +63,18 @@ typedef enum{
 	LOG_ERROR, /*显示错误信息*/
 } LOG_T;
 
+typedef struct
+{
+	u8 DormancyState;//休眠状态
+	u8 DormancyEN;//是否允许休眠
+	u8 Screensaver;//屏保状态
+	pthread_t threadID;//刷新状态栏ui线程
+
+}Status_Messages;
+
+Status_Messages Msg_data;
+
+
 #define CURR_LOG_T						LOG_INFO			
 extern void OsLogSetTag(const char *Tag);
 extern int OsLog(LOG_T Prio,const char *fmt,...);
