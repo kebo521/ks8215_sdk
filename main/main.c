@@ -32,8 +32,9 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <linux/input.h>
-//#include <sys/shm.h> 
-//#include <linux/shm.h>   
+#ifndef FILE_SHARD_MEMORY
+#include <sys/shm.h>
+#endif
 #include<sys/mman.h>
 
 #include <sys/types.h>
@@ -69,7 +70,7 @@ void APP_Trace_Hex(char* msg,void* pBuff,int Len)
 }
 
 #define TRACE				API_Trace
-#define TRACE_HEX		APP_Trace_Hex
+#define TRACE_HEX			APP_Trace_Hex
 
 const char sMaster_Cert_ZT[] =
 "-----BEGIN RSA PRIVATE KEY-----\r\n"
@@ -102,29 +103,18 @@ const char sMaster_Cert_ZT[] =
 
 
 
-typedef struct{
-	int				pid,sig;	
-	unsigned short 	mAppMax,nCurrAppId;
-	unsigned short 	nDefAppId,nNouser;
-	ST_APP_INFO 	AppInfo[6];
-	unsigned short 	mOptMax,nOptId;
-	ST_OPT_INFO 	OptInfo[10];
-} ST_SYS_MSG;
-
-typedef struct{
-	int 			AppExitCode;
-	unsigned short 	nCurrAppId,pNextAppId;
-	unsigned char  aAppIDStack[20];
-	unsigned short	sWriteLen,sReadLen;
-	unsigned char  sendBuff[2048];
-	unsigned short	rWriteLen,rReadLen;
-	unsigned char  readBuff[2048];
-} ST_SYS_DATA;
-
 #define Tms_TMS_sApp		"tms_run" 
 #define	S_SYS_MSG_PATH	"shmaid.bin"
+
+#ifdef FILE_SHARD_MEMORY
 #define SHM_SDK_AID		"shm_A8215"		//独立数字平台统一定
 #define SHM_SDK_DID		"shm_D8215"		//独立数字平台统一定
+#else
+#define SHM_SDK_AID		0xA8215		//独立数字平台统一定
+#define SHM_SDK_DID		0xD8215		//独立数字平台统一定
+
+#endif
+
 
 
 int InstallMasterAPP(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBottomProgress)(unsigned char))
@@ -378,16 +368,17 @@ void signSaveShmMsg(int signo)
 {
 	if(shmAid != -1)
 	{
+		#ifdef FILE_SHARD_MEMORY
 		fsync(shmAid);
-		/*
+		#else
 		int fd = open(S_SYS_MSG_PATH,O_WRONLY|O_CREAT,0666);
 		if (fd != -1)
 		{
 			write(fd,pSysMsg,sizeof(ST_SYS_MSG));
 			close(fd);
 		}
+		#endif
 		TRACE("sign->SaveShmMsg[%d]\r\n",fd);
-		*/
 	}
 }
 
@@ -409,7 +400,7 @@ int my_signal(int sig,void (*handler)(int))
 
 int main(int argc, char* argv[]) 
 {
-//	int ret;
+	ST_SYS_DATA *pSysData;
 	int shmDid;
 	pid_t pid;
 	pid = fork();
@@ -428,6 +419,7 @@ int main(int argc, char* argv[])
 		TRACE("setsid failed\n");
 		return 2;
 	}
+	
 	//chdir("/");
 	/*
 	{
@@ -443,6 +435,7 @@ int main(int argc, char* argv[])
 		}
 	}*/
 	TRACE("Create a shared memory Init\r\n");
+	#ifdef FILE_SHARD_MEMORY
 	//----------------------------------------------------------------
 	shmDid=open(SHM_SDK_DID,O_CREAT|O_RDWR,0666);
 	if(shmDid == -1) 
@@ -450,11 +443,18 @@ int main(int argc, char* argv[])
 		TRACE("shm_open->%s [%d]Err\r\n",SHM_SDK_DID,shmDid);		
 		return -1;	
 	}
-	ftruncate(shmDid, sizeof(ST_SYS_DATA));
-	ST_SYS_DATA *pSysData = (ST_SYS_DATA *)mmap(NULL, sizeof(ST_SYS_DATA), PROT_READ|PROT_WRITE, MAP_SHARED, shmDid, 0);
+	//获取文件的属性
+	if(ftruncate(shmDid, sizeof(ST_SYS_DATA)))
+	{
+		TRACE("ftruncate->fd[%d]size[%d]\r\n",shmDid,sizeof(ST_SYS_DATA));	
+		perror("perror"); 
+		return -1;	
+	}
+	pSysData = (ST_SYS_DATA *)mmap(NULL, sizeof(ST_SYS_DATA), PROT_READ|PROT_WRITE, MAP_SHARED, shmDid, 0);
 	if (pSysData == MAP_FAILED) 
 	{		
-		TRACE("mmap->A8215 shmDid Err\r\n");		
+		TRACE("mmap->A8215 shmDid [%d]Err ofsize[%d]\r\n",pSysData,sizeof(ST_SYS_DATA));	
+		perror("mmap->A8215"); 
 		return -1;	
 	}
 	memset(pSysData,0x00,sizeof(ST_SYS_DATA));
@@ -472,20 +472,20 @@ int main(int argc, char* argv[])
 		TRACE("mmap->A8215 shmAid Err\r\n");		
 		return -1;	
 	}
-	/*
-	int shmDid=shmget(SHM_SDK_DID,sizeof(ST_SYS_DATA),0666|IPC_CREAT);  
+	#else	//---------------------------------------------------------------
+	shmDid=shmget(SHM_SDK_DID,sizeof(ST_SYS_DATA),0666|IPC_CREAT);  
 	if(shmDid == -1)
 	{
 		TRACE("shared memory shmgetDATA %d\r\n",shmDid);
 		return -1;
 	}
-	ST_SYS_DATA *pSysData=(ST_SYS_DATA *)shmat(shmDid,0,0); //SHM_RDONLY|SHM_RND
+	pSysData=(ST_SYS_DATA *)shmat(shmDid,0,0); //SHM_RDONLY|SHM_RND
 	if(pSysData)
 	{
 		memset(pSysData,0x00,sizeof(ST_SYS_DATA));
 	}
 	//----------------------------------------------------------------
-	int shmAid=shmget(SHM_SDK_AID,sizeof(ST_SYS_MSG),0666|IPC_CREAT);  	
+	shmAid=shmget(SHM_SDK_AID,sizeof(ST_SYS_MSG),0666|IPC_CREAT);  	
 	if(shmAid == -1)
 	{
 		TRACE("shared memory shmget\r\n");
@@ -495,7 +495,7 @@ int main(int argc, char* argv[])
 	pSysMsg=(ST_SYS_MSG *)shmat(shmAid,0,0); //SHM_RDONLY|SHM_RND
 	if(pSysMsg)
 	{
-		int fd = open(S_SYS_MSG_PATH,O_RDWR,0666);
+		int fd = open(S_SYS_MSG_PATH,O_RDWR);
 		if (fd != -1)
 		{
 			read(fd,pSysMsg,sizeof(ST_SYS_MSG));
@@ -507,11 +507,11 @@ int main(int argc, char* argv[])
 		}
 		pSysMsg->pid = getpid();
 		pSysMsg->sig = SIGUSR1;	//SIGRTMIN SIGRTMAX
+		signal(pSysMsg->sig,signSaveShmMsg);
+	//	my_signall(pSysMsg->sig,signSaveShmMsg);
 	}
-	signal(pSysMsg->sig,signSaveShmMsg);
-	*/
-	
-//	my_signall(pSysMsg->sig,signSaveShmMsg);
+	else return 1;
+	#endif
 	//pSysMsg->mAppMax=0;
 //	int sigqueue(pid_t pid, int sig, const union sigval val)
 //	sigqueue(pSysMsg->pid,pSysMsg->sig,(const union sigval)0);
@@ -555,7 +555,7 @@ int main(int argc, char* argv[])
 		{//---守护进程-------
 			pid_t _pid_t;
 			_pid_t = wait(&pid); //---等待孙进程结束------
-			fsync(shmAid);
+			signSaveShmMsg(1);
 			printf("------reRunAPP-[%d,%d]---------\n",_pid_t,pid);
 			/*
 			{
@@ -571,6 +571,8 @@ int main(int argc, char* argv[])
 				exit(0);
 			}*/
 			pSysData->AppExitCode= (int)_pid_t;
+			sleep(5);
+			exit(0);
 		} 
 		else break; //孙进程，跳出外面执行
 	} 
@@ -615,6 +617,7 @@ int main(int argc, char* argv[])
 	}
 	//----------------不会运行-------------------------------------
 	/*
+	#ifndef FILE_SHARD_MEMORY
 	ret=shmdt(pSysMsg);
 	TRACE(" a shared pSysMsg[%d]\r\n",ret);
 	ret=shmctl(shmAid,IPC_RMID,NULL);
@@ -624,6 +627,7 @@ int main(int argc, char* argv[])
 	TRACE(" a shared pSysData[%d]\r\n",ret);
 	ret=shmctl(shmAid,IPC_RMID,NULL);
 	TRACE(" a shared memory shmctl[%d]\r\n",ret);
+	#endif
 	*/
 	return 0;
 }

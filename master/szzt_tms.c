@@ -244,23 +244,6 @@ int TMS_GetParVersion(char* pParVer,int sizeVer)
 }
 
 
-//===================================文件下载========================================
-int TMS_UpApp_Init(char* pfilePath,u32 fSize)
-{
-	return open(pfilePath,O_WRONLY|O_CREAT,0666);
-}
-
-int APP_UpAPP_Load(int fb,u32 offset,u8* pBuff,u16 Inlen)
-{
-	lseek(fb,offset,SEEK_SET);
-	return write(fb,pBuff,Inlen);
-}
-
-void TMS_UpApp_End(int fd)
-{
-	close(fd);
-}
-
 //============================外部通信==========================================
 int tms_external_open(COM_TYPE type)
 {
@@ -282,7 +265,7 @@ int tms_external_open(COM_TYPE type)
 		APP_Uart_PackSend(PORT_COM1,buff+4,14);
 		OutLen = sizeof(buff);
 		CLEAR(buff);
-		p=APP_Uart_PackRecv(PORT_COM1,buff,&OutLen);
+		p=APP_Uart_PackRecv(PORT_COM1,buff,&OutLen,3000,NULL);
 		if(p)
 		{
 			LOG(LOG_INFO,"tms__open ret[%s]\r\n",p);
@@ -325,7 +308,7 @@ void* tms_external_read(COM_TYPE type,u8* pRecvBuf,u32 *pLen,funTmsParse pFunPar
 	else
 	{
 		u8* pRecvData;
-		pRecvData =	APP_Uart_PackRecv(PORT_COM1,pRecvBuf,pLen);
+		pRecvData =	APP_Uart_PackRecv(PORT_COM1,pRecvBuf,pLen,3000,NULL);
 		if(pRecvData)
 		{
 			return pFunParse(pRecvData,pLen);
@@ -394,7 +377,7 @@ void* APP_TmsParseS001(u8* pInData,u32* pinLen)
 		}
 	}
 	pIdData=TMS_FindRecvData(&tTmsRecv,0x3106,&Len);
-	if(pIdData == NULL  ||  *pIdData != '1') 
+	if(pIdData != NULL  &&  *pIdData != '1') 
 	{
 		LOG(LOG_ERROR,"pIdData 3106 No 1 Err\r\n");
 		return NULL;
@@ -402,6 +385,7 @@ void* APP_TmsParseS001(u8* pInData,u32* pinLen)
 	pIdData=TMS_FindRecvData(&tTmsRecv,0x4005,&Len);
 	if(pIdData)
 	{
+		LOG_HEX(LOG_INFO,"4005",pIdData,Len);
 		return Conv_JSON_GetMsg((char*)pIdData,(char*)pIdData+Len);
 	}
 	return NULL;
@@ -428,7 +412,7 @@ int APP_TmsPackF011(tData_TMS_Const *pFixed,u8* pOutBuff)
 	pSend=TMS_AddSendData(pSend,0x3111,pFixed->pFileNo);
 	pSend=TMS_AddSendData(pSend,0x3114,"%d",*pFixed->pOffset);
 	pSend=TMS_AddSendData(pSend,0x4007,"%d",*pFixed->pReadMax);
-	//LOG_HEX(LOG_INFO,"TmsSendF011",pOutBuff,(pSend-pOutBuff));
+	LOG_HEX(LOG_INFO,"TmsSendF011",pOutBuff,(int)(pSend-pOutBuff));
 	return (pSend-pOutBuff);
 	
 }
@@ -447,7 +431,7 @@ void* APP_TmsParseF011(u8* pInData,u32* pLen)
 {
 	tData_TMS_struct tTmsRecv;
 	//Len[2]+Data[Len]
-	//LOG_HEX(LOG_INFO,"TmsRecvF011",pUseBuff,ret);
+	LOG_HEX(LOG_INFO,"TmsRecvF011",pInData,*pLen);
 	TMS_LoadStructData(&tTmsRecv,pInData,*pLen);
 	return TMS_FindRecvData(&tTmsRecv,0x3115,pLen);
 }
@@ -474,7 +458,7 @@ int APP_TmsPackF012(tData_TMS_Const *pFixed,u8* pOutBuff)
 	pSend=TMS_AddSendData(pSend,0x3111,pFixed->pFileNo);
 	pSend=TMS_AddSendData(pSend,0x3116,"img");
 	pSend=TMS_AddSendData(pSend,0x3117,pFixed->pRetCode);
-	//LOG_HEX(LOG_INFO,"TmsSendF012",pOutBuff,(pSend-pOutBuff));
+	LOG_HEX(LOG_INFO,"TmsSendF012",pOutBuff,(pSend-pOutBuff));
 	return (pSend-pOutBuff);
 	
 }
@@ -500,15 +484,16 @@ extern 	void OsSysMsg_sync(void);
 
 
 
-
-
 int APP_TmsProcess(COM_TYPE type)
 {
-	int ret;
-	u16 UseSize,UpOk;
-	u32 outLen;
-	u8 SaveSleepEn;
-	u8* pUseBuff;
+	int 	ret,fb_In;
+	u16 	UseSize,UpOk;
+	u16		ErrTime;
+	u16 	SaveSleepEn;
+	u32 	outLen;
+	u8* 	pUseBuff;
+	u32 	RecvMax;
+	u8*		pRecvApp;
 	tData_TMS_Const tTermPar;
 	tData_UpIni *pTermIni;
 	ret=tms_external_open(type);
@@ -530,13 +515,18 @@ int APP_TmsProcess(COM_TYPE type)
 	API_strcpy(tTermPar.sModel,"KS8312");
 	API_strcpy(tTermPar.sType,"s");
 	//-----------------------------------------------------------
+	TMS_RECV_MAX	= 4096;
 	UseSize = 256+ TMS_RECV_MAX;
-	pUseBuff =	(u8*)malloc(UseSize+256);	//多256用于Wifi多余消耗。
+	pUseBuff =	(u8*)malloc(UseSize);	//多256用于Wifi多余消耗。
 	UpOk = 0;
 	//--------------------------------------------------------
 	pTermIni=OsSysGet_UpIni();
+	LOG(LOG_INFO,"uOffset->uOffset[%d]\r\n",pTermIni->uOffset);
 	tTermPar.pFileNo = pTermIni->sFileNo;
 	tTermPar.pOffset = &pTermIni->uOffset;
+	strcpy(tTermPar.sTuSN,"K01123456");
+	pTermIni->uOffset = 0;
+	pTermIni->upFlag = 0;
 	//--------------------------------------------------------
 	if(pTermIni->upFlag == 2)
 	{
@@ -612,12 +602,7 @@ int APP_TmsProcess(COM_TYPE type)
 	OldScreen.SleepEn=FALSE;
 	while(UpOk == 1)
 	{	
-		u32 	RecvMax;
-		u16		ErrTime;
-		u8		OutMd5[20];
-		u8*		pRecvApp;
 		//mbedtls_md5_context ctx;
-		int	fb_In;
 		//-----------------休眠亮屏--------------------------------------------
 //		if(OldScreen.SleepState==TRUE) DisplayScreenOn();
 		//-------------------------------------------------------------	
@@ -637,77 +622,109 @@ int APP_TmsProcess(COM_TYPE type)
 				}
 			}
 			fb_In = open(Tms_Term_fAppUp,O_WRONLY|O_CREAT,0666);
-			//flieHandle=TMS_UpApp_Init(Tms_Term_fAppUp,tTermIni.uFileSize);
+			if(fb_In <= 0)
+			{
+				APP_ShowSta(STR_SOFTWARE_UPDATA,STR_CREATE_FILE_FAILED);
+				UpOk = 0x4641;
+				break;
+			}
+			if(ftruncate(fb_In, pTermIni->uFileSize))
+			{
+				LOG(LOG_ERROR,"ftruncate->fd[%d]size[%d]\r\n",fb_In,pTermIni->uFileSize);	
+				perror("perror"); 
+				return -1;	
+			}
 		}
 		else 
 		{//----------------断点续传----------------
-			//flieHandle=TMS_UpApp_Init(Tms_Term_fAppUp,0);
-			fb_In = open(Tms_Term_fAppUp,O_WRONLY|O_APPEND,0666);
-		}
-		if(fb_In <= 0)
-		{
-			APP_ShowSta(STR_SOFTWARE_UPDATA,STR_CREATE_FILE_FAILED);
-			UpOk = 0x4641;
-			break;
+			fb_In = open(Tms_Term_fAppUp,O_WRONLY);
+			if(fb_In <= 0)
+			{
+				APP_ShowSta(STR_SOFTWARE_UPDATA,STR_CREATE_FILE_FAILED);
+				UpOk = 0x4641;
+				break;
+			}
 		}
 		//--------------------------------------------------------------
 		APP_ShowSta(STR_SOFTWARE_UPDATA,STR_PRESS_OK_UPDATE);
-		//--------------------------------------------------------------
-		//mbedtls_md5_starts_ret(&ctx);
 		//----------断点续传-----------------------
 		if(pTermIni->upFlag==1 && pTermIni->uOffset>0)
 		{
-			LOG(LOG_WARN," ->断点续传 fileLen[%d]uOffset[%d]\r\n",pTermIni->uOffset);
+			ret = lseek(fb_In,pTermIni->uOffset,SEEK_SET);
+			LOG(LOG_WARN," ->断点续传 fileLen[%d]uOffset[%d]ret[%d]\r\n",pTermIni->uFileSize,pTermIni->uOffset,ret);
+			if(ret < 0) break;
 		}
 		else pTermIni->uOffset=0;	//首次更新
-		//-------------------------------------------------------------------
+		//----------------设置文件偏移---------------------------------
+		ret=lseek(fb_In,pTermIni->uOffset,SEEK_SET);
+		if(ret < 0)
+		{
+			pTermIni->uOffset=0;
+			ret=lseek(fb_In,pTermIni->uOffset,SEEK_SET);
+			if(ret < 0) break;
+		}
+		pTermIni->uOffset=ret;
+		LOG(LOG_INFO," **write pTermIni->uOffset[%d]\r\n",pTermIni->uOffset,outLen);
 		APP_ShowBottomProgress(pTermIni->uOffset*100/pTermIni->uFileSize);
-		RecvMax = TMS_RECV_MAX;
+		//-------------------------------------------------------------------
 		ErrTime = 0;
 		tTermPar.pReadMax = &RecvMax;
+		RecvMax = TMS_RECV_MAX;
 		while(pTermIni->uOffset < pTermIni->uFileSize)
 		{
-			if(0 > tms_external_send(type,pUseBuff,APP_TmsPackF011,&tTermPar))
-				break;
-			outLen= UseSize;
-			pRecvApp=(u8*)tms_external_read(type,pUseBuff,&outLen,APP_TmsParseF011);
-			if(pRecvApp)
+			if(RecvMax > (pTermIni->uFileSize-pTermIni->uOffset))
+				RecvMax = (pTermIni->uFileSize-pTermIni->uOffset);
+			if(0 < tms_external_send(type,pUseBuff,APP_TmsPackF011,&tTermPar))
 			{
-				ret=APP_UpAPP_Load(fb_In,pTermIni->uOffset,pRecvApp,outLen);
-				if(ret <= 0) {
-					UpOk =0x5345;
-					break;
+				outLen= UseSize;
+				pRecvApp=(u8*)tms_external_read(type,pUseBuff,&outLen,APP_TmsParseF011);
+				if(pRecvApp)
+				{
+					ret=write(fb_In,pRecvApp,outLen);
+					if(ret <= 0) {
+						UpOk =0x5345;
+						break;
+					}
+					if(ret != (int)outLen)
+					{
+						LOG(LOG_WARN," **write ret[%d]!= InLen[%d] Err\r\n",ret,outLen);
+					}
+					pTermIni->uOffset += ret;
+					//----------显示进度条--------------------------------
+					APP_ShowBottomProgress(pTermIni->uOffset*100/pTermIni->uFileSize);
+					continue;
 				}
-			//	mbedtls_md5_update_ret(&ctx, pRecvApp, ret);
-				RecvMax = ret;
+				else
+				{
+					LOG(LOG_WARN," **tms_external_read F011 Err\r\n");
+				}
 			}
 			else
 			{
-				if(++ErrTime > 3)
-				{
-					UpOk = 0x4146;
-					LOG(LOG_ERROR," 失败次数超限ErrTime=%dr\n",ErrTime);
-					break;
-				}
-				LOG(LOG_WARN," uOffset=%d,->断点续传[%d]....\r\n",pTermIni->uOffset,ErrTime);
-				tms_external_close(type,15000);
-				ret=tms_external_open(type);
-				if(OPER_OK != ret)
-				{
-					UpOk = 0x4146;
-					LOG(LOG_ERROR," 再次连接中心失败=%dr\n",ret);
-					break;
-				}
-				continue;
+				LOG(LOG_ERROR," ->tms_external_send F011 Err\r\n");
 			}
-			pTermIni->uOffset += RecvMax;
-			//----------显示进度条--------------------------------
-			APP_ShowBottomProgress(pTermIni->uOffset*100/pTermIni->uFileSize);
+			//---------------------异常处理------------------------------
+			if(++ErrTime > 3)
+			{
+				UpOk = 0x4146;
+				LOG(LOG_ERROR," 失败次数超限ErrTime=%dr\n",ErrTime);
+				break;
+			}
+			LOG(LOG_WARN," uOffset=%d,->断点续传[%d]....\r\n",pTermIni->uOffset,ErrTime);
+			tms_external_close(type,15000);
+			ret=tms_external_open(type);
+			if(OPER_OK != ret)
+			{
+				UpOk = 0x4146;
+				LOG(LOG_ERROR," 再次连接中心失败[%d]\r\n",ret);
+				break;
+			}
 		}
-		TMS_UpApp_End(fb_In);
+		close(fb_In);
 		if(pTermIni->uOffset >= pTermIni->uFileSize)
 		{
 			mbedtls_md_context_t ctx;
+			u8	OutMd5[16]={0};
 			u32 offset,fMaxlen;
 			APP_ShowSta(STR_SOFTWARE_UPDATA,STR_DOWNLOAD_COMPLETED);
 			
@@ -715,19 +732,24 @@ int APP_TmsProcess(COM_TYPE type)
 			RecvMax = UseSize;
 			fMaxlen= pTermIni->uFileSize;
 			api_md_starts(&ctx,MBEDTLS_MD_MD5);
-			fb_In = open(Tms_Term_fAppUp,O_RDONLY|O_CREAT,0666);
+			fb_In = open(Tms_Term_fAppUp,O_RDONLY);
 			while(offset < fMaxlen)
 			{
-				if(RecvMax > fMaxlen) RecvMax = fMaxlen;
+				if(RecvMax > (fMaxlen-offset)) 
+					RecvMax = (fMaxlen-offset);
 				ret= read(fb_In,pUseBuff,RecvMax);
-				if(ret < (int)RecvMax) break;
+				if(ret < (int)RecvMax)
+				{
+					LOG(LOG_ERROR,"读签名文件长度[%d]错[%d]\r\n",RecvMax,ret);
+					break;
+				}
 				api_md_update(&ctx,pUseBuff,ret);
-				offset += RecvMax;
+				offset += ret;
 			}
 			close(fb_In);
 			api_md_finish(&ctx,OutMd5,NULL);
 			
-			if((offset >= fMaxlen) && (memcmp(pTermIni->sFileMd5,OutMd5,16)==0))
+			if((offset == fMaxlen) && (memcmp(pTermIni->sFileMd5,OutMd5,16)==0))
 			{
 				UpOk = 0x4B4F;
 				APP_ShowSta(STR_SOFTWARE_UPDATA,STR_INSTALLING); 
@@ -742,13 +764,12 @@ int APP_TmsProcess(COM_TYPE type)
 			else
 			{
 				APP_ShowSta(STR_SOFTWARE_UPDATA,STR_VERIFY_FAILED);
-				API_fremove(Tms_Term_fAppUp);
-				memset(pTermIni,0x00,sizeof(tData_UpIni));
-				UpOk = 0x5243;
 				LOG(LOG_ERROR,"uFileSize=%d,Check MD5 Err....\r\n",pTermIni->uFileSize);
 				LOG_HEX(LOG_ERROR,"sFileMd5",pTermIni->sFileMd5,16);
 				LOG_HEX(LOG_ERROR,"OutMd5",OutMd5,16);
-				pTermIni->upFlag=0;
+				API_fremove(Tms_Term_fAppUp);
+				memset(pTermIni,0x00,sizeof(tData_UpIni));
+				UpOk = 0x5243;
 				tTermPar.pRetCode = "-2";
 				if(0 > tms_external_send(type,pUseBuff,APP_TmsPackF012,&tTermPar))
 					break;
@@ -762,8 +783,8 @@ int APP_TmsProcess(COM_TYPE type)
 			pTermIni->upFlag=1;
 			
 			LOG(LOG_ERROR," uOffset=%d,uFileSize=%d,Err[%x]....\r\n",pTermIni->uOffset,pTermIni->uFileSize,UpOk);
-			LOG_HEX(LOG_ERROR,"sFileMd5",pTermIni->sFileMd5,16);
-			LOG_HEX(LOG_ERROR,"OutMd5",OutMd5,16);
+		//	LOG_HEX(LOG_ERROR,"sFileMd5",pTermIni->sFileMd5,16);
+		//	LOG_HEX(LOG_ERROR,"OutMd5",OutMd5,16);
 			/*
 			if(0 > APP_TmsSendF012(&tTermPar,pUseBuff,tTermIni.sFileNo,"-1"))
 				break;

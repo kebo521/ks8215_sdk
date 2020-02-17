@@ -225,7 +225,7 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 		//FD_CLR(fd,&fs_read);
 		if(fs_sel==0)
 		{
-			printf("uart recv fs_sel=%d Err\r\n",fs_sel);
+			printf("uart recv fs_sel=%d timeout\r\n",fs_sel);
 			return -1;
 		}
 		ret = read(fd,rcv_buf,data_len);
@@ -273,7 +273,7 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 int uart_send(int fd, void *send_buf,int data_len)    
 {    
 	LOG(LOG_INFO,"fd[%d]",fd);
-	TRACE_HEX("->SendBuf",send_buf,data_len);
+//	TRACE_HEX("->SendBuf",send_buf,data_len);
 	int len = write(fd,send_buf,data_len);	
 	fsync(fd);
 	if (len == data_len )	

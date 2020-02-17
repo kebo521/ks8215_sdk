@@ -13,6 +13,7 @@
 
 //#define DISPLAY_HORIZONTAL_SCREEN		//∫·∆¡∂®“Â
 
+//#define FILE_SHARD_MEMORY
 
 typedef enum _ret_t { RET_OK = 0, RET_OOM, RET_ERR,RET_FAIL, RET_BAD_PARAMS } ret_t;
 
@@ -139,11 +140,11 @@ typedef struct{
 typedef struct{
 	int 			AppExitCode;
 	unsigned short 	nCurrAppId,pNextAppId;
-	unsigned char  aAppIDStack[20];
+	unsigned char  aAppIDStack[12];
 	unsigned short	sWriteLen,sReadLen;
-	unsigned char  sendBuff[2048];
+	unsigned char  sendBuff[512-14];
 	unsigned short	rWriteLen,rReadLen;
-	unsigned char  readBuff[2048];
+	unsigned char  readBuff[512-14];
 } ST_SYS_DATA;
 
 #endif

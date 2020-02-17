@@ -355,14 +355,15 @@ int	APP_Uart_PackSend(int Channel,u8* pSendBuf,u32 sendLen)
 }
 
 //==============按照【.02 Len[2] Data[Len] crc 03】结构接收，返回Data数据================
-u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen)
+u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen,int timeOutMs,int* pErrCode)
 {
 	int ret,recvSize;
 	u16 ulen,start;
-	ret=OsPortRecv(Channel,pRecvBuf,5,3000);
+	ret=OsPortRecv(Channel,pRecvBuf,5,timeOutMs);
 	if(ret < 5)
 	{
 		LOG(LOG_ERROR,"###Uart_PackRecv recv ret[%d] small##\r\n",ret);
+		if(pErrCode) *pErrCode=OPER_TIMEOUT;
 		return NULL;
 	}
 	start = 0;
@@ -377,6 +378,7 @@ u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen)
 			if(ret < 5) 
 			{
 				LOG(LOG_ERROR,"###Uart_PackRecv recv[%d] Nouse DataL##\r\n",ret);
+				if(pErrCode) *pErrCode=OPER_ERR;
 				return NULL;
 			}
 			start = 0;
@@ -399,7 +401,7 @@ u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen)
 			}
 			recvSize -= 5;
 			ret=OsPortRecv(Channel,pRecvBuf+5,recvSize,8000);
-			LOG(LOG_WARN,"recvSize ulen[%d]ret[%d]recvSize[%d]\r\n",ulen,ret,recvSize);
+			//LOG(LOG_WARN,"recvSize ulen[%d]ret[%d]recvSize[%d]\r\n",ulen,ret,recvSize);
 		}
 		else
 		{
@@ -422,11 +424,14 @@ u8*	APP_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen)
 				*recvLen = ulen;
 				return pRecvBuf+start+3;
 			}
+			if(pErrCode) *pErrCode=OPER_CRCERR;
 			LOG(LOG_ERROR,"###PortRecvr recv crc[%x] != [%x] to small##\r\n",*p,crc);
 			return NULL;
 		}
+		if(pErrCode) *pErrCode=OPER_ERR;
 		LOG(LOG_ERROR,"###recvlen[%d] <[%d] to small##\r\n",ret,recvSize);
 	}
+	if(pErrCode) *pErrCode=OPER_ERR;
 	return NULL;
 }
 

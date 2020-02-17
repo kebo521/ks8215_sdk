@@ -187,6 +187,7 @@ int execv (const char *path, char *const argv[]);
 int execvp(cosnt char *file, char *const argv[]);
 int execve(const char *path, char *const argv[], char *const envp[]);
 */
+/*
 int test(XuiWindow* pStaWindow,int volet)
 {
 	RECTL fTrg;
@@ -260,7 +261,7 @@ void StatusBar_Thread(XuiWindow* pStaWindow)
     }
     return ;
 }
-
+*/
 int APP_main(int argc, char* argv[]) {
 //	int ret;
 	
@@ -271,15 +272,15 @@ int APP_main(int argc, char* argv[]) {
 //	"TSDEV=",
 	"STATUSBAR=24",
 	};
-	pthread_t threadID;
+//	pthread_t threadID;
 	XuiWindow* pWindow,*pStaWindow;
-//	OsLogSetTag("logo.txt");	
+	OsLogSetTag("logo.txt");	
 	XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg);
 	if((pWindow=XuiRootCanvas()) != NULL)
 	{
 		pStaWindow=XuiStatusbarCanvas();
 		//线程(UI_DisplaySysEn,pStaWindow)
-		pthread_create(threadID, NULL,StatusBar_Thread,pStaWindow);
+//		pthread_create(threadID, NULL,StatusBar_Thread,pStaWindow);
 	
 		//UI_DisplaySysEn(pStaWindow,0,0,TEXT_12,"0 yz131234&&*()");
 		//UI_DisplaySysEn(pStaWindow,15*6,8,TEXT_16,"_+~!@#$%^&*");
@@ -294,8 +295,8 @@ int APP_main(int argc, char* argv[]) {
 		API_InitSysLanguage(1);
 		API_GUI_LoadWindow(pWindow);
 
-		APP_FactoryMeun("测试应用");
-		//APP_MasterMeun("终端管理");//
+		//APP_FactoryMeun("测试应用");
+		APP_MasterMeun("终端管理");//
 		APP_ShowProsseMenu();
 
 		ApiFont.DeInitFontLib();

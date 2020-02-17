@@ -15,8 +15,9 @@
 #include <sys/stat.h>    
 #include <sys/time.h>
 #include <sys/ipc.h>
-//#include <sys/shm.h> 
-//#include <linux/shm.h> 
+#ifndef FILE_SHARD_MEMORY
+#include <sys/shm.h>
+#endif
 #include<sys/mman.h>
 
 #include "comm_type.h"
@@ -64,9 +65,17 @@ char *eStrstr(char* src1, const char* src2)
 	}
 	return NULL;
 }
+#ifdef FILE_SHARD_MEMORY
 
-#define SHM_SDK_AID		"../shm_A8215"		//独立数字平台统一定
-#define SHM_SDK_DID		"../shm_D8215"		//独立数字平台统一定
+//#define SHM_SDK_AID		"../shm_A8215"		//独立数字平台统一定
+//#define SHM_SDK_DID		"../shm_D8215"		//独立数字平台统一定
+#define SHM_SDK_AID		"shm_A8215"		//独立数字平台统一定
+#define SHM_SDK_DID		"shm_D8215"		//独立数字平台统一定
+#else
+#define SHM_SDK_AID		0xA8215		//独立数字平台统一定
+#define SHM_SDK_DID		0xD8215		//独立数字平台统一定
+#endif
+
 #define SHM_AID_NAME		"/dev/ashmem"		//独立数字平台统一定
 
 
@@ -93,13 +102,16 @@ int OsSysInit(char* pInTag)
 	}
 	tSt_Sys.pSysMsg = mmap(NULL,sizeof(ST_SYS_DATA),PROT_READ|PROT_WRITE,MAP_SHARED,tSt_Sys.shmDid, 0);
 	#else	//---------------------------------------------------------------------------------------------
+	#ifdef FILE_SHARD_MEMORY
 	char *pShmAid,*pShmDid;
+	/*
 	if(strstr(pInTag,"master"))
 	{
 		pShmAid=eStrstr(SHM_SDK_AID,"../");
 		pShmDid=eStrstr(SHM_SDK_DID,"../");
 	}
 	else
+	*/
 	{
 		pShmAid=SHM_SDK_AID;
 		pShmDid=SHM_SDK_DID;
@@ -109,34 +121,36 @@ int OsSysInit(char* pInTag)
 	tSt_Sys.shmAid = open(pShmAid, O_RDWR);
 	if(tSt_Sys.shmAid < 0) 
 	{		
-		LOG(LOG_ERROR,"ashmem_create_region1->%s [%d]Err\r\n",SHM_AID_NAME,tSt_Sys.shmAid);		
+		LOG(LOG_ERROR,"ashmem_create_region1->%s [%d]Err\r\n",pShmAid,tSt_Sys.shmAid);
+		perror("perror"); 
 		return -1;	
 	}
 //	ftruncate(tSt_Sys.shmAid, sizeof(ST_SYS_MSG));
 	tSt_Sys.pSysMsg = mmap(NULL, sizeof(ST_SYS_MSG), PROT_READ|PROT_WRITE, MAP_SHARED, tSt_Sys.shmAid, 0);
 	if (tSt_Sys.pSysMsg == MAP_FAILED) 
 	{		
-		LOG(LOG_ERROR,"mmap->A8215 shmAid Err\r\n");		
+		LOG(LOG_ERROR,"mmap->A8215 shmAid Err\r\n");
+		perror("perror"); 
 		return -1;	
 	}
 	//tSt_Sys.shmAid = shm_open(SHM_SDK_DID, O_RDWR, 0777);// S_IRUSR | S_IWUSR
 	tSt_Sys.shmDid = open(pShmDid,O_RDWR);
 	if(tSt_Sys.shmDid == -1) 
 	{		
-		LOG(LOG_ERROR,"ashmem_create_region2->%s Err\r\n",SHM_AID_NAME); 	
+		LOG(LOG_ERROR,"ashmem_create_region2->%s Err\r\n",pShmDid);
+		perror("perror"); 
 		return -1;	
 	}
 //	ftruncate(tSt_Sys.shmDid, sizeof(ST_SYS_DATA));
 	tSt_Sys.pSysData = mmap(NULL,sizeof(ST_SYS_DATA),PROT_READ|PROT_WRITE,MAP_SHARED,tSt_Sys.shmDid, 0);
 	if (tSt_Sys.pSysData == MAP_FAILED) 
 	{		
-		LOG(LOG_ERROR,"mmap->A8215 shmDid Err\r\n");		
+		LOG(LOG_ERROR,"mmap->A8215 shmDid Err\r\n");
+		perror("perror"); 
 		return -1;	
 	}
-
-
-/*
-	tSt_Sys.shmAid = shmget(SHM_SDK_AID,sizeof(ST_SYS_MSG),Aperm);		
+	#else
+	tSt_Sys.shmAid = shmget(SHM_SDK_AID,sizeof(ST_SYS_MSG),0666);		
 	if(tSt_Sys.shmAid == -1) 
 	{		
 		LOG(LOG_ERROR,"shmget->A8215 shmAid Err\r\n");		
@@ -151,7 +165,7 @@ int OsSysInit(char* pInTag)
 		return -1;	
 	}
 	tSt_Sys.pSysData = (ST_SYS_DATA *)shmat(tSt_Sys.shmDid,NULL,0);
-	*/
+	#endif
 	#endif
 	return 0;
 }
@@ -180,7 +194,12 @@ void OsSysGet_Sn(char *pSn,int size)
 
 void OsSysMsg_sync(void)
 {
-	fsync(tSt_Sys.shmAid);
+	#ifdef FILE_SHARD_MEMORY
+	msync(tSt_Sys.pSysMsg,sizeof(ST_SYS_MSG), MS_SYNC);
+	//fsync(tSt_Sys.shmAid);
+	#else
+	sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
+	#endif
 }
 //=======================================================================
 
@@ -198,8 +217,6 @@ int OsSaveAppInfo(ST_APP_INFO* pAppInfo)
 		if(i < max)
 		{//--------应用更新--------
 			memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
-			fsync(tSt_Sys.shmAid);
-			//sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
 		}
 		else
 		{//--------应用安装--------
@@ -207,9 +224,8 @@ int OsSaveAppInfo(ST_APP_INFO* pAppInfo)
 				return -3;
 			memcpy(&tSt_Sys.pSysMsg->AppInfo[tSt_Sys.pSysMsg->mAppMax],pAppInfo,sizeof(ST_APP_INFO));
 			tSt_Sys.pSysMsg->mAppMax++;
-		//	fsync(tSt_Sys.shmAid);
-			//sigqueue(tSt_Sys.pSysMsg->pid,tSt_Sys.pSysMsg->sig,(sigval_t)0);
 		}
+		OsSysMsg_sync();
 		return 0;
 	}
 	return -5;
@@ -227,7 +243,11 @@ int main(int argc, char* argv[])
 		LOG(LOG_ERROR,"main->in(argc[%d]) ERR\r\n",argc);
 		return -1;
 	}
-	OsSysInit(argv[0]);
+	if(OsSysInit(argv[0]))
+	{
+		LOG(LOG_ERROR,"OsSysInit ERR\r\n",argc);
+		return 1;
+	}
 	return APP_main(argc-2,argv+2);
 }
 //=============================================================================
