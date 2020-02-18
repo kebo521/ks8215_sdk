@@ -140,11 +140,11 @@ typedef struct{
 typedef struct{
 	int 			AppExitCode;
 	unsigned short 	nCurrAppId,pNextAppId;
-	unsigned char  aAppIDStack[12];
+	unsigned char  aAppIDStack[20];
 	unsigned short	sWriteLen,sReadLen;
-	unsigned char  sendBuff[512-14];
+	unsigned char  sendBuff[2048];
 	unsigned short	rWriteLen,rReadLen;
-	unsigned char  readBuff[512-14];
+	unsigned char  readBuff[2048];
 } ST_SYS_DATA;
 
 #endif

@@ -32,5 +32,11 @@ extern int OsPortRecv(int Channel,void *RecvBuf,int RecvLen,int TimeoutMs);
 extern int OsPortReset(int Channel);
 extern int OsPortCheckTx(int Channel);
 
+//========================证通接口=============================================================
+//==============pSendBuf 前面预留4个字节空间[55 02 Len[2]]===========================
+//====按照【.02 Len[2] Data[Len] crc 03】结构发送,传入Data与Len===================
+extern int	API_Uart_PackSend(int Channel,u8* pSendBuf,u32 sendLen);
+//==============按照【.02 Len[2] Data[Len] crc 03】结构接收，返回Data数据============
+extern u8*	API_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen,int timeOutMs,int* pErrCode);
 
 #endif

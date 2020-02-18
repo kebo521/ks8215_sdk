@@ -12,24 +12,60 @@
 
 #include "comm_type.h"
 #include "sys_sdk.h" 
-#include "sdk_icc.h" 
+#include "sdk_icc.h"
+
+#include "sdk_port.h" 
 
 
+#define EXT_INTERFACE		PORT_COM1 		//External equipment interface
 
 
 //功能 打开IC 卡读卡设备.
 int OsIccOpen(int Slot)
 {
-//RET_OK 成功
-//ERR_DEV_NOT_EXIST 设备不存在
-//ERR_DEV_BUSY 设备被占用
-	return RET_OK;
+	#ifdef EXT_INTERFACE
+	u8 buff[32],*p;
+	u32 recvLen;
+	p=buff+4;
+	*p++ = 0x02;
+	*p++ = 0x01;
+	API_Uart_PackSend(EXT_INTERFACE,p,2);
+	recvLen = sizeof(buff);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
+	if(p)
+	{
+		return p[3];
+	}
+	return ERR_TIME_OUT;
+	#else
+	//RET_OK 成功
+	//ERR_DEV_NOT_EXIST 设备不存在
+	//ERR_DEV_BUSY 设备被占用
+		return RET_OK;
+	#endif
 }
 
 //功能 检查指定的卡座是否有卡插
 int OsIccDetect(int Slot)
 {
-/*
+	#ifdef EXT_INTERFACE
+	u8 buff[32],*p;
+	u32 recvLen;
+	p=buff+4;
+	*p++ = 0x02;
+	*p++ = 0x03;
+	*p++ = 0x00;
+	*p++ = 0x00;
+	API_Uart_PackSend(EXT_INTERFACE,p,4);
+	recvLen = sizeof(buff);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
+	if(p)
+	{
+		return p[3];
+	}
+	return ERR_TIME_OUT;
+	#else
+	/*
 	ERR_SCI_HW_NOCARD -2800 没有卡片
 	ERR_SCI_HW_STEP -2801
 	交换数据时没有初始化，热复位
@@ -43,6 +79,7 @@ int OsIccDetect(int Slot)
 	ERR_SCI_ATR_TD1 -2812 ATR TD1 错误
 	*/
 	return RET_OK;
+	#endif
 
 }
 
@@ -92,13 +129,71 @@ ApduReq【输入】 发送给IC 卡命令数据结构
 ApduRsp【输出】 接收从IC 卡响应的数据结构 */
 int OsIccExchange(int Slot,int CtrlFlag,const ST_APDU_REQ *ApduReq,ST_APDU_RSP *ApduRsp)
 {
-	return RET_OK;
+	#ifdef EXT_INTERFACE
+		u8 buff[512+64],*p;
+		u32 recvLen;
+		p=buff+4;
+		*p++ = 0x05;
+		recvLen=ApduReq->LC+5;
+		*p++ = recvLen/256;
+		*p++ = recvLen&0xff;
+		memcpy(p,ApduReq->Cmd,sizeof(ApduReq->Cmd));
+		p += sizeof(ApduReq->Cmd);
+		*p++ = ApduReq->LC;
+		if(ApduReq->LC)
+		{
+			memcpy(p,ApduReq->DataIn,ApduReq->LC);
+			p += ApduReq->LC;
+		}
+		if(ApduReq->LE > 255)
+			*p++ = 255;
+		else
+			*p++ = ApduReq->LE;
+		API_Uart_PackSend(EXT_INTERFACE,p,p-(buff+4));
+		recvLen = sizeof(buff);
+		p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,5000,NULL);
+		if(p)
+		{
+			if(p[3] == 0)
+			{
+				memcpy(ApduRsp->DataOut,p+4,recvLen-6);
+				ApduRsp->LenOut = recvLen-6;
+				ApduRsp->SWA = p[recvLen-2];
+				ApduRsp->SWB = p[recvLen-1];
+			}
+			return RET_OK;
+		}
+		return ERR_TIME_OUT;
+	#else
+		
+			return RET_OK;
+	#endif
 }
 
 //关闭 IC 卡设备。
 int OsIccClose(int Slot)
 {
-	return RET_OK;
+	
+	#ifdef EXT_INTERFACE
+		u8 buff[32],*p;
+		u32 recvLen;
+		p=buff+4;
+		*p++ = 0x02;
+		*p++ = 0x02;
+		API_Uart_PackSend(EXT_INTERFACE,p,2);
+		recvLen = sizeof(buff);
+		p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
+		if(p)
+		{
+			return p[3];
+		}
+		return ERR_TIME_OUT;
+	#else
+
+
+	
+		return RET_OK;
+	#endif
 }
 
 
