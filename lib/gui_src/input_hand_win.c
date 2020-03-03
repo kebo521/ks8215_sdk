@@ -219,12 +219,12 @@ static void *get_miceMsg(void *args)
 	micePushRgb[MICE_POINT_NUM*MICE_POINT_NUM -1]=0;
 
 	argbset(micePinRgb,0,3*3);
-	micePinRgb[0]=RGB_CURR(255,0,255);
-	micePinRgb[3]=RGB_CURR(255,0,255);
-	micePinRgb[4]=RGB_CURR(255,0,255);
-	micePinRgb[6]=RGB_CURR(255,0,255);
-	micePinRgb[7]=RGB_CURR(255,0,255);
-	micePinRgb[8]=RGB_CURR(255,0,255);
+	micePinRgb[0]=RGB_CURR(0,0xF8,0xF8);
+	micePinRgb[3]=RGB_CURR(0,0xF8,0xF8);
+	micePinRgb[4]=RGB_CURR(0,0xF8,0xF8);
+	micePinRgb[6]=RGB_CURR(0,0xF8,0xF8);
+	micePinRgb[7]=RGB_CURR(0,0xF8,0xF8);
+	micePinRgb[8]=RGB_CURR(0,0xF8,0xF8);
 	oldPmiceX = -1;
 	ret = read(event_mice, buf, sizeof(buf));
 	//LOG_HEX(LOG_INFO,"mice1",buf,ret);
@@ -301,7 +301,6 @@ static void *get_miceMsg(void *args)
 			continue;
 		}
 		
-		
 		if(buf[0]&0x01)	//else if(buf[0]&0x02) //---右击----
 		{//---左击----
 			if(pAbsAnalytical)
@@ -313,9 +312,12 @@ static void *get_miceMsg(void *args)
 				varY = mice_y;
 				ret= (*pAbsAnalytical)(&varX,&varY);
 				if(ret == EVEN_ID_KEY_DOWN)
+				{
 					FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX,(time_tv.tv_sec*1000 + time_tv.tv_usec/1000));
+					oldPmiceX = -1;	//页面会刷新，不需要再恢复被改点。
+				}
 				else if(ret == EVEN_ID_ABS)
-					FIFO_OperatSetMsg(EVEN_ID_ABS,varY*0x10000+varX,(time_tv.tv_sec*1000 + time_tv.tv_usec/1000));
+					FIFO_OperatSetMsg(EVEN_ID_ABS,varY*0x10000+varX,(time_tv.tv_sec*1000 + time_tv.tv_usec/1000));					
 			}
 		}
 		else if(oldPmiceX != mice_x || oldPmiceY != mice_y)
