@@ -277,26 +277,33 @@ void OsLogSetTag(const char *Tag)
 
 int OsLog(LOG_T Prio,const char *fmt,...)
 {
+	int ret;
 	va_list arg;
 	if(Prio <  CURR_LOG_T) return -1;
 	va_start(arg, fmt);
-	vprintf(fmt,arg);
+	ret=vprintf(fmt,arg);
 	va_end(arg);
 	// vfprintf(FILE *stream,fmt,arg);
-	return 0;
+	return ret;
 }
 
-void OsLogHex(char* msg,void* pBuff,int Len)
+void OsLogHex(LOG_T Prio,char* msg,void* pBuff,int Len)
 {
-	#if(CURR_LOG_T >= LOG_INFO)
-	const char sHexData[16]={'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 	char sbuff[2048];
 	int i,nMax;
 	char *pSave,*pEnd;
 	unsigned char *p;
+	const char sHexData[16]={'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+	if(Prio <  CURR_LOG_T) 
+		return;
 	pSave = sbuff;
 	pEnd = sbuff+sizeof(sbuff);
-	pSave += sprintf(pSave,"%s[%d]:\r\n",msg,Len);
+	pSave += sprintf(pSave,"%s[%d]:",msg,Len);
+	if(Len > 16)
+	{
+		*pSave++ = '\r';
+		*pSave++ = '\n';
+	}
 	nMax = 32;
 	p = (unsigned char *)pBuff;
 	while(Len)
@@ -325,7 +332,6 @@ void OsLogHex(char* msg,void* pBuff,int Len)
 	//*pSave = '\0'; fputs(sbuff, stdout);
 	fwrite(sbuff,1,pSave-sbuff,stdout);
 	//printf(sbuff,pSave-sbuff); //two parameter ->warning: format not a string literal and no format arguments
-	#endif
 }
 
 

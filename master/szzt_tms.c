@@ -262,10 +262,10 @@ int tms_external_open(COM_TYPE type)
 		if(ret != RET_OK) return ret;
 		
 		memcpy(buff+4,"ks8215->hello",14);
-		APP_Uart_PackSend(PORT_COM1,buff+4,14);
+		API_Uart_PackSend(PORT_COM1,buff+4,14);
 		OutLen = sizeof(buff);
 		CLEAR(buff);
-		p=APP_Uart_PackRecv(PORT_COM1,buff,&OutLen,3000,NULL);
+		p=API_Uart_PackRecv(PORT_COM1,buff,&OutLen,3000,NULL);
 		if(p)
 		{
 			LOG(LOG_INFO,"tms__open ret[%s]\r\n",p);
@@ -289,7 +289,7 @@ int tms_external_send(COM_TYPE type,u8 *pSendBuf, funTmsPack pFunPack,tData_TMS_
 	else
 	{
 		dataLen=pFunPack(pInBack,pSendBuf+4);
-		return APP_Uart_PackSend(PORT_COM1,pSendBuf+4,dataLen);
+		return API_Uart_PackSend(PORT_COM1,pSendBuf+4,dataLen);
 	}
 }
 
@@ -308,7 +308,7 @@ void* tms_external_read(COM_TYPE type,u8* pRecvBuf,u32 *pLen,funTmsParse pFunPar
 	else
 	{
 		u8* pRecvData;
-		pRecvData =	APP_Uart_PackRecv(PORT_COM1,pRecvBuf,pLen,3000,NULL);
+		pRecvData =	API_Uart_PackRecv(PORT_COM1,pRecvBuf,pLen,5000,NULL);
 		if(pRecvData)
 		{
 			return pFunParse(pRecvData,pLen);
@@ -524,7 +524,7 @@ int APP_TmsProcess(COM_TYPE type)
 	LOG(LOG_INFO,"uOffset->uOffset[%d]\r\n",pTermIni->uOffset);
 	tTermPar.pFileNo = pTermIni->sFileNo;
 	tTermPar.pOffset = &pTermIni->uOffset;
-	strcpy(tTermPar.sTuSN,"K01123456");
+	//strcpy(tTermPar.sTuSN,"K01123456");
 	pTermIni->uOffset = 0;
 	pTermIni->upFlag = 0;
 	//--------------------------------------------------------

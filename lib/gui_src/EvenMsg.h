@@ -110,7 +110,7 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
 		void (*CreateThread)(void *(*pFunThread)(void*));
 		void (*LoadThread)(void*); 
 		void (*SetEvent)(int,u32);
-		void (*GetEvent)(int *,u32 *);
+	//	void (*GetEvent)(int *,u32 *);
 		void (*SetEventTime)(int );
 		u32  (*WaitEvent)(int,...);
 	}API_Even_Def;

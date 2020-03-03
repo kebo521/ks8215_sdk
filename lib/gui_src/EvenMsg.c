@@ -198,27 +198,51 @@ void APP_OperationLoadThread(void* threadID)
 	LOG(LOG_INFO,"APP OperationLoadThread pMessageTable[%X],threadID[%X]\r\n",pMessageTable,pMessageTable->threadID);
 }
 
-//=======================================================================================
-//==================500ms定时器模块======================================================
-static int tTimeOutMsEvent=0,externalLoadTimeMs=0;
-//static sigaction TimedRefresh500MsID = {NULL,NULL,0,0,0};
 
-void  TimedRefresh500Ms()
+//==================500ms定时器模块======================================================
+static int tTimeOut500MsCont=0,tTimeOut500MsEnd=0;
+
+void  TimedRefresh500Ms(int sig)
 {
-	if(tWaitEventMsg.EventControl&EVENT_TIMEOUT)
+	tTimeOut500MsCont++;
+	if(tTimeOut500MsEnd != 0 && tTimeOut500MsCont >= tTimeOut500MsEnd)
 	{
-		if(externalLoadTimeMs)
-		{
-			tTimeOutMsEvent=externalLoadTimeMs;
-			externalLoadTimeMs=0;
-		}
-		tTimeOutMsEvent -= 500;
-		if(tTimeOutMsEvent <= 0)
+		if(tWaitEventMsg.EventControl&EVENT_TIMEOUT)
 		{
 			FIFO_OperatSetMsg(EVEN_ID_TIME_OUT,500,0);
 		}
+		tTimeOut500MsEnd=0;
 	}
 }
+/*
+ITIMER_REAL: 给一个指定的时间间隔，按照实际的时间来减少这个计数，当时间间隔为0的时候发出SIGALRM信号
+ITIMER_VIRTUAL: 给定一个时间间隔，当进程执行的时候才减少计数，时间间隔为0的时候发出SIGVTALRM信号
+ITIMER_PROF: 给定一个时间间隔，当进程执行或者是系统为进程调度的时候，减少计数，时间到了，发出SIGPROF信号，这个和ITIMER_VIRTUAL联合，常用来计算系统内核时间和用户时间。
+*/
+
+//static struct sigaction TimerRefreshHandler;// = {0};
+void StartTimed500ms(void)
+{
+	struct itimerval valtimer,oldtimer;
+	signal(SIGALRM, TimedRefresh500Ms);
+	valtimer.it_value.tv_sec = 0; 
+	valtimer.it_value.tv_usec = 500*1000;
+	valtimer.it_interval.tv_sec = 0; 
+	valtimer.it_interval.tv_usec = 500*1000;
+	setitimer(ITIMER_REAL, &valtimer, &oldtimer);
+}
+
+void StopTimed500ms(void)
+{
+	struct itimerval valtimer;
+	signal(SIGALRM, SIG_DFL);
+	valtimer.it_value.tv_sec = 0; 
+	valtimer.it_value.tv_usec= 0;
+	valtimer.it_interval = valtimer.it_value; //定时器间隔为1s
+	//setitimer(ITIMER_PROF, &valtimer, NULL);
+	setitimer(ITIMER_REAL, &valtimer, NULL);
+}
+
 
 /*
 void handler(int sig)
@@ -275,46 +299,6 @@ int main(int argc, char **argv)
     return 0;
 }
 
-
-
-void StartTimed500ms(void)
-{
-	if(0)//if(TimedRefresh500MsID.sa_handler)
-	{
-		struct itimerval val;
-		val.it_value.tv_sec = 0; //1秒后启用定时器
-		val.it_value.tv_usec = 500*1000;
-		val.it_interval = val.it_value; //定时器间隔为1s
-		setitimer(ITIMER_PROF, &val, NULL);
-	}
-	else
-	{
-		struct itimerval val;
-		struct sigaction act;
-		act.sa_handler = TimedRefresh500Ms; //设置处理信号的函数
-		act.sa_flags  = 0;
-		sigemptyset(&act.sa_mask);
-		sigaction(SIGPROF,&act, NULL);//时间到发送SIGROF信号
-	         
-	    val.it_value.tv_sec = 0; //1秒后启用定时器
-	    val.it_value.tv_usec = 500*1000;
-	    val.it_interval = val.it_value; //定时器间隔为1s
-	    setitimer(ITIMER_PROF, &val, NULL);
-		TimedRefresh500MsID = 0xff;
-	}
-}
-
-void StopTimed500ms(void)
-{
-	if(TimedRefresh500MsID)
-	{
-		struct itimerval val;
-		val.it_value.tv_sec = 0; //1秒后启用定时器
-		val.it_value.tv_usec = 0;
-		val.it_interval = val.it_value; //定时器间隔为1s
-		setitimer(ITIMER_PROF, &val, NULL);
-	}
-}
 */
 
 void Set_WaitEvent(int tTimeOutMs,u32 EventControl)
@@ -322,11 +306,12 @@ void Set_WaitEvent(int tTimeOutMs,u32 EventControl)
 	tWaitEventMsg.EventControl=EventControl;
 	if(tTimeOutMs > 0)
 	{
-		externalLoadTimeMs = tTimeOutMs;
+		tTimeOut500MsEnd = tTimeOut500MsCont + (tTimeOutMs/500);
 		tWaitEventMsg.EventControl |= EVENT_TIMEOUT;
 	}
 }
 
+/*
 void Get_EventMsg(int *pTimeOutMs,u32 *pEventControl)
 {
 	if(pEventControl)
@@ -334,12 +319,15 @@ void Get_EventMsg(int *pTimeOutMs,u32 *pEventControl)
 	if(pTimeOutMs)
 		*pTimeOutMs=externalLoadTimeMs;
 }
-
+*/
 
 void Rewrite_WaitTime(int tTimeOutMs)
 {
-	if(externalLoadTimeMs^tTimeOutMs)
-		externalLoadTimeMs = tTimeOutMs;
+	if(tTimeOutMs > 0)
+	{
+		tTimeOut500MsEnd = tTimeOut500MsCont + (tTimeOutMs/500);
+		tWaitEventMsg.EventControl |= EVENT_TIMEOUT;
+	}
 }
 
 
@@ -364,10 +352,10 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 	va_end( arg );
 
 	tWaitEventMsg.EventControl=EventControl;
-	if(tTimeOutMs >= 0)
+	if(tTimeOutMs > 0)
 	{
+		tTimeOut500MsEnd = tTimeOut500MsCont + (tTimeOutMs/500);
 		tWaitEventMsg.EventControl |= EVENT_TIMEOUT;
-		externalLoadTimeMs = tTimeOutMs;
 	}
 	//----------------------------------------------------
 	Event=EVENT_NONE;
@@ -409,7 +397,7 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 					}
 					if(Event==EVENT_NONE)
 					{
-						externalLoadTimeMs = tTimeOutMs;
+						tTimeOut500MsEnd = tTimeOut500MsCont + (tTimeOutMs/500);
 					}
 					break;
 				case EVEN_ID_ABS:
@@ -429,10 +417,10 @@ u32  API_WaitEvent(int tTimeOutMs,...)
 						Event=(*tWaitEventMsg.pFunEvenUI)(Message,MsgTimeMs);
 						
 						tWaitEventMsg.EventControl=EventControl;
-						if(tTimeOutMs>0)
+						if(tTimeOutMs > 0)
 						{
 							tWaitEventMsg.EventControl |= EVENT_TIMEOUT;
-							externalLoadTimeMs = tTimeOutMs;
+							tTimeOut500MsEnd = tTimeOut500MsCont + (tTimeOutMs/500);
 						}
 						tWaitEventMsg.pFunEvenKey=pOldEvenKey;
 					}
@@ -465,7 +453,7 @@ const API_Even_Def ApiEven={
 	APP_OperationLoadThread,
 
 	Set_WaitEvent,
-	Get_EventMsg,
+//	Get_EventMsg,
 	Rewrite_WaitTime,
 	API_WaitEvent,
 };

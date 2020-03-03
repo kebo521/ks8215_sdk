@@ -64,6 +64,16 @@ int AbsAnalytical_Show(u16* pX,u16* pY)
 		if((*pX >= tAbsGuiRectOperat.pCancel->sX && *pX<tAbsGuiRectOperat.pCancel->eX) \
 			&& (*pY >= tAbsGuiRectOperat.pCancel->sY && *pY<tAbsGuiRectOperat.pCancel->eY))
 		{
+			{//--------------添加选项效果---------------------
+				RECTL tRect;
+				tRect.left = tAbsGuiRectOperat.pCancel->sX;
+				tRect.top =tAbsGuiRectOperat.pCancel->sY;
+				tRect.width = tAbsGuiRectOperat.pCancel->eX - tAbsGuiRectOperat.pCancel->sX;
+				tRect.height = tAbsGuiRectOperat.pCancel->eY -tAbsGuiRectOperat.pCancel->sY;
+				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
+				UI_Push(tGuiThemeMsg.pWindow,&tRect);
+			//	OsSleep(100);
+			}
 			*pX = K_CANCEL;
 			return EVEN_ID_KEY_DOWN;
 		}
@@ -73,6 +83,16 @@ int AbsAnalytical_Show(u16* pX,u16* pY)
 		if((*pX >= tAbsGuiRectOperat.pOK->sX && *pX<tAbsGuiRectOperat.pOK->eX) \
 			&& (*pY >= tAbsGuiRectOperat.pOK->sY && *pY<tAbsGuiRectOperat.pOK->eY))
 		{
+			{//--------------添加选项效果---------------------
+				RECTL tRect;
+				tRect.left = tAbsGuiRectOperat.pOK->sX;
+				tRect.top =tAbsGuiRectOperat.pOK->sY;
+				tRect.width = tAbsGuiRectOperat.pOK->eX - tAbsGuiRectOperat.pOK->sX;
+				tRect.height = tAbsGuiRectOperat.pOK->eY -tAbsGuiRectOperat.pOK->sY;
+				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
+				UI_Push(tGuiThemeMsg.pWindow,&tRect);
+			//	OsSleep(100);
+			}
 			*pX = K_OK;
 			return EVEN_ID_KEY_DOWN;
 		}
@@ -104,6 +124,17 @@ int AbsAnalytical_Menu(u16* pX,u16* pY)
 				left = ++middle;
 				continue;
 			}
+
+			{//--------------添加选项效果---------------------
+				RECTL tRect;
+				tRect.left = tAbsGuiRectOperat.sX;
+				tRect.top =tAbsGuiRectOperat.tRect[middle].sY;
+				tRect.width = tAbsGuiRectOperat.eX-tAbsGuiRectOperat.sX;
+				tRect.height = tAbsGuiRectOperat.tRect[middle].eY-tAbsGuiRectOperat.tRect[middle].sY;
+				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
+				UI_Push(tGuiThemeMsg.pWindow,&tRect);
+			//	OsSleep(100);
+			}
 			//printf("middle[%d][%d,%d]\r\n",middle,tAbsGuiRectMenu.tRect[middle].sY,tAbsGuiRectMenu.tRect[middle].eY);
 			*pX = K_1+middle;
 			return EVEN_ID_KEY_DOWN;
@@ -114,6 +145,16 @@ int AbsAnalytical_Menu(u16* pX,u16* pY)
 		if((*pX >= tAbsGuiRectOperat.pCancel->sX && *pX<tAbsGuiRectOperat.pCancel->eX) \
 			&& (*pY >= tAbsGuiRectOperat.pCancel->sY && *pY<tAbsGuiRectOperat.pCancel->eY))
 		{
+			{//--------------添加选项效果---------------------
+				RECTL tRect;
+				tRect.left = tAbsGuiRectOperat.pCancel->sX;
+				tRect.top =tAbsGuiRectOperat.pCancel->sY;
+				tRect.width = tAbsGuiRectOperat.pCancel->eX - tAbsGuiRectOperat.pCancel->sX;
+				tRect.height = tAbsGuiRectOperat.pCancel->eY -tAbsGuiRectOperat.pCancel->sY;
+				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
+				UI_Push(tGuiThemeMsg.pWindow,&tRect);
+			//	OsSleep(100);
+			}
 			*pX = K_CANCEL;
 			return EVEN_ID_KEY_DOWN;
 		}
@@ -971,16 +1012,6 @@ u32 API_UI_MenuShow(u32 InEvent,int currTimeMs)
 			keyNum -= K_1;
 			if((tGuiMenuMsg.tCurHead+keyNum) >= tGuiMenuMsg.tNum)
 				return EVENT_NONE;
-			{//--------------添加选项效果---------------------
-				RECTL tRect;
-				tRect.left = 0;
-				tRect.top =tGuiThemeMsg.htitle+tGuiThemeMsg.hmc*keyNum;
-				tRect.width = tGuiThemeMsg.width;
-				tRect.height = tGuiThemeMsg.hmc;
-				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
-				UI_Push(tGuiThemeMsg.pWindow,&tRect);
-				OsSleep(100);
-			}
 			tGuiMenuMsg.tCurInx=(tGuiMenuMsg.tCurHead+keyNum);
 			return EVENT_INDEX;
 		}

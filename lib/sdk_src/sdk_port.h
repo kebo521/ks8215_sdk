@@ -39,4 +39,7 @@ extern int	API_Uart_PackSend(int Channel,u8* pSendBuf,u32 sendLen);
 //==============按照【.02 Len[2] Data[Len] crc 03】结构接收，返回Data数据============
 extern u8*	API_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen,int timeOutMs,int* pErrCode);
 
+//============定义外接设备串口操作=============================
+#define EXT_INTERFACE		PORT_COM1 		//External equipment interface
+
 #endif

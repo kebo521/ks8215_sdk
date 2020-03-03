@@ -43,7 +43,7 @@
 
 
 
-void API_Trace(char* pMsg,...)
+void API_Trace(u32 tLevel,char* pMsg,...)
 {
 	va_list arg;
 	va_start(arg, pMsg);
@@ -51,7 +51,8 @@ void API_Trace(char* pMsg,...)
 	va_end(arg);
 }
 
-void APP_Trace_Hex(char* msg,void* pBuff,int Len)
+
+void API_TraceHex(u32 tLevel,char* msg,void* pBuff,int Len)
 {
 	int i;
 	printf("%s[%d]:",msg,Len);
@@ -262,6 +263,74 @@ void StatusBar_Thread(XuiWindow* pStaWindow)
     return ;
 }
 */
+//#include "emvapi.h"
+#include "emvspi_plugin.h"
+
+/*
+#include <stdio.h>  
+#include <stdlib.h>  
+#include <linux/input.h>  
+#include <fcntl.h>  
+#include <sys/time.h>  
+#include <sys/types.h>  
+#include <sys/stat.h>  
+#include <unistd.h>      
+*/
+int Test_Mice(void)  
+{      
+	int fd, retval;      
+	char buf[64]; 
+	int ret;
+	fd_set readfds;      
+	struct timeval tv;      
+	// 打开鼠标设备      
+	fd = open( "/dev/input/mice", O_RDONLY|O_NONBLOCK);     
+	// 判断是否打开成功      
+	if(fd<0) {          
+		printf("Failed to open \"/dev/input/mice\".\n");          
+		exit(1);      
+	}
+	else 
+	{          
+		printf("open \"/dev/input/mice\" successfuly.\n");      
+	} 
+	//为阻塞状态	 
+	//fcntl(fd,F_SETFL,FNDELAY);
+	while(1) 
+	{          
+		// 设置最长等待时间          
+		tv.tv_sec = 20;          
+		tv.tv_usec = 0;            
+		FD_ZERO(&readfds );          
+		FD_SET(fd, &readfds);            
+		retval = select( fd+1, &readfds, NULL, NULL, &tv );          
+		if(retval==0) 
+		{              
+			printf( "Time out!\n" );     
+			break;
+		}          
+		if(FD_ISSET(fd,&readfds)) 
+		{              
+			// 读取鼠标设备中的数据   
+			ret=read(fd, buf, sizeof(buf));
+			if(ret <= 0) 
+			{                  
+				continue;              
+			}             
+			// 打印出从鼠标设备中读取到的数据  
+			LOG_HEX(LOG_INFO,"Button",buf,ret);
+			//printf("Button type = %d, X = %d, Y = %d, Z = %d\n", (buf[0] & 0x07), buf[1], buf[2], buf[3]);          
+		}      
+	}      
+	close(fd);    
+	printf("close \"/dev/input/mice\".\n");      
+	return 0;  
+}  
+
+
+extern int Test_Mice(void);
+
+
 int APP_main(int argc, char* argv[]) {
 //	int ret;
 	
@@ -274,13 +343,15 @@ int APP_main(int argc, char* argv[]) {
 	};
 //	pthread_t threadID;
 	XuiWindow* pWindow,*pStaWindow;
-	OsLogSetTag("logo.txt");	
+	//OsLogSetTag("logo.txt");	
+	Test_Mice();
 	XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg);
 	if((pWindow=XuiRootCanvas()) != NULL)
 	{
 		pStaWindow=XuiStatusbarCanvas();
 		//线程(UI_DisplaySysEn,pStaWindow)
 //		pthread_create(threadID, NULL,StatusBar_Thread,pStaWindow);
+//		pthread_create(Msg_data.threadID, NULL,StatusBar_Thread,pStaWindow);
 	
 		//UI_DisplaySysEn(pStaWindow,0,0,TEXT_12,"0 yz131234&&*()");
 		//UI_DisplaySysEn(pStaWindow,15*6,8,TEXT_16,"_+~!@#$%^&*");
@@ -290,15 +361,21 @@ int APP_main(int argc, char* argv[]) {
 		ApiEven.Init(0,0);
 		
 		ApiEven.LoadThread(NULL);
+
+		//XuiCreateFont("ks.res");
 		ApiFont.InitFontLib("ks.res");
 		
 		API_InitSysLanguage(1);
 		API_GUI_LoadWindow(pWindow);
+		StartTimed500ms();
+		emvspi_Init(); //上电一次就可以
 
 		//APP_FactoryMeun("测试应用");
 		APP_MasterMeun("终端管理");//
 		APP_ShowProsseMenu();
 
+
+		StopTimed500ms();
 		ApiFont.DeInitFontLib();
 		ApiEven.KillThread(NULL);
 		ApiUI.DestroyWindow(pWindow);

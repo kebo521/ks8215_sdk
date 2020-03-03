@@ -9,11 +9,13 @@ INC +=-I../lib
 INC +=-I../lib/sdk
 INC +=-I../lib/gui
 INC +=-I../lib/tls
+INC +=-I../lib/emv
 
 LIB =-lm -lpthread
 LIB +=-L../lib/sdk -lsdk
 LIB +=-L../lib/gui -lgui
 LIB +=-L../lib/tls -ltls
+LIB +=-L../lib/emv -lemvapi
 
 all:
 	$(CC) $(INC) -g -Wall $(SRC) $(LIB) -o master

@@ -1,4 +1,3 @@
-
 #ifndef _SDK_PRINTF_
 #define _SDK_PRINTF_
 
@@ -8,6 +7,21 @@
 #define ERR_PRN_OVERHEAT			-3704 //´òÓ¡»ú¹ıÈÈ
 #define ERR_PRN_OUTOFMEMORY		-3705 //Òª´òÓ¡Êı¾İ¹ı´ó,³¬³ö»º³åÇø³¤¶È
 #define ERR_PRN_OVERVOLTAGE		-3706 //µçÑ¹¹ı¸ß
+
+enum PRINT_TYPE
+{
+	PRN_REAL,	//ÎïÀí´òÓ¡Éè±¸£»
+	PRN_BMP,	//ĞéÄâ´òÓ¡Éè±¸£¬´òÓ¡½á¹û
+};
+
+//===================ĞéÄâ´òÓ¡»úÊı¾İ===========================
+typedef struct
+{
+	u16 save_X,save_Y;	//´æÈëÎ»ÖÃ
+	u16 height,width;
+	u16 lineW,offsetLine;
+	u8* pBufBit;		//[n][48]
+}DEF_PRINT_DATA;
 
 
 //¹¦ÄÜ ´ò¿ª´òÓ¡»úÉè±¸£¬°üÀ¨ÎïÀíºÍĞéÄâ´òÓ¡»ú¡£
@@ -24,7 +38,7 @@ targetname¡¾ÊäÈë¡¿
 	´òÓ¡Éè±¸ÎªĞéÄâ´òÓ¡»úÊ±£¬Ö¸ÏòÊä³öµ½±¾µØµÄ
 	BMP ÎÄ¼şµÄÂ·¾¶¡£ÈôÖ¸¶¨ÎÄ¼şÒÑ¾­´æÔÚ£¬Ôò¸²¸Ç¡£
 */
-extern int OsPrnOpen(unsigned int printertype,const char*targetname);
+extern int OsPrnOpen(unsigned int printertype,const char* targetname);
 
 //¹¦ÄÜ ¹Ø±Õ´òÓ¡»ú¡£
 extern void OsPrnClose(void);
@@ -39,7 +53,7 @@ extern void OsPrnReset(void);
 Width¡¾ÊäÈë¡¿ ¿í¶È
 Height¡¾ÊäÈë¡¿ ¸ß¶È
 */
-extern int OsPrnSetSize (unsigned int Width,unsigned int Height);
+extern int OsPrnSetSize(unsigned int Width,unsigned int Height);
 
 //¹¦ÄÜ ÉèÖÃ´òÓ¡·½Ïò¡£
 /*
@@ -49,8 +63,8 @@ extern int OsPrnSetSize (unsigned int Width,unsigned int Height);
 */
 extern int OsPrnSetDirection (unsigned char Mode);
 
-//¹¦ÄÜ ÉèÖÃ´òÓ¡»Ò¶È¡
-/*£
+//¹¦ÄÜ ÉèÖÃ´òÓ¡»Ò¶È?
+/*?
 ²ÎÊı Level
 . Level =0£¬±£Áô¡£
 . Level =1£¬È±Ê¡ºÚ¶È£¬¼´ÆÕÍ¨´òÓ¡µ¥¡£
@@ -147,5 +161,12 @@ extern void OsPrnClrBuf(void);
 	2£º´òÓ¡ÓĞÔ¤×ßÖ½
 */
 extern int OsPrnSetParam(unsigned int cmd);
+
+
+
+
+//============¶îÍâÌí¼ÓÓÃÓÚGUIÏÔÊ¾´òÓ¡ĞÅÏ¢=============================
+extern DEF_PRINT_DATA *OsGerPrintData(void);
+
 
 #endif

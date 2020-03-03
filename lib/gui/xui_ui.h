@@ -2,15 +2,29 @@
 #define _UI_DISPLAY_
 
 //===============色彩参数定义========================================
-#if(1)
+#if(0)
 //-----------------M1901定义----------------------------
+typedef struct {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint8_t a;
+} XuiColor;
+
 typedef unsigned int  			A_RGB;		// <= RGB_CURR
-#define	RGB_CURR(r,g,b)		(r|(g*0x100)|(b*0x10000))	//(u32)(rgba_t)(b,g,r,0xff))
+#define	RGB_CURR(r,g,b)		(r|(g*0x100)|(b*0x10000))	//(u32)(XuiColor)(b,g,r,0xff))
 #define RGB565_CLEAR			0xFF000000		// Transparent color
 #else
 //-----------------ubuntu定义----------------------------
+typedef struct {
+  uint8_t b;
+  uint8_t g;
+  uint8_t r;
+  uint8_t a;
+} XuiColor;
+
 typedef unsigned int  			A_RGB;		// <= RGB_CURR
-#define	RGB_CURR(r,g,b)		((r*0x10000)|(g*0x100)|b)	//(u32)(rgba_t)(b,g,r,0xff))
+#define	RGB_CURR(r,g,b)		((r*0x10000)|(g*0x100)|b)	//(u32)(XuiColor)(b,g,r,0xff))
 #define RGB565_CLEAR			0xFF000000		// Transparent color
 #endif
 

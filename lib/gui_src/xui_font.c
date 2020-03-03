@@ -37,6 +37,8 @@
 #include "xui_gui.h"
 #include "sdk/sys_sdk.h"
 
+#include "sdk/sdk_font.h"
+
 //==========字义系统字库=======================
 #define SYS_FUNT_12EN
 #define SYS_FUNT_16EN
@@ -354,7 +356,6 @@ void DeInitExtResLib(void)
 
 
 
-
 #define FONT_MAX_ONE_GBK	96     //目前使用的最大字体,一个汉字占用的存储空间
 #define FONT_CL_CALC		94    //  (0xFE - 0xA1 + 1)=94;
 
@@ -631,6 +632,7 @@ int UI_DisplayFont(XuiWindow *pWindow,POINT* prclTrg, u8* hzData)
 	return rect.width;
 }
 
+
 int UI_DrawLineString(XuiWindow *pWindow,POINT* prclTrg,const char *src)
 {
 	int ret,offset=0;
@@ -758,5 +760,112 @@ const API_FONT_Def ApiFont={
 	UI_DrawRectString,
 	UI_DrawCenterString,
 };
+
+
+//=====================================================================================
+XuiFont *XuiCreateFont(char *fontfile,int index, XuiFontSet fontset)
+{
+	XuiFont *pXfont;
+	pXfont=(XuiFont *)malloc(sizeof(XuiFont));
+	memset(pXfont,0x00,sizeof(XuiFont));
+	pXfont->pFont=Font_Create(fontfile);
+	pXfont->fontset=fontset;
+	pXfont->index = index;
+	return pXfont;
+}
+
+void XuiDestroyFont(XuiFont *font)
+{
+	if(font)
+	{
+		Font_Destroy(font->pFont);
+		free(font);
+	}
+}
+
+int XuiDisplayFont(XuiWindow *pWindow,XuiFont *pFont,POINT* prclTrg,XuiTextStyle textstyle,u8* *ppChar,A_RGB ForeColor)
+{
+	A_RGB *pbgra;
+	A_RGB* pWidget;
+	u8  i,j;	//readLen,
+	u8  wMax,wi,db;	//readLen,
+	u16 width,height,left,top;
+	FontbitMsg tFontMsg;
+	
+    if(pFont->pFont == NULL)
+        return 0;
+	//----------------------------------------------------------------
+	width	= pWindow->width;
+	height	= pWindow->height;
+	
+	if(prclTrg->left >= width || prclTrg->top>=height) 
+		return 0;
+   
+	*ppChar += Font_GetBitMap(pFont->pFont,*ppChar,&tFontMsg);
+	if(tFontMsg.pFontBit==NULL)
+		return tFontMsg.w;
+	//--------------------------------------------------
+    left = prclTrg->left;
+    top = prclTrg->top;    
+	pWidget = pWindow->widget;
+    for (i = 0; i < tFontMsg.h; i++)
+    {    
+    	if((u16)(top+i) >= height) break;
+    	pbgra=&pWidget[(top+i)*width+left];
+        for (j = 0; j < tFontMsg.w; j+=8)
+        {
+        	db = *tFontMsg.pFontBit++;
+        	wMax=tFontMsg.w - j;
+			if(wMax>8) wMax=8;
+        	for(wi=0;wi<wMax;wi++)
+        	{
+        		if((left+j+wi) >= width) break;
+				if(db&0x80) 	//if((db<<(wi&0x07)) & 0x80)	//
+				{
+					*pbgra = ForeColor;
+					if(textstyle == XUI_BOLD)
+					{
+						pbgra[1] = ForeColor;
+						pbgra[width] = ForeColor;
+						pbgra[width+1] = ForeColor;
+					}
+				}
+				pbgra++; db<<=1;
+			}
+        }
+    }
+	return tFontMsg.w;
+}
+
+int XuiCanvasDrawText(XuiWindow *window,unsigned int x,unsigned int y,unsigned int height,XuiFont *font,XuiTextStyle textstyle,XuiColor fg,char *text)
+{
+	u8 *pChar;
+	int ret;
+	POINT rclTrg;
+	rclTrg.left=x;
+	rclTrg.top=y;
+	pChar = (u8*)text;
+	while(*pChar)
+	{
+		if(*pChar > ' ')
+		{
+			ret=XuiDisplayFont(window,font,&rclTrg,textstyle,&pChar,*(A_RGB*)&fg);//(A_RGB)fg
+			if(ret <= 0) break;
+			rclTrg.left += ret;
+		}
+		else
+		{
+			if(*pChar == '\n')
+			{
+				rclTrg.top += height;
+				rclTrg.left = x;
+			}
+			pChar++;
+		}
+	}
+	return 0;
+}
+
+
 
 

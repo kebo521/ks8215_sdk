@@ -80,6 +80,31 @@ typedef struct
 extern const API_FONT_Def ApiFont;
 
 
+//============================字体定义=============================
+typedef enum
+{
+	XUI_FONT_MONO,	// 黑白字体(双色)
+	XUI_FONT_GREY,	// 灰度字体
+}XuiFontSet;
+//==============================字体样式===============================
+typedef enum
+{
+	XUI_TEXT_NORMAL,		// 正常
+	XUI_BOLD,				// 粗体
+	XUI_ITALIC,			// 斜体
+	XUI_TEXT_BOLD_ITALIC,// 粗体加斜体
+}XuiTextStyle;
+
+typedef struct{
+	XuiFontSet fontset;
+	int index;
+	void *pFont;	//tSdkFont
+}XuiFont;
+
+extern XuiFont *XuiCreateFont(char *fontfile,int index, XuiFontSet fontset);
+extern void XuiDestroyFont(XuiFont *font);
+extern int XuiCanvasDrawText(XuiWindow *window,unsigned int x,unsigned int y,unsigned int height,XuiFont *font,XuiTextStyle textstyle,XuiColor fg,char *text);
+
 
 
 #endif /*LINUX_FB_H*/

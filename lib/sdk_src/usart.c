@@ -20,11 +20,11 @@
 int uart_open(char* port)
 {
 	int fd;
-	printf("%s\n",port);
+	LOG(LOG_INFO,"uart open[%s]\n",port);
     fd = open( port, O_RDWR|O_NOCTTY|O_NDELAY);    
     if (fd<0)    
     {    
-        perror("Can't Open Serial Port");    
+		LOG(LOG_ERROR,"Can't Open Serial Port");
         return	-1;    
     }    
     //恢复串口为阻塞状态    
@@ -43,7 +43,7 @@ int uart_open(char* port)
   //测试是否为终端设备     
     if(0 == isatty(STDIN_FILENO))    
     {    
-        printf("standard input is not a terminal device\n");    
+       LOG(LOG_ERROR,"standard input is not a terminal device\n");    
         return -3;    
     }    
 	OsSleep(20);
@@ -88,7 +88,7 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
    该串口是否可用等。若调用成功，函数返回值为0，若调用失败，函数返回值为1.  */ 
     if( tcgetattr( fd,&options)  !=  0)    
     {    
-        perror("SetupSerial 1");        
+       LOG(LOG_ERROR,"Err SetupSerial 1");        
         return -1;     
     }    
       
@@ -138,7 +138,7 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
 			options.c_cflag |= CS8;    
 			break;      
 		default:       
-			fprintf(stderr,"Unsupported data size\n");    
+			LOG(LOG_ERROR,"Unsupported data size\n");    
 			return -2;     
 	}    
    //设置校验位 
@@ -163,7 +163,7 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
                  options.c_cflag &= ~CSTOPB;    
                  break;     
         default:      
-                 fprintf(stderr,"Unsupported parity\n");        
+                 LOG(LOG_ERROR,"Unsupported parity\n");        
                  return -3;     
     }     
 	// 设置停止位     
@@ -174,7 +174,7 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
         case 2:       
                  options.c_cflag |= CSTOPB; break;    
         default:       
-               fprintf(stderr,"Unsupported stop bits\n");     
+               LOG(LOG_ERROR,"Unsupported stop bits\n");     
                return -4;    
     }    
        
@@ -190,7 +190,7 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
    //激活配置 (将修改后的termios数据设置到串口中）    
     if (tcsetattr(fd,TCSANOW,&options) != 0)      
     {    
-        perror("com set error!\n");      
+        LOG(LOG_ERROR,"com set error!\n");      
         return -5;     
     }    
     return 0;     
@@ -225,30 +225,31 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 		//FD_CLR(fd,&fs_read);
 		if(fs_sel==0)
 		{
-			printf("uart recv fs_sel=%d timeout\r\n",fs_sel);
+			LOG(LOG_ERROR,"uart select fs_sel=%d timeout\r\n",fs_sel);
 			return -1;
 		}
 		ret = read(fd,rcv_buf,data_len);
 		if(ret < 0)
 		{
-			printf("uart recvt1 read=%d Err\r\n",ret);
+			LOG(LOG_ERROR,"#uart recvt1 read=%d [%d]Err\r\n",ret,timeoutMs);
 			tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
+			return ret;
 		}
 		offset = ret;
 		while(offset < data_len)
 		{
 			if(((int)OsGetTickCount()-tagTimeMs)>=0)
 			{
-				printf("uart recvt timeOut[%d][%d]\r\n",(int)OsGetTickCount(),tagTimeMs);
+				LOG(LOG_ERROR,"uart recvt timeOut[%d][%d]\r\n",(int)OsGetTickCount(),tagTimeMs);
 				break;
 			}
-			usleep(1000*5);
+			usleep((data_len-offset)*100);
 			ret = read(fd,rcv_buf+offset,data_len-offset);
 			if(ret < 0)
 			{
-				printf("uart recvt2 read=%d Err\r\n",ret);
+				LOG(LOG_ERROR,"uart offset[%d] read=%d Err\r\n",offset,ret);
 				tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
-				break;
+				return ret;
 			}
 			offset += ret;
 		}
@@ -257,7 +258,7 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 	ret = read(fd,rcv_buf,data_len);
 	if(ret < 0)
 	{
-		printf("uart recv read=%d Err\r\n",ret);
+		LOG(LOG_ERROR,"uart recv read=%d Err\r\n",ret);
 		tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
 	}
 	return ret;
@@ -272,20 +273,28 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 *******************************************************************/    
 int uart_send(int fd, void *send_buf,int data_len)    
 {    
-	LOG(LOG_INFO,"fd[%d]",fd);
+//	LOG(LOG_INFO,"fd[%d]",fd);
 //	TRACE_HEX("->SendBuf",send_buf,data_len);
-	int len = write(fd,send_buf,data_len);	
-	fsync(fd);
-	if (len == data_len )	
-	{	
-		return len;   
-	}		 
-	else	  
-	{	
-		printf("uart_send [%d]error!\n",len);				 
-		tcflush(fd,TCOFLUSH);	
-		return -1;	
-	}	
+	int ret,offset=0;
+	while(1)
+	{
+		ret = write(fd,send_buf+offset,data_len-offset);	
+		fsync(fd);
+		if(ret <= 0)
+		{	
+			LOG(LOG_ERROR,"uart_send [%d]error!\n",ret);				 
+			tcflush(fd,TCOFLUSH);	
+			return ret;	
+		}
+		offset += ret;
+		if(offset < data_len)
+		{
+			usleep(ret*100);	//等待CPU处理
+			continue;
+		}
+		break;
+	}
+	return offset;
 /*
 	int fs_sel;  
 	fd_set fs_write;    

@@ -33,6 +33,11 @@
 
 #include "szzt_tms.h"
 
+#include "emv_type.h"
+#include "emv_tag.h"
+#include "emvapi.h"
+#include "emvspi_plugin.h"
+#include "dataconv.h"
 
 
 int APP_QrCodeTest(char *pTitle)
@@ -222,6 +227,375 @@ int APP_TestShowBottom(char* title)
 }
 
 
+int APP_TestMsr(char* title)
+{
+	int ret,timeoutMs=30*1000;
+	LOG(LOG_INFO,"->TestMsr In\r\n");
+	ret=OsMsrOpen();
+	APP_ShowSta(title,"请刷卡");
+	while(timeoutMs>0)
+	{
+		ret=OsMsrSwiped();
+		if(ret == TRUE) break;
+		OsSleep(500);
+		timeoutMs -= 500;
+	}
+	ret=OsMsrSwiped();
+	if(ret == TRUE)
+	{
+		ST_MSR_DATA tTrack[3];
+		char showBuff[512],*pShow;
+		OsMsrRead(&tTrack[0],&tTrack[1],&tTrack[2]);
+		pShow=showBuff;
+
+		if(tTrack[0].DataLen)
+		{
+			tTrack[0].TrackData[tTrack[0].DataLen]=0x00;
+			pShow += sprintf(pShow,"Track1:%s\n",tTrack[0].TrackData);
+		}
+		if(tTrack[1].DataLen)
+		{
+			tTrack[1].TrackData[tTrack[1].DataLen]=0x00;
+			pShow += sprintf(pShow,"Track2:%s\n",tTrack[1].TrackData);
+		}
+		if(tTrack[2].DataLen)
+		{
+			tTrack[2].TrackData[tTrack[2].DataLen]=0x00;
+			pShow += sprintf(pShow,"Track3:%s\n",tTrack[2].TrackData);
+		}
+		APP_ShowInfo(title,showBuff,30*1000);
+	}
+	APP_ShowSta(title,"关闭读卡器");
+	OsMsrClose();
+	return ret;
+}
+
+/**
+ * @brief 卡片读写
+ * @param ibuf 输入数据
+ * @param ilen 输入数据长度
+ * @param obuf 输出数据
+ * @param osize 输出数据长度限制
+ * @return [>=2]-输出数据长度 [-1]-失败
+ 
+int emvplugin_icc_rw(u8* ibuf, int ilen, u8* obuf, int osize)
+{
+	int RetLen;
+	ST_APDU_REQ tApduReq;
+	ST_APDU_RSP tApduRsp;
+	//LOG_HEX(LOG_INFO,"Eicc_rw:In:",ibuf,ilen);
+	memcpy(tApduReq.Cmd,ibuf,sizeof(tApduReq.Cmd));
+	tApduReq.LC = ibuf[4];
+	memcpy(tApduReq.DataIn,ibuf+5,ibuf[4]);
+	
+	if(OsIccExchange(0,&tApduReq,&tApduRsp))
+		return -1;
+	memcpy(obuf,tApduRsp.DataOut,tApduRsp.LenOut);
+	RetLen = tApduRsp.LenOut;
+	if(tApduRsp.SWB == 0x00 && (tApduRsp.SWA==0x61 || tApduRsp.SWA==0x6C))
+	{
+		if(tApduRsp.SWA==0x61)		//正常结束,还有有效数据可取
+		{
+			memcpy(tApduReq.Cmd,"\x00\xC0\x00\x00",sizeof(tApduReq.Cmd));
+		}
+		tApduReq.LC = 0x00;
+		tApduReq.LE	=tApduRsp.SWB; 	// ((iSW&0xff00)==0x6C00) 长度错误,P3不正确
+		//----------------------------------------------
+		if(OsIccExchange(0,&tApduReq,&tApduRsp))
+			return -1;
+		memcpy(obuf+RetLen,tApduRsp.DataOut,tApduRsp.LenOut);
+		RetLen += tApduRsp.LenOut;
+	}
+	obuf[RetLen++] =tApduRsp.SWA;
+	obuf[RetLen++] =tApduRsp.SWB;
+	//LOG_HEX(LOG_INFO,"Eicc_rw:Out:",obuf,RetLen);
+	return RetLen;
+}
+*/
+
+int APP_TestICC(char* title)
+{
+	int ret,timeoutMs=30*1000;
+	LOG(LOG_INFO,"->TestMsr In\r\n");
+	ret=OsIccOpen(0);
+	APP_ShowSta(title,"请刷卡");
+
+	while(timeoutMs>0)
+	{
+		ret=OsIccDetect(0);
+		if(ret == RET_OK) break;
+		OsSleep(500);
+		timeoutMs -= 500;
+	}
+	//OsIccExchange();
+	APP_ShowSta(title,"关闭读卡器");
+	OsMsrClose();
+	return ret;
+}
+
+int APP_TestQIC(char* title)
+{
+	int ret,timeoutMs=30*1000;
+	u8 sArc[64]={0};
+	LOG(LOG_INFO,"->TestMsr In\r\n");
+	ret=OsPiccOpen();
+	APP_ShowSta(title,"请挥卡");
+
+	while(timeoutMs>0)
+	{
+		ret=OsPiccPoll(NULL,sArc);
+		if(ret == RET_OK) break;
+		OsSleep(500);
+		timeoutMs -= 500;
+	}
+	//OsIccExchange();
+	LOG(LOG_INFO,"sArc[%s]\r\n",sArc);
+	APP_ShowSta(title,"关闭读卡器");
+	OsPiccClose();
+	return ret;
+}
+
+
+int IC_SelectAid(u8 type,char* pAid,u8 AidLen)	//选目录
+{
+	ST_APDU_REQ tApduReq;
+	ST_APDU_RSP tApduRsp;
+	tApduReq.Cmd[0] = 0x00;
+	tApduReq.Cmd[1] = 0xa4;
+	tApduReq.Cmd[2]	= 0x04;
+	tApduReq.Cmd[3]	= 0x00;
+	tApduReq.LC = AidLen;
+	API_memcpy(tApduReq.DataIn, pAid, AidLen);
+	tApduReq.LE = 0;
+	if(type == EMV_CARD_CONTACTLESS)
+	{
+		if(OsPiccIsoCommand(0,&tApduReq,&tApduRsp))
+			return -1;
+		if(tApduRsp.SWA != 0x90)
+			return 1;
+	}
+	else if(type == EMV_CARD_CONTACT)
+	{
+		if(OsIccExchange(0,0,&tApduReq,&tApduRsp))
+			return -1;
+		if(tApduRsp.SWA != 0x90)
+			return 1;
+	}
+	return 0;
+}
+
+int APP_ICC_Test(char* title)
+{
+	u8 		buffStr[127],Openflag;
+	int		ret;
+	ST_TIMER tTimer;
+	ret=OsIccOpen(0);
+	ret=OsPiccOpen();
+	APP_ShowSta(title,"请插IC卡或挥IC卡");
+	Openflag=0;
+	OsTimerSet(&tTimer,30*1000);
+	while(OsTimerCheck(&tTimer))
+	{
+		ret=OsPiccPoll(NULL,buffStr);
+		if(ret == RET_OK) 
+		{
+			Openflag=EMV_CARD_CONTACTLESS;
+			break;
+		}
+		ret=OsIccDetect(0);
+		if(ret == RET_OK) 
+		{
+			Openflag=EMV_CARD_CONTACT;
+			break;
+		}
+		if(EVENT_CANCEL == APP_WaitUiEvent(2000))
+			break;
+	}
+	if(Openflag)
+	{
+		if(IC_SelectAid(Openflag,"2PAY.SYS.DDF01",14))
+		{
+			LOG(LOG_ERROR,"PSam_SelectFile Err!!!");
+		}
+		if(IC_SelectAid(Openflag,"\xA0\x00\x00\x03\x33\x01\x01\x02",8))
+		{
+			LOG(LOG_ERROR,"PESam_SelectAid Err!!!");
+		}
+		APP_ShowMsg(title,"测试完成",3000);
+	}
+	OsPiccClose();	//关闭剩下的IC 卡；
+	OsIccClose(0);
+	return 0;
+}
+
+//====================================================================
+//功能:  电子现金查余额并显示余额
+//作用:  可直接显示当前余额和余额上限
+//输入数据:title显示标题
+//输出数据:NULL
+//---------------------------------------------------------------
+int ElectronicCashBalance(char* title)
+{
+	u8 buffBCD[32],Openflag;
+	char buffStr[128];
+	char CashStr[16];
+	int slen,resplen;
+	int		ret,timeoutMs=30*1000;
+	//addmsg_emv();
+	
+	API_strcpy(buffStr,"仅限IC卡交易\n");
+	ret=OsIccOpen(0);
+	if(ret==RET_OK)
+		API_strcat(buffStr,"请插IC卡");
+
+	ret=OsPiccOpen();
+	if(ret==RET_OK)
+		API_strcat(buffStr,"请挥IC卡");
+	APP_ShowSta(title,buffStr);
+	Openflag=0;
+	while(timeoutMs>0)
+	{
+		ret=OsPiccPoll(NULL,(u8*)buffStr);
+		if(ret == RET_OK) 
+		{
+			Openflag=EMV_CARD_CONTACTLESS;
+			break;
+		}
+		ret=OsIccDetect(0);
+		if(ret == RET_OK) 
+		{
+			Openflag=EMV_CARD_CONTACT;
+			break;
+		}
+		OsSleep(500);
+		timeoutMs -= 500;
+	}
+	if(Openflag)
+	{
+		do{
+			if(emvspi_Start(Openflag)) break;
+			//-------------------------------------------
+			//APP_ShowSta(title,"处理中..请勿拔/移卡");
+			emv_set_trans_type(_EMV_TRANSTYPE_EC_INQUIRY);
+			do
+			{
+				resplen=emv_process();
+			}
+			while((resplen>0)&&(resplen!=EMV_COMPLETED));
+			if(resplen != EMV_COMPLETED)
+			{
+				API_sprintf(buffStr,"初始化失败[%d]",resplen);
+				APP_ShowMsg(title,buffStr,3000);
+				break; //操作失败
+			}
+			//----------------------------TAG_9F5D_AVAILABLE_OFFLINE_SPENDING_AMOUNT----------------
+			slen=0;
+			if (emv_get_tag_data(TAG_9F79_EC_BALANCE, buffBCD, &resplen) == EMV_OK)
+			{
+				API_strcpy(buffStr+slen,"电子现金余额:");
+				slen +=API_strlen(buffStr+slen);
+				Conv_BcdToStr(buffBCD,resplen,CashStr);
+				slen += Conv_TmoneyToDmoney(CashStr,buffStr+slen);
+				buffStr[slen++]='\n';
+			}
+			if (emv_get_tag_data(TAG_9F77_EC_BALANCE_LIMIT, buffBCD, &resplen) == EMV_OK)
+			{
+				API_strcpy(buffStr+slen,"余额上限:");
+				slen +=API_strlen(buffStr+slen);
+				Conv_BcdToStr(buffBCD,resplen,CashStr);
+				slen += Conv_TmoneyToDmoney(CashStr,buffStr+slen);
+				buffStr[slen++]='\n';
+			}
+			if(slen>5)
+			{
+				buffStr[slen++]=0;
+				APP_ShowInfo(title,buffStr,10*1000);
+			}
+			else 
+			{
+				APP_ShowMsg(title,"查询失败",3000);
+			}
+		}while(0);
+		emvspi_end(Openflag);
+	}
+	OsPiccClose();	//关闭剩下的IC 卡；
+	OsIccClose(0);
+	return 0;
+}
+
+
+
+int APP_TestPrint(char* title)
+{
+	DEF_PRINT_DATA *pPrint;
+	RECTL tRect;
+	A_RGB* pBufRGB,*pRgb;
+	u8* pBit;
+	int i,j;
+	LOG(LOG_INFO,"->TestMsr In\r\n");
+	APP_ShowSta(title,"打开打印机");
+	OsPrnOpen(PRN_BMP,"print01.bmp");
+	APP_ShowSta(title,"设置参数");
+	OsPrnSetSize(384,384);
+	OsPrnSetSpace(0,0);
+	OsPrnSetIndent(0,0);
+
+	if(OsPrnSetFont("ks.res"))
+	{
+		APP_ShowSta(title,"字体不存在");
+		return 1;
+	}
+	APP_ShowSta(title,"打印内容");
+	OsPrnPrintf("88901234223\n");
+	OsPrnSetSpace(3,3);
+	OsPrnPrintf("12345678\n");
+	OsPrnSetSpace(7,7);
+	OsPrnPrintf("12345678\n");
+	OsPrnSetSpace(13,13);
+	OsPrnPrintf("12345678\n");
+	OsPrnSetSpace(9,9);
+	OsPrnPrintf("1打3印5测6试haha*#!@#$%^&*()\n");
+	//OsPrnPrintf("打印\n");
+//	OsPrnPrintf("2我1在哪 l%d\n",123);
+//	OsPrnPrintf("有2什么3人 n%d\n",456);
+//	OsPrnPrintf("什么时候做什么 w%s\n","hahaha");
+	APP_ShowSta(title,"输出打印内容");
+	OsPortOpen(PORT_COM1,"115200,8,n,1");
+	OsPrnStart();
+	OsMsrClose();
+
+
+	pPrint=OsGerPrintData();
+	tRect.left=0;
+	tRect.top=0;
+	tRect.width = pPrint->width;
+	tRect.height= pPrint->height;
+	LOG(LOG_INFO,"->tRect width[%d]height[%d]lineW[%d]\r\n",tRect.width,tRect.height,pPrint->lineW);
+	pBufRGB =(A_RGB*)malloc(tRect.height*tRect.width*sizeof(A_RGB));
+	pRgb = pBufRGB;
+	for(j=0;j<tRect.height;j++)
+	{
+		pBit = pPrint->pBufBit+(j * pPrint->lineW);
+		for(i=0;i<tRect.width;i++)
+		{
+			if(*pBit & (0x80>>(i&7)))
+			{
+				*pRgb = RGB_CURR(0xff,0xff,0x00);
+			}
+			else
+			{
+				*pRgb = RGB_CURR(0x00,0x00,0xff);	
+			}
+			pRgb++;
+			if((i&7)==7) pBit++;
+		}
+	}
+	fb_ui_set_rect(tRect.left,tRect.top,tRect.width,tRect.height,pBufRGB);
+	free(pBufRGB);
+	OsPrnClose();
+	APP_ShowSta(title,"结束打印");
+	return 0;
+}
 
 
 /*
@@ -453,7 +827,28 @@ int APP_TestNet(char* pTitle)
 	return 0;
 }
 
+int APP_UartClose(char* title)
+{
+	OsPortClose(PORT_COM1);
+	return 0;
+}
 
+int APP_TestReadCard(char* title)
+{
+	CMenuItemStru MenuStruPar[]=
+	{
+		{"刷卡测试",			APP_TestMsr},
+		{"IC卡测试",			APP_TestICC},
+		{"非接IC测试",			APP_TestQIC},
+		{"命令测试",			APP_ICC_Test},
+		{"电子现金查余额",		ElectronicCashBalance},
+		{"打印测试",			APP_TestPrint},
+	};
+	if(OsPortOpen(PORT_COM1,"115200,8,n,1") != RET_OK) return -1;
+	APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,-1);
+	APP_AddCurrentMenuOtherFun(MENU_OUT_FUN,&APP_UartClose,NULL);
+	return 0;
+}
 
 int APP_HardTestMenu(char* title)
 {
@@ -472,7 +867,7 @@ int APP_HardTestMenu(char* title)
 		{"播放语音测试",	APP_AutoTest},
 		{"网络测试",		APP_AutoTest},
 		{"电池测试",		APP_AutoTest},
-		{"NFC卡测试",		APP_AutoTest},
+		{"读卡卡测试",		APP_TestReadCard},
 	};
 	APP_CreateNewMenuByStruct(title,sizeof(MenuStruPar)/sizeof(CMenuItemStru),MenuStruPar,30*1000);
 	//APP_AddCurrentMenuOtherFun(MENU_OUT_FUN,APP_SaveTestResult,NULL);
@@ -566,6 +961,7 @@ int APP_TestDrawBoard(char *pTitle)
 }
 
 
+
 int APP_FactoryMeun(char* title)
 {
 	CMenuItemStru MenuStruPar[]=
@@ -632,7 +1028,7 @@ int APP_SysVersion(char* title)
 
 extern int OsSaveAppInfo(ST_APP_INFO* pAppInfo);
 
-int APP_InstallAPP(char *pTitle)
+int APP_UInstallAPP(char *pTitle)
 {
 	ST_APP_INFO tAppInfo;
 	APP_ShowSta(pTitle,"向主机请求中...");
@@ -649,6 +1045,25 @@ int APP_InstallAPP(char *pTitle)
 	}
 	return 0;
 }
+
+int APP_NInstallAPP(char *pTitle)
+{
+	ST_APP_INFO tAppInfo;
+	APP_ShowSta(pTitle,"向服务器发请求...");
+	if(!APP_TmsProcess(COM_NET))
+	{
+		APP_ShowMsg(pTitle,"下载失败",3000);
+		return 1;
+	}
+	APP_ShowSta(pTitle,"应用安装中");
+	if(0==InstallAPP(&tAppInfo))
+	{
+		OsSaveAppInfo(&tAppInfo);
+		APP_ShowMsg(pTitle,"安装中成功",3000);
+	}
+	return 0;
+}
+
 
 
 int AppSwitchFun(char* pTitle,int Index)
@@ -703,7 +1118,9 @@ int APP_MasterMeun(char* title)
 	//	{"固件信息",			APP_HardVesion},
 		{"语言设置",			APP_SetLanguage},
 		//{"软件信息",			APP_SysVersion},
-		{"应用安装",			APP_InstallAPP},
+		{"工厂测试",			APP_FactoryMeun},
+		{"串口安装应用",		APP_UInstallAPP},
+		{"网络安装应用",		APP_NInstallAPP},
 		{"显示应用列表",		APP_AppListShow},
 		{"切换应用",			APP_AppListSwitch},
 	};

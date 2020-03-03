@@ -56,16 +56,30 @@ typedef enum{
 	LOG_INFO, /*显示提示信息*/
 	LOG_WARN, /*显示警告信息*/
 	LOG_ERROR, /*显示错误信息*/
+	LOG_NULL,	//没有调试信息
 } LOG_T;
 
-#define CURR_LOG_T						LOG_INFO			
+typedef struct
+{
+	u8 DormancyState;//休眠状态
+	u8 DormancyEN;//是否允许休眠
+	u8 Screensaver;//屏保状态
+	pthread_t threadID;//刷新状态栏ui线程
+
+}Status_Messages;
+
+Status_Messages Msg_data;
+
+
+#define CURR_LOG_T						LOG_INFO	//LOG_INFO			
 extern void OsLogSetTag(const char *Tag);
 extern int OsLog(LOG_T Prio,const char *fmt,...);
 #define LogSetTag						OsLogSetTag		
 #define LOG								OsLog
 //#define TRACE(...)						OsLog(LOG_INFO,__VA_ARGS__)	
-extern void OsLogHex(char* msg,void* pBuff,int Len);
-#define TRACE_HEX(msg,pBuff,Len)		OsLogHex(msg,pBuff,Len)
+extern void OsLogHex(LOG_T Prio,char* msg,void* pBuff,int Len);
+#define LOG_HEX(logT,msg,pBuff,Len)		OsLogHex(logT,msg,pBuff,Len)
+#define TRACE_HEX(msg,pBuff,Len)			OsLogHex(LOG_INFO,msg,pBuff,Len)
 
 
 typedef struct{

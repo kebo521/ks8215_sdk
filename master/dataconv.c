@@ -263,7 +263,9 @@ int Conv_DmoneyToTmoney(char* pOutStr,char* pInsMoney)
 //------------------交易金额 转 显示金额-------------------------------
 int Conv_TmoneyToDmoney(char* pOutdMoney,char* pIntMoney)
 {
-	u16 i=0,Inlen=API_strlen(pIntMoney);
+	u16 i=0,Inlen;
+	while(*pIntMoney == '0') pIntMoney++;	//剔除前面无效'0'
+	Inlen=API_strlen(pIntMoney);
 	if(Inlen == 0)
 	{
 		pOutdMoney[0]='\0';

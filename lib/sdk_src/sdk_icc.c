@@ -15,9 +15,10 @@
 #include "sdk_icc.h"
 
 #include "sdk_port.h" 
-
-
-#define EXT_INTERFACE		PORT_COM1 		//External equipment interface
+#ifdef EXT_INTERFACE
+//static ST_MSR_DATA tMsrData[3];
+//static int flag_msr_read=0;
+#endif
 
 
 //功能 打开IC 卡读卡设备.
@@ -27,14 +28,14 @@ int OsIccOpen(int Slot)
 	u8 buff[32],*p;
 	u32 recvLen;
 	p=buff+4;
-	*p++ = 0x02;
+	*p++ = 0x04;
 	*p++ = 0x01;
-	API_Uart_PackSend(EXT_INTERFACE,p,2);
+	API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
 	recvLen = sizeof(buff);
 	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
 	if(p)
 	{
-		return p[3];
+		return p[2];
 	}
 	return ERR_TIME_OUT;
 	#else
@@ -49,19 +50,17 @@ int OsIccOpen(int Slot)
 int OsIccDetect(int Slot)
 {
 	#ifdef EXT_INTERFACE
-	u8 buff[32],*p;
+	u8 buff[128],*p;
 	u32 recvLen;
 	p=buff+4;
-	*p++ = 0x02;
+	*p++ = 0x04;
 	*p++ = 0x03;
-	*p++ = 0x00;
-	*p++ = 0x00;
-	API_Uart_PackSend(EXT_INTERFACE,p,4);
+	API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
 	recvLen = sizeof(buff);
-	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,1000,NULL);
 	if(p)
 	{
-		return p[3];
+		return p[2];
 	}
 	return ERR_TIME_OUT;
 	#else
@@ -133,15 +132,13 @@ int OsIccExchange(int Slot,int CtrlFlag,const ST_APDU_REQ *ApduReq,ST_APDU_RSP *
 		u8 buff[512+64],*p;
 		u32 recvLen;
 		p=buff+4;
+		*p++ = 0x04;
 		*p++ = 0x05;
-		recvLen=ApduReq->LC+5;
-		*p++ = recvLen/256;
-		*p++ = recvLen&0xff;
 		memcpy(p,ApduReq->Cmd,sizeof(ApduReq->Cmd));
 		p += sizeof(ApduReq->Cmd);
-		*p++ = ApduReq->LC;
 		if(ApduReq->LC)
 		{
+			*p++ = ApduReq->LC;
 			memcpy(p,ApduReq->DataIn,ApduReq->LC);
 			p += ApduReq->LC;
 		}
@@ -149,19 +146,20 @@ int OsIccExchange(int Slot,int CtrlFlag,const ST_APDU_REQ *ApduReq,ST_APDU_RSP *
 			*p++ = 255;
 		else
 			*p++ = ApduReq->LE;
-		API_Uart_PackSend(EXT_INTERFACE,p,p-(buff+4));
+		
+		API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
 		recvLen = sizeof(buff);
 		p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,5000,NULL);
 		if(p)
 		{
-			if(p[3] == 0)
+			if(p[2] == 0)
 			{
-				memcpy(ApduRsp->DataOut,p+4,recvLen-6);
-				ApduRsp->LenOut = recvLen-6;
+				memcpy(ApduRsp->DataOut,p+3,recvLen-3-2);
+				ApduRsp->LenOut = recvLen-3-2;
 				ApduRsp->SWA = p[recvLen-2];
 				ApduRsp->SWB = p[recvLen-1];
 			}
-			return RET_OK;
+			return p[2];
 		}
 		return ERR_TIME_OUT;
 	#else
@@ -178,14 +176,14 @@ int OsIccClose(int Slot)
 		u8 buff[32],*p;
 		u32 recvLen;
 		p=buff+4;
+		*p++ = 0x04;
 		*p++ = 0x02;
-		*p++ = 0x02;
-		API_Uart_PackSend(EXT_INTERFACE,p,2);
+		API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
 		recvLen = sizeof(buff);
 		p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
 		if(p)
 		{
-			return p[3];
+			return p[2];
 		}
 		return ERR_TIME_OUT;
 	#else
@@ -200,13 +198,51 @@ int OsIccClose(int Slot)
 //功能 PCD 模块上电处理，使模块进入准备工作状态。
 int OsPiccOpen(void)
 {
+	#ifdef EXT_INTERFACE
+	u8 buff[32],*p;
+	u32 recvLen;
+	p=buff+4;
+	*p++ = 0x02;
+	*p++ = 0x01;
+	API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
+	recvLen = sizeof(buff);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
+	if(p)
+	{
+		return p[2];
+	}
+	return ERR_TIME_OUT;
+	#else
+
+
+	
 	return RET_OK;
+	#endif
 }
 
 //功能 PCD 模块下电处理。
 int OsPiccClose(void)
 {
+	#ifdef EXT_INTERFACE
+	u8 buff[32],*p;
+	u32 recvLen;
+	p=buff+4;
+	*p++ = 0x02;
+	*p++ = 0x02;
+	API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
+	recvLen = sizeof(buff);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
+	if(p)
+	{
+		return p[2];
+	}
+	return ERR_TIME_OUT;
+	#else
+
+
+	
 	return RET_OK;
+	#endif
 }
 
 //功能 载波复位。
@@ -227,7 +263,24 @@ pucATQx 【输出】
 */
 int OsPiccPoll(char *pcPiccType, unsigned char *pucATQx)
 {
+	#ifdef EXT_INTERFACE
+	u8 buff[128],*p;
+	u32 recvLen;
+	p=buff+4;
+	*p++ = 0x02;
+	*p++ = 0x03;
+	API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
+	recvLen = sizeof(buff);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,1000,NULL);
+	if(p)
+	{
+		return p[2];
+	}
+	return ERR_TIME_OUT;
+	#else
+
 	return RET_OK;
+	#endif
 }
 
 //对卡片进行防冲突和选择。
@@ -346,8 +399,44 @@ ApduRsp 【输出】从PICC 卡返回的数据结构ST_APDU_RSP
 */
 int OsPiccIsoCommand(int cid,ST_APDU_REQ*ApduReq,ST_APDU_RSP*ApduRsp)
 {
+	#ifdef EXT_INTERFACE
+	u8 buff[512+64],*p;
+	u32 recvLen;
+	p=buff+4;
+	*p++ = 0x02;
+	*p++ = 0x05;
+	memcpy(p,ApduReq->Cmd,sizeof(ApduReq->Cmd));
+	p += sizeof(ApduReq->Cmd);
+	if(ApduReq->LC)
+	{
+		*p++ = ApduReq->LC;
+		memcpy(p,ApduReq->DataIn,ApduReq->LC);
+		p += ApduReq->LC;
+	}
+	if(ApduReq->LE > 255)
+		*p++ = 255;
+	else
+		*p++ = ApduReq->LE;
+	
+	API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
+	recvLen = sizeof(buff);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,5000,NULL);
+	if(p)
+	{
+		if(p[2] == 0)
+		{
+			memcpy(ApduRsp->DataOut,p+3,recvLen-5);
+			ApduRsp->LenOut = recvLen-5;
+			ApduRsp->SWA = p[recvLen-2];
+			ApduRsp->SWB = p[recvLen-1];
+		}
+		return p[2];
+	}
+	return ERR_TIME_OUT;
+	#else
+			
 	return RET_OK;
-
+	#endif
 }
 
 //功能 设置用户配置。
@@ -395,8 +484,26 @@ int OsPiccApplePoll(char *pcPiccType,unsigned char *pucATQx,unsigned char *pucSe
 //功能 关闭载波。
 int OsPiccOffCarrier(void)
 {
-	return RET_OK;
+	#ifdef EXT_INTERFACE
+	u8 buff[32],*p;
+	u32 recvLen;
+	p=buff+4;
+	*p++ = 0x02;
+	*p++ = 0x04;
+	API_Uart_PackSend(EXT_INTERFACE,buff+4,p-(buff+4));
+	recvLen = sizeof(buff);
+	p= API_Uart_PackRecv(EXT_INTERFACE,buff,&recvLen,3000,NULL);
+	if(p)
+	{
+		return p[2];
+	}
+	return ERR_TIME_OUT;
+	#else
 
+
+	
+	return RET_OK;
+	#endif
 }
 
 //功能 对ISO15693 卡进行初始化配置。

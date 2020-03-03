@@ -163,6 +163,7 @@ int	API_Uart_PackSend(int Channel,u8* pSendBuf,u32 sendLen)
 	*(--pSendBuf) = 0x02;
 	*(--pSendBuf) = 0x55;
 	sendLen += 4;
+	TRACE_HEX("->PackSendBuf",pSendBuf,sendLen);
 	ret= OsPortSend(Channel,pSendBuf,sendLen);
 	if(ret < 0) return ret;
 	return (ret-4);
@@ -176,7 +177,7 @@ u8*	API_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen,int timeOutMs,int* p
 	ret=OsPortRecv(Channel,pRecvBuf,5,timeOutMs);
 	if(ret < 5)
 	{
-		LOG(LOG_ERROR,"###Uart_PackRecv recv ret[%d] small##\r\n",ret);
+		LOG(LOG_ERROR,"###Uart_PackRecv recv5 ret[%d]S[%d] ##\r\n",ret,*recvLen);
 		if(pErrCode) *pErrCode=ERR_TIME_OUT;
 		return NULL;
 	}
@@ -191,29 +192,27 @@ u8*	API_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen,int timeOutMs,int* p
 			ret=OsPortRecv(Channel,pRecvBuf,5,100);
 			if(ret < 5) 
 			{
-				LOG(LOG_ERROR,"###Uart_PackRecv recv[%d] Nouse DataL##\r\n",ret);
+				LOG(LOG_ERROR,"###Uart_PackRecv recv5[%d] Nouse DataL##\r\n",ret);
 				if(pErrCode) *pErrCode=ERR_INVALID_PARAM;
 				return NULL;
 			}
 			start = 0;
 		}
 	}
-	
 	if(start < 5)
 	{
 		ulen=pRecvBuf[start+1]*256 + pRecvBuf[start+2];
 		if(ulen > 0)
 		{
-			recvSize = *recvLen;
-			if(recvSize >= (ulen+start+5))
+			recvSize = *recvLen - 5;
+			if(recvSize >= (ulen+start))
 			{
-				recvSize = (ulen+start+5);
+				recvSize = (ulen+start);
 			}
 			else
 			{
 				LOG(LOG_WARN,"****recvSize to small***\r\n");
 			}
-			recvSize -= 5;
 			ret=OsPortRecv(Channel,pRecvBuf+5,recvSize,8000);
 			//LOG(LOG_WARN,"recvSize ulen[%d]ret[%d]recvSize[%d]\r\n",ulen,ret,recvSize);
 		}
@@ -232,14 +231,15 @@ u8*	API_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen,int timeOutMs,int* p
 			crc ^= *p++;
 			for(i=0;i<ulen;i++)
 				crc ^= *p++;
-			
+			LOG_HEX(LOG_INFO,"->PackRecvBuf",pRecvBuf,ulen+5+start);
 			if(crc == *p)
 			{
 				*recvLen = ulen;
 				return pRecvBuf+start+3;
 			}
 			if(pErrCode) *pErrCode=ERR_VERIFY_SIGN_FAIL;
-			LOG(LOG_ERROR,"###PortRecvr recv crc[%x] != [%x] to small##\r\n",*p,crc);
+			//LOG_HEX(LOG_ERROR,"ERR->PackRecvBuf",pRecvBuf,ulen+5+start);
+			LOG(LOG_ERROR,"###ERR recv crc[%x] != [%x] ##\r\n",*p,crc);
 			return NULL;
 		}
 		if(pErrCode) *pErrCode=ERR_INVALID_PARAM;
