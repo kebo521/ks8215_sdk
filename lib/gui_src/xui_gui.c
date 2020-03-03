@@ -66,8 +66,8 @@ int AbsAnalytical_Show(u16* pX,u16* pY)
 		{
 			{//--------------添加选项效果---------------------
 				RECTL tRect;
-				tRect.left = tAbsGuiRectOperat.pCancel->sX;
-				tRect.top =tAbsGuiRectOperat.pCancel->sY;
+				tRect.left = tAbsGuiRectOperat.pCancel->sX-tGuiThemeMsg.pWindow->left;
+				tRect.top =tAbsGuiRectOperat.pCancel->sY-tGuiThemeMsg.pWindow->top;
 				tRect.width = tAbsGuiRectOperat.pCancel->eX - tAbsGuiRectOperat.pCancel->sX;
 				tRect.height = tAbsGuiRectOperat.pCancel->eY -tAbsGuiRectOperat.pCancel->sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
@@ -85,8 +85,8 @@ int AbsAnalytical_Show(u16* pX,u16* pY)
 		{
 			{//--------------添加选项效果---------------------
 				RECTL tRect;
-				tRect.left = tAbsGuiRectOperat.pOK->sX;
-				tRect.top =tAbsGuiRectOperat.pOK->sY;
+				tRect.left = tAbsGuiRectOperat.pOK->sX-tGuiThemeMsg.pWindow->left;
+				tRect.top =tAbsGuiRectOperat.pOK->sY-tGuiThemeMsg.pWindow->top;
 				tRect.width = tAbsGuiRectOperat.pOK->eX - tAbsGuiRectOperat.pOK->sX;
 				tRect.height = tAbsGuiRectOperat.pOK->eY -tAbsGuiRectOperat.pOK->sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
@@ -127,8 +127,8 @@ int AbsAnalytical_Menu(u16* pX,u16* pY)
 
 			{//--------------添加选项效果---------------------
 				RECTL tRect;
-				tRect.left = tAbsGuiRectOperat.sX;
-				tRect.top =tAbsGuiRectOperat.tRect[middle].sY;
+				tRect.left = tAbsGuiRectOperat.sX-tGuiThemeMsg.pWindow->left;
+				tRect.top =tAbsGuiRectOperat.tRect[middle].sY-tGuiThemeMsg.pWindow->top;
 				tRect.width = tAbsGuiRectOperat.eX-tAbsGuiRectOperat.sX;
 				tRect.height = tAbsGuiRectOperat.tRect[middle].eY-tAbsGuiRectOperat.tRect[middle].sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
@@ -147,8 +147,8 @@ int AbsAnalytical_Menu(u16* pX,u16* pY)
 		{
 			{//--------------添加选项效果---------------------
 				RECTL tRect;
-				tRect.left = tAbsGuiRectOperat.pCancel->sX;
-				tRect.top =tAbsGuiRectOperat.pCancel->sY;
+				tRect.left = tAbsGuiRectOperat.pCancel->sX-tGuiThemeMsg.pWindow->left;
+				tRect.top =tAbsGuiRectOperat.pCancel->sY-tGuiThemeMsg.pWindow->top;
 				tRect.width = tAbsGuiRectOperat.pCancel->eX - tAbsGuiRectOperat.pCancel->sX;
 				tRect.height = tAbsGuiRectOperat.pCancel->eY -tAbsGuiRectOperat.pCancel->sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
