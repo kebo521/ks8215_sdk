@@ -119,6 +119,7 @@ int APP_UiBaseTest(char *pTitle)
 {
 	RECTL tRect;
 	u16 x,y,w,h;
+	APP_ShowSta(pTitle,"UI底层全屏显示");
 	xui_fb_GetScreenMsg(&tRect,NULL);
 	fb_ui_fill_rect(tRect.left,tRect.top,tRect.width,tRect.height,RGB_CURR(127,127,127));
 
@@ -957,7 +958,9 @@ int APP_AppHitShow(char *pTitle)
 int APP_TestDrawBoard(char *pTitle)
 {
 	APP_ShowDrawBoard(pTitle);
-	return API_WaitEvent(20*1000,EVENT_UI,EVENT_ABS,EVENT_NONE);
+	API_WaitEvent(60*1000,EVENT_UI,EVENT_ABS,EVENT_NONE);
+	APP_ShowMsg(pTitle,"测试完成",3000);
+	return 0;
 }
 
 
@@ -1063,8 +1066,6 @@ int APP_NInstallAPP(char *pTitle)
 	}
 	return 0;
 }
-
-
 
 int AppSwitchFun(char* pTitle,int Index)
 {

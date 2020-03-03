@@ -266,70 +266,6 @@ void StatusBar_Thread(XuiWindow* pStaWindow)
 //#include "emvapi.h"
 #include "emvspi_plugin.h"
 
-/*
-#include <stdio.h>  
-#include <stdlib.h>  
-#include <linux/input.h>  
-#include <fcntl.h>  
-#include <sys/time.h>  
-#include <sys/types.h>  
-#include <sys/stat.h>  
-#include <unistd.h>      
-*/
-int Test_Mice(void)  
-{      
-	int fd, retval;      
-	char buf[64]; 
-	int ret;
-	fd_set readfds;      
-	struct timeval tv;      
-	// 打开鼠标设备      
-	fd = open( "/dev/input/mice", O_RDONLY|O_NONBLOCK);     
-	// 判断是否打开成功      
-	if(fd<0) {          
-		printf("Failed to open \"/dev/input/mice\".\n");          
-		exit(1);      
-	}
-	else 
-	{          
-		printf("open \"/dev/input/mice\" successfuly.\n");      
-	} 
-	//为阻塞状态	 
-	//fcntl(fd,F_SETFL,FNDELAY);
-	while(1) 
-	{          
-		// 设置最长等待时间          
-		tv.tv_sec = 20;          
-		tv.tv_usec = 0;            
-		FD_ZERO(&readfds );          
-		FD_SET(fd, &readfds);            
-		retval = select( fd+1, &readfds, NULL, NULL, &tv );          
-		if(retval==0) 
-		{              
-			printf( "Time out!\n" );     
-			break;
-		}          
-		if(FD_ISSET(fd,&readfds)) 
-		{              
-			// 读取鼠标设备中的数据   
-			ret=read(fd, buf, sizeof(buf));
-			if(ret <= 0) 
-			{                  
-				continue;              
-			}             
-			// 打印出从鼠标设备中读取到的数据  
-			LOG_HEX(LOG_INFO,"Button",buf,ret);
-			//printf("Button type = %d, X = %d, Y = %d, Z = %d\n", (buf[0] & 0x07), buf[1], buf[2], buf[3]);          
-		}      
-	}      
-	close(fd);    
-	printf("close \"/dev/input/mice\".\n");      
-	return 0;  
-}  
-
-
-extern int Test_Mice(void);
-
 
 int APP_main(int argc, char* argv[]) {
 //	int ret;
@@ -344,11 +280,10 @@ int APP_main(int argc, char* argv[]) {
 //	pthread_t threadID;
 	XuiWindow* pWindow,*pStaWindow;
 	//OsLogSetTag("logo.txt");	
-	Test_Mice();
 	XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg);
 	if((pWindow=XuiRootCanvas()) != NULL)
 	{
-		pStaWindow=XuiStatusbarCanvas();
+		//pStaWindow=XuiStatusbarCanvas();
 		//线程(UI_DisplaySysEn,pStaWindow)
 //		pthread_create(threadID, NULL,StatusBar_Thread,pStaWindow);
 //		pthread_create(Msg_data.threadID, NULL,StatusBar_Thread,pStaWindow);
@@ -356,7 +291,7 @@ int APP_main(int argc, char* argv[]) {
 		//UI_DisplaySysEn(pStaWindow,0,0,TEXT_12,"0 yz131234&&*()");
 		//UI_DisplaySysEn(pStaWindow,15*6,8,TEXT_16,"_+~!@#$%^&*");
 		//UI_DisplaySysEn(pStaWindow,0,TEXT_12+TEXT_16,TEXT_24,"0 yz131234&&*()_+~!@#$%^&*");
-		UI_Push(pStaWindow,NULL);
+		//UI_Push(pStaWindow,NULL);
 		
 		ApiEven.Init(0,0);
 		
