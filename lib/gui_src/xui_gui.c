@@ -72,7 +72,7 @@ int AbsAnalytical_Show(u16* pX,u16* pY)
 				tRect.height = tAbsGuiRectOperat.pCancel->eY -tAbsGuiRectOperat.pCancel->sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
 				UI_Push(tGuiThemeMsg.pWindow,&tRect);
-			//	OsSleep(100);
+				OsSleep(100);
 			}
 			*pX = K_CANCEL;
 			return EVEN_ID_KEY_DOWN;
@@ -91,7 +91,7 @@ int AbsAnalytical_Show(u16* pX,u16* pY)
 				tRect.height = tAbsGuiRectOperat.pOK->eY -tAbsGuiRectOperat.pOK->sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
 				UI_Push(tGuiThemeMsg.pWindow,&tRect);
-			//	OsSleep(100);
+				OsSleep(100);
 			}
 			*pX = K_OK;
 			return EVEN_ID_KEY_DOWN;
@@ -133,7 +133,7 @@ int AbsAnalytical_Menu(u16* pX,u16* pY)
 				tRect.height = tAbsGuiRectOperat.tRect[middle].eY-tAbsGuiRectOperat.tRect[middle].sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
 				UI_Push(tGuiThemeMsg.pWindow,&tRect);
-			//	OsSleep(100);
+				OsSleep(100);
 			}
 			//printf("middle[%d][%d,%d]\r\n",middle,tAbsGuiRectMenu.tRect[middle].sY,tAbsGuiRectMenu.tRect[middle].eY);
 			*pX = K_1+middle;
@@ -153,7 +153,7 @@ int AbsAnalytical_Menu(u16* pX,u16* pY)
 				tRect.height = tAbsGuiRectOperat.pCancel->eY -tAbsGuiRectOperat.pCancel->sY;
 				UI_FillRectXor(tGuiThemeMsg.pWindow,&tRect,RGB_CURR(0xff,0,0xff));
 				UI_Push(tGuiThemeMsg.pWindow,&tRect);
-			//	OsSleep(100);
+				OsSleep(100);
 			}
 			*pX = K_CANCEL;
 			return EVEN_ID_KEY_DOWN;

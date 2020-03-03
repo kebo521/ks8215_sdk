@@ -42,6 +42,16 @@ typedef struct gr_surface {
 } GRSurface;
 typedef GRSurface* gr_surface;
 //================================================================================================
+//===========硬件到软件=====坐标转换=======================
+extern void HSTransformCoord_0(u16 *pX,u16 *pY);
+extern void HSTransformCoord_90(u16 *pX,u16 *pY);
+extern void HSTransformCoord_180(u16 *pX,u16 *pY);
+extern void HSTransformCoord_270(u16 *pX,u16 *pY);
+//===========软件到硬件=====坐标转换=======================
+extern void SHTransformCoord_0(u16 *pX,u16 *pY);
+extern void SHTransformCoord_90(u16 *pX,u16 *pY);
+extern void SHTransformCoord_180(u16 *pX,u16 *pY);
+extern void SHTransformCoord_270(u16 *pX,u16 *pY);
 
 extern int SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow);
 
@@ -56,6 +66,9 @@ extern void fb_ui_circle(signed short x, signed short y, signed short r, A_RGB a
 extern void fb_ui_fill_circle(signed short x, signed short y, signed short r,signed short ar,A_RGB argb);
 extern void fb_ui_fill_rect(int x, int y, int w, int h,A_RGB argb); 
 extern void fb_ui_set_rect(int x, int y, int w, int h,A_RGB* pArgb);
+extern void fb_ui_get_rect(int x, int y, int w, int h,A_RGB* pArgb);
+extern void fb_ui_xor_rect(int x, int y, int w, int h,A_RGB* pArgb);
+extern int fb_GetScreenSize(int *pWidth,int *pHeight,RECTL* pUI) ;
 extern A_RGB* xui_fb_GetScreenMsg(RECTL* pRect,int *pLineWidth);
 extern void xui_fb_pull(RECTL* pRect,A_RGB* pOutRGB);
 extern void xui_fb_push(RECTL* pRect,A_RGB* pInRGB);

@@ -89,6 +89,7 @@ typedef struct {
 //	u16 left,top;
 }gUi_def;
 extern gUi_def gUiDataAll;
+extern void argbset(A_RGB *u1,A_RGB nun,int len);
 
 extern int XuiOpen(int argc,char **argv);
 extern void XuiClose(void);

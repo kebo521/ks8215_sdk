@@ -483,6 +483,8 @@ void fb_ui_set_rect(int x, int y, int w, int h,A_RGB* pArgb)
 
 	if(w > tSurface.sWidth) w=tSurface.sWidth;
 	if(h > tSurface.sHeight) h=tSurface.sHeight;
+	if(x < 0) x = 0;
+	if(y < 0) y = 0;
 	for (;y < h; y++) 
 	{
 		pbgra=tSurface.pARGB+(y*tSurface.rWidth + x);
@@ -491,6 +493,66 @@ void fb_ui_set_rect(int x, int y, int w, int h,A_RGB* pArgb)
 			*pbgra++ = *pArgb++;
 		}
 	}
+}
+
+void fb_ui_get_rect(int x, int y, int w, int h,A_RGB* pArgb) 
+{
+	register A_RGB *pbgra;
+	register int i;
+	w += x;
+	h += y;
+	if(w > tSurface.sWidth) w=tSurface.sWidth;
+	if(h > tSurface.sHeight) h=tSurface.sHeight;
+	if(x < 0) x = 0;
+	if(y < 0) y = 0;
+	for (;y < h; y++) 
+	{
+		pbgra=tSurface.pARGB+(y*tSurface.rWidth + x);
+		for(i=x; i<w; i++)
+		{
+			*pArgb++ = *pbgra++;
+		}
+	}
+}
+
+void fb_ui_xor_rect(int x, int y, int w, int h,A_RGB* pArgb) 
+{
+	register A_RGB *pbgra;
+	register int i;
+	w += x;
+	h += y;
+
+	if(w > tSurface.sWidth) w=tSurface.sWidth;
+	if(h > tSurface.sHeight) h=tSurface.sHeight;
+	if(x < 0) x = 0;
+	if(y < 0) y = 0;
+	for (;y < h; y++) 
+	{
+		pbgra=tSurface.pARGB+(y*tSurface.rWidth + x);
+		for(i=x; i<w; i++)
+		{
+			*pbgra++ ^= *pArgb++;
+		}
+	}
+}
+
+int fb_GetScreenSize(int *pWidth,int *pHeight,RECTL* pUI) 
+{
+	if(tSurface.pARGB== NULL)
+		return -1;
+	if(pWidth)
+		*pWidth = tSurface.sWidth;
+	if(pHeight)
+		*pHeight = tSurface.sHeight;
+
+	if(pUI)
+	{
+		pUI->left = tSurface.off_X;
+		pUI->top = tSurface.off_Y;
+		pUI->width =tSurface.width;
+		pUI->height =tSurface.height;
+	}
+	return 0;
 }
 
 A_RGB* xui_fb_GetScreenMsg(RECTL* pRect,int *pLineWidth) 
@@ -632,7 +694,64 @@ void xui_fb_pull(RECTL* pRect,A_RGB* pOutRGB)
 		}
 	}
 }
+//===========硬件到软件=====坐标转换=======================
+void HSTransformCoord_0(u16 *pX,u16 *pY)
+{
+	*pX -= tSurface.off_X;
+	*pY -= tSurface.off_Y;
+}
+void HSTransformCoord_90(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	*pX -= tSurface.off_X;
+	*pY -= tSurface.off_Y;
+	buff = *pY;
+	*pY = (gUiDataAll.tHardWindow.height - *pX);
+	*pX = buff;
+}
+void HSTransformCoord_180(u16 *pX,u16 *pY)
+{
+	*pX -= tSurface.off_X;
+	*pY -= tSurface.off_Y;
+	*pX = (gUiDataAll.tHardWindow.width - *pX);
+	*pY = (gUiDataAll.tHardWindow.height - *pY);
+}
 
+void HSTransformCoord_270(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	*pX -= tSurface.off_X;
+	*pY -= tSurface.off_Y;
+	buff = (gUiDataAll.tHardWindow.width - *pY);
+	*pY = *pX;
+	*pX = buff;
+}
+//===========软件到硬件=====坐标转换=======================
+void SHTransformCoord_0(u16 *pX,u16 *pY)
+{
+	*pX += tSurface.off_X;
+	*pY += tSurface.off_Y;
+}
+void SHTransformCoord_90(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	buff = (tSurface.height - *pY);
+	*pY = tSurface.off_Y + *pX;
+	*pX = tSurface.off_X + buff;
+}
+void SHTransformCoord_180(u16 *pX,u16 *pY)
+{
+	*pX = tSurface.off_X + (tSurface.width - *pX);
+	*pY = tSurface.off_Y + (tSurface.height - *pY);
+}
+
+void SHTransformCoord_270(u16 *pX,u16 *pY)
+{
+	u16 buff;
+	buff = *pY;
+	*pY = tSurface.off_Y + (tSurface.width - *pX);
+	*pX = tSurface.off_X + buff;
+}
 //=========================================================================================================
 int SetRotationAngle(XuiTransform Angle,XuiWindow *pHardWindow)
 {

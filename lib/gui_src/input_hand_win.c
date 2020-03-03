@@ -21,7 +21,7 @@
 //#include <stdarg.h>
 
 #include "comm_type.h"
-
+#include <termios.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
@@ -30,9 +30,11 @@
 #include "input_hand.h"
 #include "EvenMsg.h"
 #include "xui_ui.h"
+#include "xui_fb.h"
 #include "sdk/sys_sdk.h"
 
-static int event_keyFb=0;
+static pthread_t key_thread=0,mice_thread=0;
+static int event_keyFb=0,event_mice=0;
 DefAbsAnalytical pAbsAnalytical=NULL;
 
 static void handleKey_quit(int signo)
@@ -167,8 +169,167 @@ static void *get_keyMsg(void *args)
 	return 0;  
 }  
 
+#define 	MICE_POINT_NUM 		5
+static A_RGB micePushRgb[MICE_POINT_NUM*MICE_POINT_NUM];
+static A_RGB micePinRgb[3*3];
 
-static pthread_t key_thread=0;
+void mice_Set_point(int x,int y) 
+{
+	fb_ui_xor_rect(x-(MICE_POINT_NUM/2),y-(MICE_POINT_NUM/2),MICE_POINT_NUM ,MICE_POINT_NUM ,micePushRgb);
+}
+
+void mice_Set_pin(int x,int y) 
+{
+	fb_ui_xor_rect(x,y+1,3 ,3 ,micePinRgb); 
+}
+
+
+
+static int mice_x,mice_y,mice_w,mice_h;
+static int oldMiceX,oldMiceY;
+static int oldPmiceX,oldPmiceY;
+static void handleMice_quit(int signo)
+{
+	LOG(LOG_INFO,"in qq handle sig %d \n", signo);
+	if(oldMiceX>0)
+	{
+		mice_Set_point(oldMiceX,oldMiceY);
+		oldMiceX = -1;
+	}
+	if(oldPmiceX > 0)
+	{
+		mice_Set_pin(oldPmiceX,oldPmiceY);
+		oldPmiceX = -1;
+	}
+	pthread_exit(NULL);
+}
+
+static void *get_miceMsg(void *args)    
+{       
+	int ret;
+	struct timeval time_tv;
+	RECTL tMice_UI;
+	signed char buf[3];       
+	signal(SIGQUIT,handleMice_quit);
+
+	argbset(micePushRgb,RGB_CURR(255,255,255),MICE_POINT_NUM*MICE_POINT_NUM);
+	micePushRgb[0]=0;
+	micePushRgb[MICE_POINT_NUM-1]=0;
+	micePushRgb[MICE_POINT_NUM*(MICE_POINT_NUM-1)]=0;
+	micePushRgb[MICE_POINT_NUM*MICE_POINT_NUM -1]=0;
+
+	argbset(micePinRgb,0,3*3);
+	micePinRgb[0]=RGB_CURR(255,0,255);
+	micePinRgb[3]=RGB_CURR(255,0,255);
+	micePinRgb[4]=RGB_CURR(255,0,255);
+	micePinRgb[6]=RGB_CURR(255,0,255);
+	micePinRgb[7]=RGB_CURR(255,0,255);
+	micePinRgb[8]=RGB_CURR(255,0,255);
+	oldPmiceX = -1;
+	ret = read(event_mice, buf, sizeof(buf));
+	//LOG_HEX(LOG_INFO,"mice1",buf,ret);
+	ret = read(event_mice, buf, sizeof(buf));
+	//LOG_HEX(LOG_INFO,"mice2",buf,ret);
+
+	fb_GetScreenSize(&mice_w,&mice_h,&tMice_UI);
+	mice_x = mice_w/2;
+	mice_y = mice_h/2;
+	ret = read(event_mice, buf, sizeof(buf));
+	if(ret >= 3)
+	{
+		mice_x = buf[1];
+		mice_y = buf[2];
+
+		mice_x += 127;
+		mice_y += 127; mice_y = 254-mice_y;
+
+		mice_x = (mice_x*mice_w)/255;
+		mice_y = (mice_y*mice_h)/255;
+		//LOG(LOG_INFO,"mice3[%d,%d]-[%d,%d]\r\n",buf[1],buf[2],mice_x,mice_y);
+ 	}
+	oldMiceX = mice_x;
+	oldMiceY = mice_y;
+	mice_Set_point(oldMiceX,oldMiceY);
+	tMice_UI.width += tMice_UI.left;
+	tMice_UI.height += tMice_UI.top;
+	ret = read(event_mice, buf, sizeof(buf));
+	//LOG_HEX(LOG_INFO,"mice4",buf,ret);
+
+	mice_w -= 1+(MICE_POINT_NUM/2);
+	mice_h -= 1+(MICE_POINT_NUM/2);
+	while(1) 
+	{           
+		// 读取鼠标设备中的数据
+		ret = read(event_mice, buf,sizeof(buf));
+		if(ret < 3) 
+		{       
+			LOG(LOG_INFO,"mice read ret[%x]!\n" ,ret);
+			continue;               
+		}   
+		mice_x += buf[1];
+		mice_y -= buf[2];
+		//--------------------纠正越界坐标---------------------------
+		if(mice_x < (MICE_POINT_NUM/2))
+			mice_x = (MICE_POINT_NUM/2);
+		if(mice_x > mice_w)
+			mice_x = mice_w;
+		if(mice_y < (MICE_POINT_NUM/2))
+			mice_y = (MICE_POINT_NUM/2);
+		if(mice_y >mice_h)
+			mice_y =mice_h;
+		//-------------------------------------------------------------
+		if(oldMiceX>0)
+		{
+			mice_Set_point(oldMiceX,oldMiceY);
+			oldMiceX = -1;
+		}
+		if(oldPmiceX > 0)
+		{
+			mice_Set_pin(oldPmiceX,oldPmiceY);
+			oldPmiceX = -1;
+		}
+		//-------------------------------------------------------------------
+		if(mice_x < tMice_UI.left || mice_x >= tMice_UI.width || \
+			mice_y < tMice_UI.top || mice_y >= tMice_UI.height)
+		{
+			if(oldMiceX != mice_x || oldMiceY != mice_y)
+			{
+				mice_Set_point(mice_x,mice_y);			
+				oldMiceX = mice_x;
+				oldMiceY = mice_y;
+			}
+			continue;
+		}
+		
+		
+		if(buf[0]&0x01)	//else if(buf[0]&0x02) //---右击----
+		{//---左击----
+			if(pAbsAnalytical)
+			{
+				int ret;
+				u16 varX,varY;
+				gettimeofday(&time_tv, NULL);
+				varX = mice_x;
+				varY = mice_y;
+				ret= (*pAbsAnalytical)(&varX,&varY);
+				if(ret == EVEN_ID_KEY_DOWN)
+					FIFO_OperatSetMsg(EVEN_ID_KEY_DOWN,varX,(time_tv.tv_sec*1000 + time_tv.tv_usec/1000));
+				else if(ret == EVEN_ID_ABS)
+					FIFO_OperatSetMsg(EVEN_ID_ABS,varY*0x10000+varX,(time_tv.tv_sec*1000 + time_tv.tv_usec/1000));
+			}
+		}
+		else if(oldPmiceX != mice_x || oldPmiceY != mice_y)
+		{
+			mice_Set_pin(mice_x,mice_y);
+			oldPmiceX = mice_x;
+			oldPmiceY = mice_y;
+		}
+		//LOG(LOG_INFO,"Button type = %d, X = %d, Y = %d, Z = %d\n", (buf[0] & 0x07), buf[1], buf[2],   buf[3]);           
+	}       
+	return 0;   
+}
+
+
 
 
 void Start_HandInput(void)
@@ -176,15 +337,40 @@ void Start_HandInput(void)
 	int rc;
 	//gUiDataAll.sInput
 	event_keyFb = open("/dev/input/event2",O_RDWR);  // O_RDONLY
-	if (event_keyFb == -1)  
+	if (event_keyFb != -1)  
 	{  
-		LOG(LOG_ERROR,"open /dev/input/event2 device error!\n");  
-		return;  
-	} 
-	rc = pthread_create(&key_thread, NULL, get_keyMsg,NULL);
-	if (rc)
+		rc = pthread_create(&key_thread, NULL, get_keyMsg,NULL);
+		if (rc)
+		{
+			LOG(LOG_ERROR,"ERROR; return code is %d\n", rc);
+		}
+	}
+	else
 	{
-		LOG(LOG_ERROR,"ERROR; return code is %d\n", rc);
+		LOG(LOG_ERROR,"open /dev/input/event2 device error!\n");  
+	}
+	
+	// 打开鼠标设备  
+	event_mice = open( "/dev/input/mice",O_RDONLY);
+	if (event_mice != -1)	
+	{  
+		//为阻塞状态    
+/*
+		struct termios tio;
+		tio.c_cc[VTIME] = FRAME_MAXSIZE;// timeout in deciseconds for noncanonical read
+		tio.c_cc[VMIN] = 3; // minimum number of characters for noncanonical read
+		tcsetattr(event_mice, TCSANOW, &tio);
+*/
+		//fcntl(event_mice,F_SETFL,0);//FNDELAY
+		rc = pthread_create(&mice_thread, NULL, get_miceMsg,NULL);
+		if (rc)
+		{
+			LOG(LOG_ERROR,"ERROR; mice return code is %d\n", rc);
+		}
+	}
+	else
+	{
+		LOG(LOG_ERROR,"open /dev/input/mice device error!\n");	
 	}
 }
 
@@ -194,11 +380,14 @@ void Stop_HandInput(void)
 	int ret;
 	ret=pthread_kill(key_thread, SIGQUIT);
 	LOG(LOG_INFO,"Stop Key thread %d\n", ret);
-	signal(SIGQUIT,SIG_DFL);
 	close(event_keyFb);
+
+	ret=pthread_kill(mice_thread, SIGQUIT);
+	LOG(LOG_INFO,"Stop Key thread %d\n", ret);
+	close(event_mice);
+
+	signal(SIGQUIT,SIG_DFL);
 }
-
-
 
 
 

@@ -65,56 +65,6 @@ char *API_eStrstr(char* src1, const char* src2)
 }
 */
 
-//===========硬件到软件=====坐标转换=======================
-void HSTransformCoord_0(u16 *pX,u16 *pY)
-{
-}
-void HSTransformCoord_90(u16 *pX,u16 *pY)
-{
-	u16 buff;
-	buff = *pY;
-	*pY = (gUiDataAll.tHardWindow.height - *pX);
-	*pX = buff;
-}
-void HSTransformCoord_180(u16 *pX,u16 *pY)
-{
-	*pX = (gUiDataAll.tHardWindow.width - *pX);
-	*pY = (gUiDataAll.tHardWindow.height - *pY);
-}
-
-void HSTransformCoord_270(u16 *pX,u16 *pY)
-{
-	u16 buff;
-	buff = (gUiDataAll.tHardWindow.width - *pY);
-	*pY = *pX;
-	*pX = buff;
-}
-//===========软件到硬件=====坐标转换=======================
-void SHTransformCoord_0(u16 *pX,u16 *pY)
-{
-}
-void SHTransformCoord_90(u16 *pX,u16 *pY)
-{
-	u16 buff;
-	buff = (gUiDataAll.tHardWindow.height - *pY);
-	*pY = *pX;
-	*pX = buff;
-}
-void SHTransformCoord_180(u16 *pX,u16 *pY)
-{
-	*pX = (gUiDataAll.tHardWindow.width - *pX);
-	*pY = (gUiDataAll.tHardWindow.height - *pY);
-}
-
-void SHTransformCoord_270(u16 *pX,u16 *pY)
-{
-	u16 buff;
-	buff = *pY;
-	*pY = (gUiDataAll.tHardWindow.width - *pX);
-	*pX = buff;
-}
-
-	
 //argv 支持的格式为
 //FB=xxxxx /*framebuffer 设备节点（默认值"/dev/graphics/fb0"）*/
 //INPUT=xxxx /*input 设备节点，可以多个（默认值/dev/keypad 和/dev/tp）。只有在应用不设置该参数时，按照默认值加载输入设备，当应用设置了该参数时，则只加载所设置的设备节点，比如如果仅设置这个参数为INPUT=/dev/tp，那么XUI 初始化时则只加载默认触摸屏输入，而不加载物理键盘，这就等于是屏蔽了物理按键输入*/
