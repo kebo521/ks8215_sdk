@@ -360,6 +360,7 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 	if (-1 == SocketFD)
 	{
 		LOG(LOG_ERROR,"cannot create socket\r\n");
+		perror("socket");
 		return -1;
 	}
 	{
@@ -371,6 +372,7 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		if (-1 == ret)
 		{
 			LOG(LOG_ERROR,"cannot set SNDTIMEO\r\n");
+			perror("setsockopt5");
 			return -1;
 		}
 	}
@@ -380,46 +382,33 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		if (-1 == ret)
 		{
 			LOG(LOG_ERROR,"cannot setkeepalive\r\n");
+			perror("setsockopt0");
 			return -1;
 		}
 	}
-	
 	memset(&stSockAddr, 0, sizeof(stSockAddr));
-	stSockAddr.sin_family = AF_INET;
 	stSockAddr.sin_port = htons(port);
 
-	if(pHostIp[0]<'0' && pHostIp[0] >'9')
+	if(pHostIp[0]<'0' || pHostIp[0] >'9')
 	{
 		struct hostent *hptr;
 		/* 调用gethostbyname()。结果存在hptr结构中 */
 		if((hptr = gethostbyname(pHostIp)) == NULL)
 		{
 			LOG(LOG_ERROR," gethostbyname error for host:%s\n", pHostIp);
+			perror("gethostbyname");
 			return -103;
 		}
-
 		/* 将主机的规范名打出来 */
-    	LOG(LOG_INFO,"official hostname:%s\n", hptr->h_name);
-
-
-		ret = inet_pton(hptr->h_addrtype,hptr->h_addr, &stSockAddr.sin_addr);
-		if (0 > ret)
-		{
-			LOG(LOG_ERROR,"error: first parameter is not a valid address family\r\n");
-			close(SocketFD);
-			return -104;
-		}
-		else if (0 == ret)
-		{
-			LOG(LOG_ERROR,"char string (second parameter does not contain validipaddress)\r\n");
-			close(SocketFD);
-			return -105;
-		}
-
+    	//LOG(LOG_INFO,"official hostname:%s[%x],%x\n", hptr->h_name,hptr->h_addr,*(u32*)hptr->h_addr);
+		stSockAddr.sin_family = hptr->h_addrtype;
+		stSockAddr.sin_addr.s_addr=((struct in_addr *)hptr->h_addr)->s_addr;
+		//memcpy(&stSockAddr.sin_addr,hptr->h_addr,sizeof(struct in_addr));
 		/* 主机可能有多个别名，将所有别名分别打出来 
 		    for(pptr = hptr->h_aliases; *pptr != NULL; pptr++)
 		        printf(" alias:%s\n", *pptr);*/
-		/* 根据地址类型，将地址打出来 
+		// 根据地址类型，将地址打出来 
+		/*
 	    switch(hptr->h_addrtype)
 	    {
 			case AF_INET:
@@ -433,21 +422,23 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 			default:
 				printf("unknown address type\n");
 		        break;
-	    }
-   		*/
+	    }*/
 	}
 	else
 	{
-		ret = inet_pton(stSockAddr.sin_family,pHostIp, &stSockAddr.sin_addr);
+		stSockAddr.sin_family = AF_INET;
+		ret = inet_pton(stSockAddr.sin_family,pHostIp,&stSockAddr.sin_addr);
 		if (0 > ret)
 		{
 			LOG(LOG_ERROR,"error: first parameter is not a valid address family\r\n");
+			perror("inet_pton");
 			close(SocketFD);
 			return -106;
 		}
 		else if (0 == ret)
 		{
-			LOG(LOG_ERROR,"char string (second parameter does not contain validipaddress)\r\n");
+			LOG(LOG_ERROR,"inet_pton (second parameter does not contain validipaddress)\r\n");
+			perror("inet_pton=0");
 			close(SocketFD);
 			return -107;
 		}
@@ -456,6 +447,7 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 	if (-1 == connect(SocketFD,(struct sockaddr *)&stSockAddr,sizeof(stSockAddr)))
 	{
 		LOG(LOG_ERROR,"connect[%X][%d] failed\r\n",stSockAddr.sin_addr,stSockAddr.sin_port);
+		perror("connect");
 		close(SocketFD);
 		return -1;
 	}

@@ -749,12 +749,18 @@ int APP_TestUart(char* pTitle)
 	}
 	OsPortReset(port);
 	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n发送起动数据");
-	OsPortSend(port,"com start..\n",13);
+	ret=OsPortSend(port,"com start..\n",13);
+	do
 	{
 		int offset=0;
 		char buff[1024];
-		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据",ret);
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据1",ret);
 		ret=OsPortRecv(port,buff,1,10*1000);
+		if(ret == ERR_TIME_OUT)
+		{
+			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"->超时");
+			break;
+		}
 		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d,%02X]",ret,buff[0]);
 		if(ret > 0)
 		{
@@ -768,8 +774,13 @@ int APP_TestUart(char* pTitle)
 			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n返回[%d]数据",offset);
 			OsPortSend(port,buff,offset);
 		}
-		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据",ret);
+		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据2",ret);
 		ret=OsPortRecv(port,buff,1,5*1000);
+		if(ret == ERR_TIME_OUT)
+		{
+			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"->超时");
+			break;
+		}
 		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d,%02X]",ret,buff[0]);
 		if(ret > 0)
 		{
@@ -782,50 +793,55 @@ int APP_TestUart(char* pTitle)
 			}
 		}
 	}
+	while(0);
 	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n关闭串口",ret);
 	OsPortClose(port);
-	OsSleep(5000);
-	return 0;
+	return APP_WaitUiEvent(15000);
 }
 
 
 int APP_TestNet(char* pTitle)
 {
-	int ret;
+	int ret,offset=0,sLen;
 	char showBuff[2048];
+	char  buff[1024];
 	API_GUI_CreateShow(pTitle,NULL,TCANCEL);
 	showBuff[0]='\0';
-	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"连接网络");
-	
-	ret=APP_Network_Connect("192.168.56.1",60000,0);
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"连接网络->kbai.club:8888");
+	ret=APP_Network_Connect("kbai.club",8888,0);	//kbai.club	//106.52.246.42
 	if(ret)
 	{
 		LOG(LOG_ERROR,"Network_Connect Err[%d]\r\n",ret);
 		return 1;
 	}
-	APP_Network_Send("guozu test00001",16);
+	ret=sprintf(buff+2,"%s","123+456*2+84/2");
+	buff[0]=ret/256;
+	buff[1]=ret&0xff;
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n发送:%s",buff+2);
+	APP_Network_Send(buff,ret+2);
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收:",ret);
+	ret=APP_Network_Recv(buff,2,10*1000,NULL);
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d]",ret);
+	if(ret > 1)
 	{
-		int offset=0;
-		char buff[1024];
-		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n接收数据",ret);
-		ret=APP_Network_Recv(buff,1,10*1000,NULL);
-		APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d,%02X]",ret,buff[0]);
-		if(ret > 0)
+		sLen=buff[0]*256 + buff[1];
+		offset = 0;
+		while(offset < sLen)
 		{
-			while(ret>0)
-			{
-				offset += ret;
-				OsSleep(10);
-				ret=APP_Network_Recv(buff+offset,sizeof(buff)-offset,0,NULL);
-				APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d]",ret);
-			}
-			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n返回[%d]数据",offset);
-			APP_Network_Send(buff,offset);
+			ret=APP_Network_Recv(buff+offset,sLen-offset,3000,NULL);
+			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"[%d]",ret);
+			if(ret <= 0) break;
+			offset += sLen;
+		}
+		if(offset)
+		{
+			buff[offset] = '\0';
+			APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n%s",buff);
 		}
 	}
-	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n关闭网络",ret);
+	APP_ShowChangeInfo(showBuff,sizeof(showBuff),"\n断开网络",ret);
 	APP_Network_Disconnect(1000);
-	return 0;
+	return APP_WaitUiEvent(30*1000);
 }
 
 int APP_UartClose(char* title)
@@ -855,10 +871,10 @@ int APP_HardTestMenu(char* title)
 {
 	CMenuItemStru MenuStruPar[]=
 	{
-		{"UI基础测试",		APP_UiBaseTest},
-		{"UI_pull_push",	APP_UiPullPush},
 		{"串口测试",		APP_TestUart},
 		{"网络测试",		APP_TestNet},
+		{"UI基础测试",		APP_UiBaseTest},
+		{"UI_pull_push",	APP_UiPullPush},
 		{"进度调测试",		APP_TestShowBottom},
 		//{"速度测试",		APP_TestRun},
 		{"显示屏测试",		APP_ScreenTest},

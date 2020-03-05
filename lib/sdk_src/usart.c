@@ -11,6 +11,7 @@
 #include<string.h>              
 #include "comm_type.h"
 #include "sys_sdk.h"
+#include <termios.h>
 
 /*******************************************************************  
 *名称：             uart_open  
@@ -20,12 +21,11 @@
 int uart_open(char* port)
 {
 	int fd;
-	LOG(LOG_INFO,"uart open[%s]\n",port);
-    fd = open( port, O_RDWR|O_NOCTTY|O_NDELAY);    
+    fd = open( port, O_RDWR|O_NOCTTY);   //|O_NOCTTY|O_NDELAY
+	LOG(LOG_INFO,"uart open[%s][%d]\n",port,fd);	
     if (fd<0)    
     {    
-		LOG(LOG_ERROR,"Can't Open Serial Port");
-        return	-1;    
+        return	fd;    
     }    
     //恢复串口为阻塞状态    
    // fcntl(fd,F_SETFL,FNDELAY);
@@ -185,14 +185,15 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
     options.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
 
 	//设置等待时间和最小接收字符  
-	options.c_cc[VTIME] = 1; /* 读取一个字符等待1*(1/10)s */          
-	options.c_cc[VMIN] = 1; /* 读取字符的最少个数为1 */    
+	options.c_cc[VTIME] = 0; /* 读取一个字符等待1*(1/10)s */          
+	options.c_cc[VMIN] = 0; /* 读取字符的最少个数为1 */    
    //激活配置 (将修改后的termios数据设置到串口中）    
     if (tcsetattr(fd,TCSANOW,&options) != 0)      
     {    
         LOG(LOG_ERROR,"com set error!\n");      
         return -5;     
-    }    
+    } 
+	usleep(500*1000);
     return 0;     
 }    
 
@@ -209,29 +210,37 @@ extern unsigned long OsGetTickCount(void);
 int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)    
 {    
 	int ret;
+	int offset,tagTimeMs;
 	if(timeoutMs)
 	{
-		int fs_sel,offset,tagTimeMs;  
-		fd_set fs_read;    
-		struct timeval time;  
-		FD_ZERO(&fs_read);	  
-		FD_SET(fd,&fs_read);	
-
+		int fs_sel;
+		fd_set fs_read;	 
+		struct timeval time; 
 		tagTimeMs=timeoutMs+OsGetTickCount();
-		time.tv_sec = timeoutMs/1000;	
-		time.tv_usec = (timeoutMs%1000)*1000;	 
+		FD_ZERO(&fs_read);	  
+		FD_SET(fd,&fs_read);
 		//使用select实现串口的多路通信	
-		fs_sel = select(fd+1,&fs_read,NULL,NULL,&time);
-		//FD_CLR(fd,&fs_read);
-		if(fs_sel==0)
+		time.tv_sec = timeoutMs/1000; 
+		time.tv_usec = (timeoutMs%1000)*1000;  
+		while(1)
 		{
-			LOG(LOG_ERROR,"uart select fs_sel=%d timeout\r\n",fs_sel);
-			return -1;
+			fs_sel = select(fd+1,&fs_read,NULL,NULL,&time);
+			if(fs_sel > 0) break;
+			if(fs_sel == 0)
+			{
+				LOG(LOG_ERROR,"uart select timeout\r\n");
+				return ERR_TIME_OUT;
+			}
 		}
+		if(!FD_ISSET(fd,&fs_read))   
+		{	
+			LOG(LOG_ERROR,"uart FD_ISSET NULL\r\n");
+			return -2;
+		}	
 		ret = read(fd,rcv_buf,data_len);
 		if(ret < 0)
 		{
-			LOG(LOG_ERROR,"#uart recvt1 read=%d [%d]Err\r\n",ret,timeoutMs);
+			LOG(LOG_ERROR,"#uart recvt[%d] read=%d [%d]Err\r\n",fd,ret,timeoutMs);
 			tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
 			return ret;
 		}
@@ -258,7 +267,7 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 	ret = read(fd,rcv_buf,data_len);
 	if(ret < 0)
 	{
-		LOG(LOG_ERROR,"uart recv read=%d Err\r\n",ret);
+		LOG(LOG_ERROR,"#uart t0 recvt read=%d[%d] [%d]Err\r\n",ret,data_len,timeoutMs);
 		tcflush(fd,TCIFLUSH); //如果接收失败 刷新缓冲 继续接收 
 	}
 	return ret;

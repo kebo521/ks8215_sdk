@@ -278,11 +278,13 @@ int APP_main(int argc, char* argv[]) {
 	"STATUSBAR=24",
 	};
 //	pthread_t threadID;
-	XuiWindow* pWindow,*pStaWindow;
+	XuiWindow* pWindow;
 	//OsLogSetTag("logo.txt");	
-	XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg);
+	if(XuiOpen(sizeof(pHardMsg)/sizeof(pHardMsg[0]) ,pHardMsg))
+		return 1;
 	if((pWindow=XuiRootCanvas()) != NULL)
 	{
+		//XuiWindow *pStaWindow;
 		//pStaWindow=XuiStatusbarCanvas();
 		//线程(UI_DisplaySysEn,pStaWindow)
 //		pthread_create(threadID, NULL,StatusBar_Thread,pStaWindow);
@@ -305,8 +307,9 @@ int APP_main(int argc, char* argv[]) {
 		StartTimed500ms();
 		emvspi_Init(); //上电一次就可以
 
+		APP_HardTestMenu("单项测试");
 		//APP_FactoryMeun("测试应用");
-		APP_MasterMeun("终端管理");//
+		//APP_MasterMeun("终端管理");//
 		APP_ShowProsseMenu();
 
 
