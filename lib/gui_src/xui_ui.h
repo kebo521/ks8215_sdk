@@ -12,8 +12,8 @@ typedef struct {
 } XuiColor;
 
 typedef unsigned int  			A_RGB;		// <= RGB_CURR
-#define	RGB_CURR(r,g,b)		(r|(g*0x100)|(b*0x10000))	//(u32)(XuiColor)(b,g,r,0xff))
-#define RGB565_CLEAR			0xFF000000		// Transparent color
+#define	RGB_CURR(r,g,b)		(0xFF000000|r|(g*0x100)|(b*0x10000))	//(u32)(XuiColor)(b,g,r,0xff))
+#define RGB565_CLEAR			0x00000000		// Transparent color
 #else
 //-----------------ubuntu定义----------------------------
 typedef struct {
@@ -24,9 +24,14 @@ typedef struct {
 } XuiColor;
 
 typedef unsigned int  			A_RGB;		// <= RGB_CURR
-#define	RGB_CURR(r,g,b)		((r*0x10000)|(g*0x100)|b)	//(u32)(XuiColor)(b,g,r,0xff))
-#define RGB565_CLEAR			0xFF000000		// Transparent color
+#define	RGB_CURR(r,g,b)		(0xFF000000|(r*0x10000)|(g*0x100)|b)	//(u32)(XuiColor)(b,g,r,0xff))
+#define RGB565_CLEAR			0x00000000		// Transparent color
 #endif
+
+typedef union {
+  A_RGB		argb;
+  XuiColor	color;
+}GuiColor;
 
 typedef void (*FunFillColour)(A_RGB*,int,int);		//色彩填充函数定义(data,w,h)
 //=====================================================================================================
@@ -110,6 +115,7 @@ extern void UI_vline(XuiWindow *pWindow,POINT *pRect,int width,A_RGB Color);
 extern void UI_hline(XuiWindow *pWindow,POINT *pRect,int height,A_RGB Color);
 extern void UI_FillRectSingLe(XuiWindow *pWindow,RECTL *pRect,A_RGB Color);
 extern void UI_FillRectXor(XuiWindow *pWindow,RECTL *pRect,A_RGB Color);
+extern int UI_ShowPictureFile(XuiWindow *pWindow,RECTL *prclTrg,const char *pfilePath);
 extern void UI_ShowQrCode(XuiWindow *pWindow,RECTL* pRect,const char* pInfo,A_RGB Color);
 
 extern void UI_ShowBottomProgress(XuiWindow *pWindow,RECTL *pRect,int thick,int ratio);

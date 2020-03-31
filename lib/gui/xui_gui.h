@@ -108,6 +108,7 @@ typedef enum
 	TEXT_EXSTYLE_UNDERLINE	=0x00100000,	//加下划线
 	TEXT_EXSTYLE_OVERLINE	=0x00200000,	//加上划线
 	TEXT_EXSTYLE_BORDER		=0x00400000,	//加框
+	TEXT_RECT_CLEAR 			=0x00800000,	//先清空后显示
 	TEXT_LINE_NUM_MASK		=0x000F0000,	//指定行号(1~15)
 }TEXT_TYPE;	//V1.1
 
@@ -197,7 +198,7 @@ extern int API_GUI_Menu_GetInx(void);
 extern int API_GUI_Menu_GetInxAndHear(int* tHead);
 
 
-extern int   APP_GUI_Menu(char* pTitle,int stratIndex,int tNum,int tCurInx,char** pMenuText);
+extern int APP_GUI_Menu(char* pTitle,char *pMsg,int tNum,int tCurInx,const char** pMenuText,int timeoutMs);
 
 extern void APP_ShowChangeInfo(char *pOriginal,int Originalsize,const char* format,...);
 
@@ -219,6 +220,8 @@ extern int APP_ShowInfo(char *pTitle,char *pInfo,int timeOutMs);
 extern int APP_ShowQrCode(char *pTitle,const char* pInfo,A_RGB Color);
 
 extern int APP_HitMsg(const char* pMsg,int tTimeOutMS);
+
+extern int APP_ShowPictureFile(RECTL *pRect,const char *pfilePath);
 
 //=============底部显示进度条==ratio(0~100)===============================
 extern void APP_ShowBottomProgress(int ratio);

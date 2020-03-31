@@ -35,6 +35,17 @@ typedef enum _ret_t { RET_OK = 0, RET_OOM, RET_ERR,RET_FAIL, RET_BAD_PARAMS } re
 #define		MIN(a,b)			(((a) < (b)) ? (a) : (b))
 #define		MAX(a,b)			(((a) > (b)) ? (a) : (b))
 
+
+/*
+
+typedef int8_t			s8;     //!< Define s8 编译器决定char为必unsigned，所以须使用signed定义
+typedef uint8_t   		u8;		//!< Define u8
+typedef int16_t		s16;	//!< Define s16
+typedef uint16_t  		u16;	//!< Define u16
+typedef int32_t		s32;	//!< Define s32
+typedef uint32_t		u32;	//!< Define u32
+*/
+
 typedef signed char			s8;     //!< Define s8 编译器决定char为必unsigned，所以须使用signed定义
 typedef unsigned char   		u8;		//!< Define u8
 

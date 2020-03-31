@@ -346,8 +346,37 @@ NET_ADDR_S		tNetAddr={0};
 
 
 
+#include <poll.h> 
+int Connect_CheckEINTR(int sock) 
+{  
+	struct pollfd fd;
+	int ret;
+	socklen_t len;
 
+	fd.fd = sock;
+	fd.events = POLLOUT;
 
+	while(poll(&fd, 1, -1) == -1 ) 
+	{
+		if(errno != EINTR )
+		{
+			LOG(LOG_ERROR,"poll errno=%d:%s\n",errno,strerror(errno));
+			return -1;
+		}
+	}
+	ret = 0;
+	len = sizeof(ret);
+	if(getsockopt(sock, SOL_SOCKET, SO_ERROR,&ret,&len) == -1 )
+	{
+		LOG(LOG_ERROR,"getsockopt errno=%d:%s\n",errno,strerror(errno));
+		return -1;
+	}
+	if(ret != 0) {
+		LOG(LOG_ERROR,"socket %d connect failed: %s\n",sock, strerror(ret));
+		return -1;
+	}
+	return 0;
+}  
 
 
 //============================================================================
@@ -359,8 +388,8 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 	SocketFD = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (-1 == SocketFD)
 	{
-		LOG(LOG_ERROR,"cannot create socket\r\n");
-		perror("socket");
+		LOG(LOG_ERROR,"cannot create socket errno[%d]\r\n",errno);
+		//perror("socket");
 		return -1;
 	}
 	{
@@ -371,8 +400,9 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		ret = setsockopt(SocketFD,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof(timeout));
 		if (-1 == ret)
 		{
-			LOG(LOG_ERROR,"cannot set SNDTIMEO\r\n");
-			perror("setsockopt5");
+			LOG(LOG_ERROR,"cannot set SNDTIMEO errno[%d]\r\n",errno);
+			//perror("setsockopt5");
+			close(SocketFD);
 			return -1;
 		}
 	}
@@ -381,8 +411,9 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		ret = setsockopt(SocketFD, SOL_SOCKET, SO_KEEPALIVE,&KeepAlive, sizeof(KeepAlive));
 		if (-1 == ret)
 		{
-			LOG(LOG_ERROR,"cannot setkeepalive\r\n");
-			perror("setsockopt0");
+			LOG(LOG_ERROR,"cannot setkeepalive errno[%d]\r\n",errno);
+			//perror("setsockopt0");
+			close(SocketFD);
 			return -1;
 		}
 	}
@@ -395,8 +426,8 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		/* 调用gethostbyname()。结果存在hptr结构中 */
 		if((hptr = gethostbyname(pHostIp)) == NULL)
 		{
-			LOG(LOG_ERROR," gethostbyname error for host:%s\n", pHostIp);
-			perror("gethostbyname");
+			LOG(LOG_ERROR," gethostbyname error for host:%s,errno[%d]\n", pHostIp,errno);
+			//perror("gethostbyname");
 			return -103;
 		}
 		/* 将主机的规范名打出来 */
@@ -430,55 +461,62 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 		ret = inet_pton(stSockAddr.sin_family,pHostIp,&stSockAddr.sin_addr);
 		if (0 > ret)
 		{
-			LOG(LOG_ERROR,"error: first parameter is not a valid address family\r\n");
-			perror("inet_pton");
+			LOG(LOG_ERROR,"error: first parameter is not a valid address family ret[%d]errno[%d]\r\n",ret,errno);
 			close(SocketFD);
 			return -106;
 		}
 		else if (0 == ret)
 		{
-			LOG(LOG_ERROR,"inet_pton (second parameter does not contain validipaddress)\r\n");
-			perror("inet_pton=0");
+			LOG(LOG_ERROR,"inet_pton (second parameter does not contain validipaddress)errno[%d]\r\n",errno);
 			close(SocketFD);
 			return -107;
 		}
 	}
-
-	if (-1 == connect(SocketFD,(struct sockaddr *)&stSockAddr,sizeof(stSockAddr)))
+	ret = connect(SocketFD,(struct sockaddr *)&stSockAddr,sizeof(stSockAddr));
+	if((ret == 0) \
+		||((ret == -1)&&(errno == EINTR) && (Connect_CheckEINTR(SocketFD) == 0)))
 	{
-		LOG(LOG_ERROR,"connect[%X][%d] failed\r\n",stSockAddr.sin_addr,stSockAddr.sin_port);
-		perror("connect");
-		close(SocketFD);
-		return -1;
+		tNetAddr.net[tNetAddr.NetIndex].SocketFD = SocketFD;
+		tNetAddr.net[tNetAddr.NetIndex].port = port;
+		strcpy(tNetAddr.net[tNetAddr.NetIndex].sHost,pHostIp);
+		tNetAddr.pNet = &tNetAddr.net[tNetAddr.NetIndex];
+		//tNetAddr.NetIndex++;
+		return 0;
 	}
-	
-	tNetAddr.net[tNetAddr.NetIndex].SocketFD = SocketFD;
-	tNetAddr.net[tNetAddr.NetIndex].port = port;
-	strcpy(tNetAddr.net[tNetAddr.NetIndex].sHost,pHostIp);
-	tNetAddr.pNet = &tNetAddr.net[tNetAddr.NetIndex];
-	
-	return 0;
+	LOG(LOG_ERROR,"connect[%X][%d] failed ret[%d]errno[%d]\r\n",stSockAddr.sin_addr,stSockAddr.sin_port,ret,errno);
+	close(SocketFD);
+	return -1;
 }
 
+
+
+   
+
 //=======================网络发送=========================================================
-int  APP_Network_Send(char* pBuff,int len)
+int  APP_Network_Send(u8* pBuff,int len)
 {
 	return send(tNetAddr.pNet->SocketFD, pBuff, len, 0); 
 }
 
 //=======================网络接收=========================================================
-int  APP_Network_Recv(char* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCheckFull)
+int  APP_Network_Recv(u8* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCheckFull)
 {
+	int ret;
 	if(timeoutMs)
 	{//设置接收超时
 		struct timeval timeout; 
 		timeout.tv_sec = timeoutMs/1000;
 		timeout.tv_usec = (timeoutMs%1000)*1000;
-		setsockopt(tNetAddr.pNet->SocketFD,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout)); 
+		ret=setsockopt(tNetAddr.pNet->SocketFD,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout)); 
+		if(ret)
+		{
+			LOG(LOG_INFO,"setsockopt = %d\r\n",ret);
+			perror("setsockopt");
+		}
 	}
 
 	{
-		int ret,offset=0;
+		int offset=0;
 		while(1)
 		{
 			ret = recv(tNetAddr.pNet->SocketFD, pBuff+offset, BuffSize-offset, 0);
@@ -496,8 +534,8 @@ int  APP_Network_Recv(char* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCh
 			}
 			else if(ret < 0)
 			{
-				LOG(LOG_INFO,"recv = %d,[%d,%d,%d]\r\n",ret,EAGAIN,EWOULDBLOCK,EINTR);
-				if(ret == EAGAIN||ret == EWOULDBLOCK||ret == EINTR) //这几种错误码，认为连接是正常的，继续接收
+				LOG(LOG_INFO,"recv = %d,%d,[%d]\r\n",ret,offset,errno);
+				if(ret == -1 && (errno == EAGAIN||errno == EWOULDBLOCK||errno == EINTR)) //这几种错误码，认为连接是正常的，继续接收
 				{
 					continue;//继续接收数据
 				}
@@ -505,7 +543,7 @@ int  APP_Network_Recv(char* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCh
 			}
 		}
 	}
-	return -3;
+	return ret;
 }
 
 int APP_Network_Disconnect(int timeOutMs)

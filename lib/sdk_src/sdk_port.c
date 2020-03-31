@@ -68,6 +68,7 @@ int OsPortOpen(int Channel,const char *Attr)
 		LOG(LOG_INFO,"[%d]->[%d][%d][%d][%d]\r\n",fd,speed,databits,stopbits,parity);
 		if(0 == uart_set(fd,speed,flow_ctrl,databits,stopbits,parity))
 			return RET_OK;
+		uart_close(fd);
 		return ERR_INVALID_PARAM;
 	}
 	return ERR_DEV_NOT_EXIST;
@@ -163,7 +164,7 @@ int	API_Uart_PackSend(int Channel,u8* pSendBuf,u32 sendLen)
 	*(--pSendBuf) = 0x02;
 	*(--pSendBuf) = 0x55;
 	sendLen += 4;
-	TRACE_HEX("->PackSendBuf",pSendBuf,sendLen);
+//	TRACE_HEX("->PackSendBuf",pSendBuf,sendLen);
 	ret= OsPortSend(Channel,pSendBuf,sendLen);
 	if(ret < 0) return ret;
 	return (ret-4);
@@ -173,80 +174,110 @@ int	API_Uart_PackSend(int Channel,u8* pSendBuf,u32 sendLen)
 u8*	API_Uart_PackRecv(int Channel,u8* pRecvBuf,u32 *recvLen,int timeOutMs,int* pErrCode)
 {
 	int ret,recvSize;
-	u16 ulen,start;
-	ret=OsPortRecv(Channel,pRecvBuf,5,timeOutMs);
+	u16 ulen,offset;
+	ret=OsPortRecv(Channel,pRecvBuf,6,timeOutMs);
 	if(ret < 5)
 	{
-		LOG(LOG_ERROR,"###Uart_PackRecv recv5 ret[%d]S[%d] ##\r\n",ret,*recvLen);
+		LOG(LOG_ERROR,"###Uart_PackRecv recv5 ret[%d]size[%d] ##\r\n",ret,*recvLen);
 		if(pErrCode) *pErrCode=ERR_TIME_OUT;
 		return NULL;
 	}
-	start = 0;
-	while(start < 5)
+	offset = 0;
+	while(offset < ret)
 	{
-		if(pRecvBuf[start] == 0x02) break;
-		start++;
-		if(start == 5)
+		if(pRecvBuf[offset] == 0x02) break;
+		offset++;
+		if(offset == ret)
 		{
-			LOG(LOG_WARN,"***Uart_PackRecv recv Nouse DataD**\r\n",ret);
-			ret=OsPortRecv(Channel,pRecvBuf,5,100);
+			LOG_HEX(LOG_WARN,"***Uart_PackRecv Nouse",pRecvBuf,ret);
+			ret=OsPortRecv(Channel,pRecvBuf,6,100);
 			if(ret < 5) 
 			{
-				LOG(LOG_ERROR,"###Uart_PackRecv recv5[%d] Nouse DataL##\r\n",ret);
+				LOG(LOG_WARN,"###Uart_PackRecv ret[%d]\r\n",ret);
 				if(pErrCode) *pErrCode=ERR_INVALID_PARAM;
 				return NULL;
 			}
-			start = 0;
+			offset = 0;
 		}
 	}
-	if(start < 5)
+	if(offset > 0)
 	{
-		ulen=pRecvBuf[start+1]*256 + pRecvBuf[start+2];
-		if(ulen > 0)
+		memmove(pRecvBuf,pRecvBuf+offset,ret-offset);
+		offset = ret-offset;
+		if(offset < 3)
 		{
-			recvSize = *recvLen - 5;
-			if(recvSize >= (ulen+start))
+			ret=OsPortRecv(Channel,pRecvBuf+offset,5-offset,100);
+			if(ret < (5-offset))
 			{
-				recvSize = (ulen+start);
+				LOG(LOG_WARN,"###Uart2PackRecv[%d]ret[%d]\r\n",(5-offset),ret);
+				if(pErrCode) *pErrCode=ERR_INVALID_PARAM;
+				return NULL;
 			}
-			else
-			{
-				LOG(LOG_WARN,"****recvSize to small***\r\n");
-			}
-			ret=OsPortRecv(Channel,pRecvBuf+5,recvSize,8000);
-			//LOG(LOG_WARN,"recvSize ulen[%d]ret[%d]recvSize[%d]\r\n",ulen,ret,recvSize);
+			offset += ret;
 		}
-		else
+	}
+	ulen=pRecvBuf[1]*256 + pRecvBuf[2];
+	if(ulen > 0)
+	{
+		if(*recvLen < (ulen+5))
 		{
-			recvSize=ret;
-		}
-		
-		if(ret >= recvSize)
-		{
-			u8* p;
-			u16 i;
-			u8 crc;
-			p = pRecvBuf+start+1;
-			crc = *p++;
-			crc ^= *p++;
-			for(i=0;i<ulen;i++)
-				crc ^= *p++;
-			LOG_HEX(LOG_INFO,"->PackRecvBuf",pRecvBuf,ulen+5+start);
-			if(crc == *p)
-			{
-				*recvLen = ulen;
-				return pRecvBuf+start+3;
-			}
-			if(pErrCode) *pErrCode=ERR_VERIFY_SIGN_FAIL;
-			//LOG_HEX(LOG_ERROR,"ERR->PackRecvBuf",pRecvBuf,ulen+5+start);
-			LOG(LOG_ERROR,"###ERR recv crc[%x] != [%x] ##\r\n",*p,crc);
+			LOG(LOG_ERROR,"###recvSize[%d]to small  ulen[%d]\r\n",*recvLen,ulen);
 			return NULL;
 		}
-		if(pErrCode) *pErrCode=ERR_INVALID_PARAM;
-		LOG(LOG_ERROR,"###recvlen[%d] <[%d] to small##\r\n",ret,recvSize);
+		recvSize = (ulen+5-offset);
+		ret=OsPortRecv(Channel,pRecvBuf+offset,recvSize,(recvSize>10)?(recvSize/10):500);
+		if(ret < 0)
+		{
+			LOG(LOG_ERROR,"##UartPackRecv1 ret[%d]\r\n",ret);
+			return NULL;
+		}
+		offset += ret;
+		if(ret < recvSize)
+		{
+			LOG(LOG_WARN,"**Uart2PackRecv[%d]Size[%d]\r\n",ret,recvSize);
+			ret = OsPortRecv(Channel,pRecvBuf+offset,recvSize-ret,3000);
+			if(ret < 0)
+			{
+				LOG_HEX(LOG_INFO,"to small->PackRecv2",pRecvBuf,offset);
+				return NULL;
+			}
+			offset += ret;
+		}
+	}
+	else if(offset < 5)
+	{
+		ret=OsPortRecv(Channel,pRecvBuf+offset,5-offset,200);
+		if(ret < (5-offset))
+		{
+			LOG(LOG_WARN,"###Uart3PackRecv[%d]ret[%d]\r\n",(5-offset),ret);
+			if(pErrCode) *pErrCode=ERR_INVALID_PARAM;
+			return NULL;
+		}
+		offset += ret;
+	}
+	//if(offset >= (ulen+5))
+	{
+		u8* p;
+		u16 i;
+		u8 crc;
+	//	LOG_HEX(LOG_INFO,"->PackRecvBuf",pRecvBuf,offset);
+		p = pRecvBuf+1;
+		crc = *p++;
+		crc ^= *p++;
+		for(i=0;i<ulen;i++)
+			crc ^= *p++;
+		if(crc == *p)
+		{
+			*recvLen = ulen;
+			return pRecvBuf+3;
+		}
+		if(pErrCode) *pErrCode=ERR_VERIFY_SIGN_FAIL;
+		//LOG_HEX(LOG_ERROR,"ERR->PackRecvBuf",pRecvBuf,ulen+5+start);
+		LOG(LOG_ERROR,"###ERR recv crc[%x] != [%x],ulen[%d] ##\r\n",*p,crc,ulen);
+		return NULL;
 	}
 	if(pErrCode) *pErrCode=ERR_INVALID_PARAM;
+	LOG(LOG_ERROR,"###recvlen[%d] <[%d] to small##\r\n",ret,recvSize);
 	return NULL;
 }
-
 

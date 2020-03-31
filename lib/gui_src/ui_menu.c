@@ -51,7 +51,7 @@ typedef struct _CMenuUITable
 	CMenuItemStru	pItem[1];		//菜单内容,菜单功能
 }CMenuUITable;
 static CMenuUITable *pMenuUiTable=NULL;
-
+static CMenuItemStru tMenuEnterTag;
 
 //====================================================================
 //功能:   创建新的固定返回菜单(此过程需要申请内存空间)
@@ -262,8 +262,23 @@ void APP_AddCurrentMenuOtherFun(UI_MENU_ADD_TYPE type,void* pFunc,const char *pD
 			pMenuUiTable->fBackColour	= (FunFillColour)pFunc;
 			pMenuUiTable->ShowFont	= *pData;
 		}
-		
 	}
+}
+
+
+//====================================================================
+//功能: 进入指定菜单项
+//作用: 菜单项返回时，可指定其进入项单项，而不是显示菜单
+//输入数据:pTagFunc指定功能函数，pTagTitle 指定标题,pTagFunc与pTagTitle两者可选其一。
+//输出数据:返回 EVENT_ENTER 告诉菜单进入指定项
+//---------------------------------------------------------------
+int APP_DesignatMenuItem(void* pTagFunc,char *pTagTitle)
+{
+	if(pMenuUiTable)
+		pMenuUiTable->ShowState=_GUI_MENU_RUN;
+	tMenuEnterTag.pFunMenu=(fMenuFun)pTagFunc;
+	tMenuEnterTag.pText = pTagTitle;
+	return EVENT_ENTER;
 }
 
 //====================================================================
@@ -286,12 +301,16 @@ void ShowMenuItem(void *pMenu,int index,int line,char *pOutShow)
 int APP_ShowProsseMenu(void)
 {
 	CMenuUITable *pStartMenuAdd=pMenuUiTable;
-	u32 event,ret=EVENT_NONE;
+	u32 event,ret;
 	while(pMenuUiTable)
 	{
+		if(pMenuUiTable->ShowState == _GUI_MENU_RUN)
+		{
+			goto Addr_SCAD_MenuItem;
+		}
 		if(pMenuUiTable->ShowFont == 0xff)
 		{//----不显示字符--------
-			API_GUI_CreateWindow(NULL,TOK,TCANCEL,pMenuUiTable->fBackColour);
+			API_GUI_CreateWindow(NULL,NULL,TCANCEL,pMenuUiTable->fBackColour);
 			API_GUI_Show();
 		}
 		else
@@ -309,29 +328,48 @@ int APP_ShowProsseMenu(void)
 		{
 			int index,head;
 			index=API_GUI_Menu_GetInxAndHear(&head);
+			ret = EVENT_NONE;
 			if(index<pMenuUiTable->TeamTatla)
 			{
-				pMenuUiTable->TeamCurr=index;
 				pMenuUiTable->ShowHead=head;
-	//			pMenuUiTable->ShowState=_GUI_MENU_SHOW; //执行完显示菜单
+			Addr_Specify_menu:
+				pMenuUiTable->TeamCurr=index;
+				pMenuUiTable->ShowState=_GUI_MENU_SHOW; //执行完显示菜单
 				if(pMenuUiTable->pUnifiedFunc)
 				{//-----统一菜单处理----------
 					ret=(*pMenuUiTable->pUnifiedFunc)(pMenuUiTable->pItem[index].pText,index);
-					if((ret&EVENT_MASK) == EVENT_QUIT)
-					{
-						if(_GUI_MENU_EXT == ReturnToPreviousMenu(ret&EVENT_INDEX,pStartMenuAdd))
-							break;
-					}
-					continue;
 				}
-				if(pMenuUiTable->pItem[index].pFunMenu)
+				else if(pMenuUiTable->pItem[index].pFunMenu)
 				{//-----独立菜单处理------
 					ret=(*pMenuUiTable->pItem[index].pFunMenu)(pMenuUiTable->pItem[index].pText);
-					if((ret&EVENT_MASK) == EVENT_QUIT)
+				}
+				if(ret&EVENT_QUIT)		//指定退出多少层
+				{
+					if(_GUI_MENU_EXT == ReturnToPreviousMenu(ret&0x0F,pStartMenuAdd))
+						break;
+				}
+				if(ret&EVENT_ENTER)		//指定进入菜单
+				{
+					while(pMenuUiTable)
 					{
-						if(_GUI_MENU_EXT == ReturnToPreviousMenu(ret&EVENT_INDEX,pStartMenuAdd))
+					Addr_SCAD_MenuItem:
+						for(index=0;index<pMenuUiTable->TeamTatla;index++)
+						{
+							if(tMenuEnterTag.pFunMenu)
+							{
+								if(tMenuEnterTag.pFunMenu == pMenuUiTable->pItem[index].pFunMenu)
+									goto Addr_Specify_menu;
+							}
+							if(tMenuEnterTag.pText)
+							{
+								if(strcmp(tMenuEnterTag.pText,pMenuUiTable->pItem[index].pText) == 0)
+									goto Addr_Specify_menu;
+							}
+						}
+						if(_GUI_MENU_EXT == ReturnToPreviousMenu(1,pStartMenuAdd))
 							break;
 					}
+					break;
 				}
 			}
 		}
@@ -353,11 +391,8 @@ int APP_ShowProsseMenu(void)
 		{
 			if(pMenuUiTable->pKeyFunc==NULL)
 				continue;
-	//		pMenuUiTable->ShowState=_GUI_MENU_SHOW; //执行完显示菜单
-			if(pMenuUiTable->pKeyFuncTitle)
-				ret=pMenuUiTable->pKeyFunc(pMenuUiTable->pKeyFuncTitle);
-			else
-				ret=pMenuUiTable->pKeyFunc(pMenuUiTable->pTitle);
+			pMenuUiTable->ShowState=_GUI_MENU_SHOW; //执行完显示菜单
+			ret=pMenuUiTable->pKeyFunc(pMenuUiTable->pKeyFuncTitle);
 			if(EVENT_QUIT&ret)
 			{//-----退出所有菜单----------
 				ReturnToPreviousMenu(ret&EVENT_INDEX,pStartMenuAdd);
@@ -367,108 +402,99 @@ int APP_ShowProsseMenu(void)
 	}
 	return ret;
 }
-//====================================================================
-//功能:  显示处理菜单，
-//作用:  显示，并处理链表pMenuUiTable里面的菜单
-//输入数据:无
-//输出数据:无
-//创作时间:  	20140726
-//---------------------------------------------------------------
-/*
-int APP_ShowMenuProsse(void)
+//===================固定菜单处理=================================================
+void ShowFixedMenutem(void *pMenu,int index,int line,char *pOutShow)
 {
-	CMenuUITable *pStartMenuAdd=pMenuUiTable;
-	u16 MessageID,Message;
-	while(pMenuUiTable)
+	tMenuItemStru *pItem=(tMenuItemStru *)pMenu;
+	API_sprintf(pOutShow,"%d.%s",line,pItem[index].pText);
+}
+
+int APP_ShowFixedMenu(char* pTitle,FixedMenuUITable *pFixedMenu,void* pTagFunc)
+{
+	int ret;
+	u8 ShowHead=0,TeamCurr=0,TeamTatla;
+	
+	if(pFixedMenu->pInFunc)
 	{
-		if(pMenuUiTable->ShowState==_GUI_MENU_SHOW)
-		{//----------显示菜单--------
-			APP_GUI_Menu(pMenuUiTable->pShowTatle,(int)pMenuUiTable->ShowHead,(int)pMenuUiTable->TeamTatla,(int)pMenuUiTable->TeamCurr,pMenuUiTable->pMenuText);
-			pMenuUiTable->ShowState=_GUI_MENU_PROCESS;
-		}
-		Set_WaitEvent(pMenuUiTable->TimeOutMs,EVENT_KEY);
-		//---------------阻塞式------------------------------------------
-		if(FIFO_OperatGetMsg(&MessageID,&Message))
+		ret=(*pFixedMenu->pInFunc)(pTitle);
+		if(ret == EVENT_QUIT) return ret;
+	}
+	TeamTatla=pFixedMenu->TeamTatla;
+	if(TeamTatla == 0)
+	{
+		while(pFixedMenu->pItem[TeamTatla++].pText);
+	}
+	if(pTagFunc)
+	{
+		tMenuEnterTag.pFunMenu=(fMenuFun)pTagFunc;
+		goto Addr_SCAD_FixedMenuItem;
+	}
+	while(1)
+	{
+ 		API_GUI_CreateWindow(pTitle,NULL,TCANCEL,API_FillMenuBack);
+		API_GUI_Menu(pFixedMenu->pItem,ShowFixedMenutem,TeamTatla,TeamCurr,ShowHead,NULL,NULL);
+		API_GUI_Show();
+		ret=API_WaitEvent(pFixedMenu->TimeOutMs,EVENT_UI|EVENT_ABS,EVENT_NONE);	
+		if(ret == EVENT_INDEX)
 		{
-			if(MessageID==EVEN_ID_KEY_DOWN)
+			TeamCurr=API_GUI_Menu_GetInxAndHear(&ret);
+			if(TeamCurr < TeamTatla)
 			{
-				Rewrite_WaitTime(pMenuUiTable->TimeOutMs);
-				if((Message==K_OK)||(Message>=K_1&&Message<=K_9))
+				ShowHead=ret;
+			Addr_Specify_Fixedmenu:
+				switch(pFixedMenu->pItem[TeamCurr].FunType)
 				{
-					if(Message!=K_OK)
-					{
-						Message -= K_1;
-						if(Message >= pMenuUiTable->TeamTatla)
-							continue;
-						pMenuUiTable->TeamCurr=Message;
-					}
-					if(pMenuUiTable->pMenuFunc[pMenuUiTable->TeamCurr])
-					{
-						pMenuUiTable->ShowState=_GUI_MENU_SHOW;
-						if(EVENT_QUIT == (*pMenuUiTable->pMenuFunc[pMenuUiTable->TeamCurr])(pMenuUiTable->pMenuText[pMenuUiTable->TeamCurr]))
-						{//-----退出所有菜单----------
-							ReturnToPreviousMenu(0,pStartMenuAdd);
-							Set_WaitEvent(TIME_INFINE,EVENT_NONE);
-							return EVENT_QUIT;
-						}
-						Set_WaitEvent(pMenuUiTable->TimeOutMs,EVENT_KEY);
-					}
-				}
-				else if(Message==K_CANCEL)
-				{
-					if(_GUI_MENU_EXT == ReturnToPreviousMenu(1,pStartMenuAdd))
+					case FUN_MENU_F:
+						ret=(*(fMenuFun)pFixedMenu->pItem[TeamCurr].pFun)(pFixedMenu->pItem[TeamCurr].pText);
 						break;
-					else
-						pMenuUiTable->ShowState=_GUI_MENU_SHOW;
+					case FUN_MENU_I:
+						ret=(*(APP_IndexH)pFixedMenu->pItem[TeamCurr].pFun)(pFixedMenu->pItem[TeamCurr].pText , TeamCurr);
+						break;
+					case FUN_MENU_G:
+						ret=APP_ShowFixedMenu(pFixedMenu->pItem[TeamCurr].pText,(FixedMenuUITable *)pFixedMenu->pItem[TeamCurr].pFun ,NULL);
+						break;
 				}
-				else if(Message==K_UP)
+				if(ret&EVENT_QUIT)		//退出所有菜单
 				{
-					if(pMenuUiTable->TeamCurr > 0)
+					if(ret&EVENT_INDEX)
 					{
-						pMenuUiTable->TeamCurr--;
-						if(pMenuUiTable->TeamCurr < pMenuUiTable->ShowHead)
-							pMenuUiTable->ShowHead--;
-						pMenuUiTable->ShowState=_GUI_MENU_SHOW;
+						ret--;
+						break;
 					}
-					else
-					{
-						pMenuUiTable->TeamCurr=pMenuUiTable->TeamTatla-1;
-						if(pMenuUiTable->TeamCurr >= MENU_TIEM_MAX)
-							pMenuUiTable->ShowHead=pMenuUiTable->TeamCurr-MENU_TIEM_MAX;
-						else
-							pMenuUiTable->ShowHead=0;
-						pMenuUiTable->ShowState=_GUI_MENU_SHOW;
-					}
-				}
-				else if(Message==K_DOWN)
+ 				}
+				if(ret&EVENT_ENTER)		//指定进入菜单
 				{
-					if((pMenuUiTable->TeamCurr+1) < pMenuUiTable->TeamTatla)
+					if(ret&EVENT_INDEX)	//指定进入菜单外部
+						break;
+				Addr_SCAD_FixedMenuItem:
+					for(TeamCurr=0;TeamCurr<TeamTatla;TeamCurr++)
 					{
-						pMenuUiTable->TeamCurr++;
-						if((pMenuUiTable->TeamCurr-pMenuUiTable->ShowHead) >= MENU_TIEM_MAX)
-							pMenuUiTable->ShowHead++;
-						pMenuUiTable->ShowState=_GUI_MENU_SHOW;
+						if(tMenuEnterTag.pFunMenu)
+						{
+							if((void*)tMenuEnterTag.pFunMenu == pFixedMenu->pItem[TeamCurr].pFun)
+								goto Addr_Specify_Fixedmenu;
+						}
+						if(tMenuEnterTag.pText)
+						{
+							if(strcmp(tMenuEnterTag.pText,pFixedMenu->pItem[TeamCurr].pText) == 0)
+								goto Addr_Specify_Fixedmenu;
+						}
 					}
-					else
-					{
-						pMenuUiTable->TeamCurr=0;
-						pMenuUiTable->ShowHead=0;
-						pMenuUiTable->ShowState=_GUI_MENU_SHOW;
-					}
-				}
-			}
-			else if(MessageID==EVEN_ID_TIME_OUT)
-			{
-				if(_GUI_MENU_EXT == ReturnToPreviousMenu(1,pStartMenuAdd))
 					break;
-				else
-					pMenuUiTable->ShowState=_GUI_MENU_SHOW;
+				}
 			}
+		}
+		else if(ret==EVENT_CANCEL || ret==EVENT_TIMEOUT)
+		{
+			break;
 		}
 	}
-	Set_WaitEvent(TIME_INFINE,EVENT_NONE);
-	return EVENT_NONE;
+	if(pFixedMenu->pOutFunc)
+	{
+		(*pFixedMenu->pOutFunc)(pTitle);
+	}
+	return ret;
 }
-*/
+
 
 

@@ -71,7 +71,7 @@ typedef struct
 Status_Messages Msg_data;
 
 
-#define CURR_LOG_T						LOG_INFO	//LOG_INFO			
+#define CURR_LOG_T						LOG_INFO			
 extern void OsLogSetTag(const char *Tag);
 extern int OsLog(LOG_T Prio,const char *fmt,...);
 #define LogSetTag						OsLogSetTag		

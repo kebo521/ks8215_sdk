@@ -453,7 +453,10 @@ void API_GetALignLeftTop(u32 tTextType,RECTL *pRect)
 	else switch(tTextType&TEXT_VALIGN_MASK)
 	{
 		case TEXT_VALIGN_BOTTOM:	//下对齐
-			pRect->top=tGuiThemeMsg.htitle + tGuiThemeMsg.hcont-pRect->height;
+			if(tAbsGuiRectOperat.pOK)
+				pRect->top=tGuiThemeMsg.htitle + tGuiThemeMsg.hcont-tGuiThemeMsg.hmc-pRect->height;
+			else 
+				pRect->top=tGuiThemeMsg.htitle + tGuiThemeMsg.hcont-pRect->height;
 			break;
 		case TEXT_VALIGN_CENTER:	//上下居中
 			pRect->top=tGuiThemeMsg.htitle +(tGuiThemeMsg.hcont-pRect->height)/2;
@@ -613,7 +616,10 @@ int  API_GUI_Info(const IMAGE* pImg,u32 tTextType,const char* pTextBuf)
 		tCoordinate.height=line*fontSize;
 	}
 	API_GetALignLeftTop(tTextType,&tCoordinate);
-	
+	if(tTextType&TEXT_RECT_CLEAR)
+	{
+		API_GUI_ClearScreen(&tCoordinate);	//清空文字区
+	}
 	if(tTextType&TEXT_EXSTYLE_BORDER)//加框
 	{
 		RECTL rect;
@@ -952,11 +958,7 @@ void API_GUI_OprInfo(char* pShowInfo,char *pAfterText)
 	tGuiEditMsg.Rect.left	= 0;
 	tGuiEditMsg.Rect.top	= tGuiThemeMsg.htitle;
 	tGuiEditMsg.Rect.width= tGuiThemeMsg.width;
-	if(pAfterText)
-		tGuiEditMsg.Rect.height=tGuiThemeMsg.hcont-tGuiThemeMsg.hfont;
-	else
-		tGuiEditMsg.Rect.height=tGuiThemeMsg.hcont;
-	
+	tGuiEditMsg.Rect.height=tGuiThemeMsg.hcont-tGuiThemeMsg.hfont;
 	tGuiEditMsg.pShowInfo	= pShowInfo;
 	tGuiEditMsg.pAfterText	= pAfterText;
 	//---------------------------------------------------
@@ -1447,7 +1449,7 @@ int APP_ShowQrCode(char *pTitle,const char* pInfo,A_RGB Color)
 
 int APP_HitMsg(const char* pMsg,int tTimeOutMS)
 {
-	int ret,minW;
+	int minW;
 	XuiWindow *babyWindow,*pCurrWindow;
 	minW =FONT_SIZE + strlen(pMsg)*FONT_SIZE/2;
 		
@@ -1462,39 +1464,115 @@ int APP_HitMsg(const char* pMsg,int tTimeOutMS)
 	UI_SetFontColor(RGB565_BLACK,RGB565_CLEAR);	//(RGB565_RED|RGB565_GREEN,RGB565_PARENT)
 	UI_DrawCenterString(babyWindow,(char*)pMsg);
 	UI_Push(babyWindow,NULL);
-	ret= APP_WaitUiEvent(tTimeOutMS);
+	OsSleep(tTimeOutMS);
 	//-------------------------------------------	
 	XuiDestroyWindow(babyWindow);
-	return ret;
+	return 0;
 }
 
 
-int APP_GUI_Menu(char* pTitle,int stratIndex,int tNum,int tCurInx,char** pMenuText)
+int APP_GUI_Menu(char* pTitle,char *pMsg,int tNum,int tCurInx,const char** pMenuText,int timeoutMs)
 {
+	int 	ret;
 	POINT tFontXY;
 	char sBuff[32+2];
-	u16 i;
+	u16 stratIndex=0;
+	u8 i,max;
 	//-------------------显示标题--------------------------------
 	API_GUI_CreateMenu(pTitle,NULL,TCANCEL);
-	//-------------------显示菜单项--------------------------------
-	//tGuiThemeMsg.hmc;
-	tFontXY.top =tGuiThemeMsg.htitle + (tGuiThemeMsg.hmc-tGuiThemeMsg.hfont)/2;
-	tFontXY.left = 4;
-	for(i=0; i<tGuiThemeMsg.hn; i++)
+	//-------------底部显示提示信息-------------------------------
+	max=tGuiThemeMsg.hn;
+	if(pMsg)
 	{
-		if((stratIndex+i) >= tNum)
-			break;
-		API_sprintf(sBuff,"%d.%s",1+stratIndex+i,pMenuText[stratIndex+i]);
-		if((stratIndex+i)==tCurInx)
-			ApiFont.SetFontColor(RGB565_SELE_FONT,RGB565_CLEAR);
+		int 	sWidth;
+		sWidth=API_strlen(pMsg)*tGuiThemeMsg.hfont/2;
+		if(sWidth > tGuiThemeMsg.width)
+			tFontXY.left=0;
 		else
-			ApiFont.SetFontColor(tGuiThemeMsg.contFclr,RGB565_CLEAR);
-		ApiFont.DrawLineString(tGuiThemeMsg.pWindow,&tFontXY,sBuff);
-
-		tFontXY.top += tGuiThemeMsg.hmc;
+			tFontXY.left=(tGuiThemeMsg.width-sWidth)/2;
+		tFontXY.top =tGuiThemeMsg.htitle+tGuiThemeMsg.hcont-tGuiThemeMsg.hfont;
+		UI_SetFontColor(tGuiThemeMsg.contFclr,RGB565_CLEAR);
+		UI_DrawLineString(tGuiThemeMsg.pWindow,&tFontXY,pMsg);
+		//--------------------加上画线----------------------------
+		tFontXY.top --;
+		UI_vline(tGuiThemeMsg.pWindow,&tFontXY,sWidth,RGB_CURR(30,30,30));
+		max--;
 	}
-	API_GUI_Show();
+	
+	while(1)
+	{
+		if(tCurInx >= max)
+		stratIndex = tCurInx - (max-1);
+		if(tCurInx < stratIndex)
+			stratIndex = tCurInx;
+		//-------------------显示菜单项--------------------------------
+		tFontXY.top =tGuiThemeMsg.htitle + (tGuiThemeMsg.hmc-tGuiThemeMsg.hfont)/2;
+		tFontXY.left = 4;		
+		for(i=0; i<max; i++)
+		{
+			if((stratIndex+i) >= tNum)
+				break;
+			API_sprintf(sBuff,"%d.%s",1+i,pMenuText[stratIndex+i]);
+			if((stratIndex+i)==tCurInx)
+				UI_SetFontColor(RGB565_SELE_FONT,RGB565_CLEAR);
+			else
+				UI_SetFontColor(tGuiThemeMsg.contFclr,RGB565_CLEAR);
+			UI_DrawLineString(tGuiThemeMsg.pWindow,&tFontXY,sBuff);
+	
+			tFontXY.top += tGuiThemeMsg.hmc;
+		}
+		API_GUI_Show();
+		//--------------------操作菜单------------------------------------
+		ret=API_WaitEvent(timeoutMs,EVENT_KEY|EVENT_ABS,EVENT_NONE);
+		if(ret&EVENT_KEY)
+		{
+			ret &= EVENT_INDEX;
+			if(ret >= K_0 && ret < (K_0+i))
+				return (stratIndex+i);
+			else if(ret == K_CANCEL)
+				return EVENT_CANCEL;
+			else if(ret == K_OK)
+				return tCurInx;
+			else
+			{
+				if(ret == K_UP)
+				{
+					if(tCurInx > 0)
+						tCurInx--;
+				}
+				else if(ret == K_DOWN)
+				{
+					if(tCurInx < tNum)
+						tCurInx++;
+				}
+
+				{	//----clear-----
+					RECTL tRect;
+					tRect.left=0; tRect.top=tGuiThemeMsg.htitle;
+					tRect.width=tGuiThemeMsg.width;
+					tRect.height=tGuiThemeMsg.hmc * i;
+					API_GUI_ClearScreen(&tRect);	//清空区域
+				}
+				continue;
+			}
+		}
+		else if(ret&EVENT_TIMEOUT)
+			return EVENT_TIMEOUT;
+		else if(ret&EVENT_CANCEL)
+			return EVENT_CANCEL;
+	}
 	return 0;
+}
+
+
+int APP_ShowPictureFile(RECTL *pRect,const char *pfilePath)
+{
+	if(0 == UI_ShowPictureFile(tGuiThemeMsg.pWindow,pRect,pfilePath))
+	{
+		UI_Push(tGuiThemeMsg.pWindow,pRect);
+		return 0;
+	}
+	return -1;
 }
 
 //=============底部显示进度条==ratio(0~100)===============================

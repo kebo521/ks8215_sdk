@@ -11,7 +11,6 @@
 #include<string.h>              
 #include "comm_type.h"
 #include "sys_sdk.h"
-#include <termios.h>
 
 /*******************************************************************  
 *Ãû³Æ£º             uart_open  
@@ -145,7 +144,7 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
    
     switch (parity&(~0x20))    // &(~0x20) ¹ýÂË´óÐ¡Ð´
     {      
-        case 'N': //æ— å¥‡å¶æ ¡éªŒä½ã€‚    
+        case 'N': //æ— å¥‡å¶æ ¡éªŒä½ã€?   
                  options.c_cflag &= ~PARENB;     
                  options.c_iflag &= ~INPCK;
                  break;     
@@ -158,7 +157,7 @@ int uart_set(int fd,int speed,u8 flow_ctrl,u8 databits,u8 stopbits,u8 parity)
                  options.c_cflag &= ~PARODD;           
                  options.c_iflag |= INPCK;          
                  break;    
-        case 'S': //è®¾ç½®ä¸ºç©ºæ ¼     
+        case 'S': //è®¾ç½®ä¸ºç©ºæ ?    
                  options.c_cflag &= ~PARENB;    
                  options.c_cflag &= ~CSTOPB;    
                  break;     
@@ -228,7 +227,7 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 			if(fs_sel > 0) break;
 			if(fs_sel == 0)
 			{
-				LOG(LOG_ERROR,"uart select timeout\r\n");
+				LOG(LOG_ERROR,"uart select timeout[%d]\r\n",timeoutMs);
 				return ERR_TIME_OUT;
 			}
 		}
@@ -249,7 +248,7 @@ int uart_recv(int fd, void *rcv_buf,int data_len,int timeoutMs)
 		{
 			if(((int)OsGetTickCount()-tagTimeMs)>=0)
 			{
-				LOG(LOG_ERROR,"uart recvt timeOut[%d][%d]\r\n",(int)OsGetTickCount(),tagTimeMs);
+				LOG(LOG_ERROR,"uart recvt[%d] timeOut[%d]\r\n",offset,timeoutMs);
 				break;
 			}
 			usleep((data_len-offset)*100);
@@ -299,6 +298,7 @@ int uart_send(int fd, void *send_buf,int data_len)
 		if(offset < data_len)
 		{
 			usleep(ret*100);	//µÈ´ýCPU´¦Àí
+			LOG(LOG_WARN,"**uart_send [%d,%d,%d]warn!\n",ret,offset,data_len);	
 			continue;
 		}
 		break;

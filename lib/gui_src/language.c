@@ -147,52 +147,6 @@ void API_InitSysLanguage(u8 index)
     }
 }
 
-int API_SetLanguage(unsigned int language)
-{
-/*
-	if(tAdminTermPar.language == language)
-		return 1;
-	if(language>300)
-	{//-----当作指针处理---支持导入显示模块------
-		return API_LoadSysLanguage((const KS_LANGUAGE *)language);
-	}
-	API_InitSysLanguage(language);
-	tAdminTermPar.language=language;
-	APP_SetTermPar(&tAdminTermPar);
-	*/
-	return 0;
-}
-
-int APP_SetLanguage(char* pTitle)
-{
-	char* pTraceMenu[]={"English","中文","日本語"};
-	u32 Event;
-	APP_GUI_Menu(pTitle,0,sizeof(pTraceMenu)/sizeof(pTraceMenu[0]),0,pTraceMenu);//tAdminTermPar.language
-	Event=API_WaitEvent(30*1000,EVENT_KEY,EVENT_NONE);
-	if(Event&EVENT_KEY)
-	{
-		if((Event&0xff)==K_1)
-		{
-			APP_ShowSta(pTitle,"SET English");
-			API_SetLanguage(0);
-		}
-		else if((Event&0xff)==K_2)
-		{
-			APP_ShowSta(pTitle,"设置为中文");
-			API_SetLanguage(1);
-		}
-		else if((Event&0xff)==K_3)
-		{
-			APP_ShowSta(pTitle,"设置为日本語");
-			API_SetLanguage(2);
-		}
-		else return -1;
-		//----------加载对应语言---------------------
-		APP_WaitUiEvent(2000);
-	}
-	return 0;
-}
-
 
 
 

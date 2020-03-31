@@ -211,9 +211,8 @@ int OsPrnSetDirection (unsigned char Mode)
 
 }
 
-//¹¦ÄÜ ÉèÖÃ´òÓ¡»Ò¶È¡
-/*£
-²ÎÊı Level
+//¹¦ÄÜ ÉèÖÃ´òÓ¡»Ò¶È?/*?²ÎÊı Level
+/*
 . Level =0£¬±£Áô¡£
 . Level =1£¬È±Ê¡ºÚ¶È£¬¼´ÆÕÍ¨´òÓ¡µ¥¡£
 . Level =2£¬±£Áô¡£

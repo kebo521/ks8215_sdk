@@ -205,6 +205,22 @@ static int tTimeOut500MsCont=0,tTimeOut500MsEnd=0;
 void  TimedRefresh500Ms(int sig)
 {
 	tTimeOut500MsCont++;
+	if(tTimeOut500MsCont&0x01)
+	{
+		if(tWaitEventMsg.pFunTimer1)
+		{
+			if(EVENT_TIMEOUT == (*tWaitEventMsg.pFunTimer1)())
+				tWaitEventMsg.pFunTimer1=NULL;
+		}
+	}
+	else
+	{
+		if(tWaitEventMsg.pFunTimer2)
+		{
+			if(EVENT_TIMEOUT == (*tWaitEventMsg.pFunTimer2)())
+				tWaitEventMsg.pFunTimer2=NULL;
+		}
+	}
 	if(tTimeOut500MsEnd != 0 && tTimeOut500MsCont >= tTimeOut500MsEnd)
 	{
 		if(tWaitEventMsg.EventControl&EVENT_TIMEOUT)
@@ -243,6 +259,22 @@ void StopTimed500ms(void)
 	setitimer(ITIMER_REAL, &valtimer, NULL);
 }
 
+//=======将执行函数导入定时器中======间隔1s,fTimerS1与fTimerS2互相错开0.5S=======
+void LoadTimerSFun(funtimerS fTimerS1,funtimerS fTimerS2)
+{
+	if(fTimerS1)
+		tWaitEventMsg.pFunTimer1 = fTimerS1;
+	if(fTimerS2)
+		tWaitEventMsg.pFunTimer2 = fTimerS2;
+}
+
+void ClearTimerSFun(int bitInter)
+{
+	if(bitInter&0x01)
+		tWaitEventMsg.pFunTimer1 = NULL;
+	if(bitInter&0x02)
+		tWaitEventMsg.pFunTimer2 = NULL;
+}
 
 /*
 void handler(int sig)

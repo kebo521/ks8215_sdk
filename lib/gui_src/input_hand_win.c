@@ -39,7 +39,7 @@ DefAbsAnalytical pAbsAnalytical=NULL;
 
 static void handleKey_quit(int signo)
 {
-	LOG(LOG_INFO,"in qq handle sig %d \n", signo);    
+	LOG(LOG_INFO,"Key quit sig %d \n", signo);    
 	pthread_exit(NULL);
 }
 
@@ -190,7 +190,7 @@ static int oldMiceX,oldMiceY;
 static int oldPmiceX,oldPmiceY;
 static void handleMice_quit(int signo)
 {
-	LOG(LOG_INFO,"in qq handle sig %d \n", signo);
+	LOG(LOG_INFO,"Mice quit sig %d \n", signo);
 	if(oldMiceX>0)
 	{
 		mice_Set_point(oldMiceX,oldMiceY);
@@ -385,7 +385,7 @@ void Stop_HandInput(void)
 	close(event_keyFb);
 
 	ret=pthread_kill(mice_thread, SIGQUIT);
-	LOG(LOG_INFO,"Stop Key thread %d\n", ret);
+	LOG(LOG_INFO,"Stop mice thread %d\n", ret);
 	close(event_mice);
 
 	signal(SIGQUIT,SIG_DFL);

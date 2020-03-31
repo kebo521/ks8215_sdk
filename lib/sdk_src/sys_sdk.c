@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
+#include <errno.h>
 
 #include <sys/types.h>    
 #include <sys/stat.h>    
@@ -69,8 +70,8 @@ char *eStrstr(char* src1, const char* src2)
 
 //#define SHM_SDK_AID		"../shm_A8215"		//独立数字平台统一定
 //#define SHM_SDK_DID		"../shm_D8215"		//独立数字平台统一定
-#define SHM_SDK_AID		"shm_A8215"		//独立数字平台统一定
-#define SHM_SDK_DID		"shm_D8215"		//独立数字平台统一定
+#define SHM_SDK_AID		"run/shm_A8215"		//独立数字平台统一定
+#define SHM_SDK_DID		"run/shm_D8215"		//独立数字平台统一定
 #else
 #define SHM_SDK_AID		0xA8215		//独立数字平台统一定
 #define SHM_SDK_DID		0xD8215		//独立数字平台统一定
@@ -103,25 +104,11 @@ int OsSysInit(char* pInTag)
 	tSt_Sys.pSysMsg = mmap(NULL,sizeof(ST_SYS_DATA),PROT_READ|PROT_WRITE,MAP_SHARED,tSt_Sys.shmDid, 0);
 	#else	//---------------------------------------------------------------------------------------------
 	#ifdef FILE_SHARD_MEMORY
-	char *pShmAid,*pShmDid;
-	/*
-	if(strstr(pInTag,"master"))
-	{
-		pShmAid=eStrstr(SHM_SDK_AID,"../");
-		pShmDid=eStrstr(SHM_SDK_DID,"../");
-	}
-	else
-	*/
-	{
-		pShmAid=SHM_SDK_AID;
-		pShmDid=SHM_SDK_DID;
-	}
-	LOG(LOG_INFO,"pShmAid[%s],pShmDid[%s]\r\n",pShmAid,pShmDid);
 	//tSt_Sys.shmAid = shm_open(SHM_SDK_AID, O_RDWR, 0777);// S_IRUSR | S_IWUSR
-	tSt_Sys.shmAid = open(pShmAid, O_RDWR);
+	tSt_Sys.shmAid = open(SHM_SDK_AID, O_RDWR);
 	if(tSt_Sys.shmAid < 0) 
 	{		
-		LOG(LOG_ERROR,"ashmem_create_region1->%s [%d]Err\r\n",pShmAid,tSt_Sys.shmAid);
+		LOG(LOG_ERROR,"ashmem_create_region1->%s [%d]Err\r\n",SHM_SDK_AID,tSt_Sys.shmAid);
 		perror("perror"); 
 		return -1;	
 	}
@@ -134,10 +121,10 @@ int OsSysInit(char* pInTag)
 		return -1;	
 	}
 	//tSt_Sys.shmAid = shm_open(SHM_SDK_DID, O_RDWR, 0777);// S_IRUSR | S_IWUSR
-	tSt_Sys.shmDid = open(pShmDid,O_RDWR);
+	tSt_Sys.shmDid = open(SHM_SDK_DID,O_RDWR);
 	if(tSt_Sys.shmDid == -1) 
 	{		
-		LOG(LOG_ERROR,"ashmem_create_region2->%s Err\r\n",pShmDid);
+		LOG(LOG_ERROR,"ashmem_create_region2->%s Err\r\n",SHM_SDK_DID);
 		perror("perror"); 
 		return -1;	
 	}
@@ -167,6 +154,7 @@ int OsSysInit(char* pInTag)
 	tSt_Sys.pSysData = (ST_SYS_DATA *)shmat(tSt_Sys.shmDid,NULL,0);
 	#endif
 	#endif
+	chdir(pInTag);		//进入对应目录
 	return 0;
 }
 
@@ -356,10 +344,16 @@ void OsGetTime(ST_TIME *Time)
 	clock_gettime(CLOCK_REALTIME, &time); //获取相对于1970到现在的秒数
 	localtime_r(&time.tv_sec, &tblock);
 */
-	time_t timer;//long
+	
 	struct tm *pblock;
-	timer = time(NULL);
-	pblock = localtime(&timer);
+	//time_t timer;//long
+	//timer = time(NULL);
+	//pblock = localtime(&timer);
+
+	struct timeval time_tv;
+	gettimeofday(&time_tv, NULL);
+	pblock = localtime(&time_tv.tv_sec);
+
 	
 	Time->Year = pblock->tm_year + 1900;
 	Time->Month=pblock->tm_mon;
@@ -385,8 +379,7 @@ int OsSetTime(const ST_TIME *Time)
 	tblock.tm_sec = Time->Second;
     time_tv.tv_sec  = mktime(&tblock);
     time_tv.tv_usec = 0;
-    settimeofday(&time_tv, NULL);
-	return RET_OK;
+	return settimeofday(&time_tv, NULL);;
 	//return ERR_NEED_ADMIN;
 }
 
@@ -412,19 +405,17 @@ unsigned long OsTimerCheck(ST_TIMER *Timer)
 
 void OsSleep(unsigned int Ms)
 {
-	while(Ms)
-	{
-		if(Ms>1000)
-		{
-			sleep(Ms/1000);
-			Ms =Ms%1000;
-		}
-		else
-		{
-			usleep(Ms*1000);
-			Ms = 0;
-		}
-	}
+	struct timeval delay;
+	delay.tv_sec = Ms/1000;
+	delay.tv_usec = (Ms%1000)*1000;
+	while(select(0, NULL, NULL, NULL, &delay) == -1 && errno == EINTR);
+	
+	/*
+	struct timespec ts;
+	ts.tv_sec=Ms/1000;
+	ts.tv_nsec=(Ms%1000)*1000000;
+	while(nanosleep(&ts, &ts) == -1 && errno == EINTR);
+	*/
 }
 
 
@@ -486,6 +477,7 @@ int OsExit(int recode)
 		close(tSt_Sys.shmDid);		
 		tSt_Sys.shmDid = -1;	
 	}
+	chdir("../");	//退回前面目录
 	exit(recode);
 }
 

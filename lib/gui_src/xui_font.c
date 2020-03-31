@@ -98,9 +98,9 @@ void UI_DisplaySysEn(XuiWindow *pWindow,int x,int y,int type,char*pMsgEn)
 	width	= pWindow->width;
 	height	= pWindow->height;
 	if(uiEnBackColor&0xFF000000)
-		backflag = 0;
-	else
 		backflag = 1;
+	else
+		backflag = 0;
 	while((jn=(u8)*pMsgEn++) != '\0')
 	{
 		if(jn & 0x80)
@@ -601,9 +601,9 @@ int UI_DisplayFont(XuiWindow *pWindow,POINT* prclTrg, u8* hzData)
 	}
 	s_dots=resDisTable.pbFont + offset;
 	if(uilibBackColor&0xFF000000)
-		backflag = 0;
-	else
 		backflag = 1;
+	else
+		backflag = 0;
 	//--------------------------------------------------
     for (i = 0; i < FONT_SIZE; i++)
     {    

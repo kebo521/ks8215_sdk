@@ -1,7 +1,7 @@
 #ifndef _EVENMSG_
 #define _EVENMSG_
 
-//typedef int (*Fun_KillThread)(void*); 
+typedef int (*funtimerS)(void);
 
 typedef void (*fPushTaskMsg)(u32,int);
 
@@ -46,7 +46,7 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
 	enum EVENT_TYPE
 	{
 		EVENT_NONE		=0x00000000,	//!< 无效事件		
-		EVENT_INDEX		=0x000000FF,	//!< 设备索引		
+		EVENT_INDEX	=0x000000FF,	//!< 设备索引		
 		EVENT_ICC		=0x00000100,	//!< 接触式IC卡/非接触式IC卡/PSAM卡
 		EVENT_MAG		=0x00000200,	//!< 磁卡刷卡
 		EVENT_NET		=0x00000400,	//!< 网络通信接口			API_NetEvent
@@ -54,23 +54,30 @@ extern void APP_PushMessageTask(fPushTaskMsg pFun,u32 par);
 		EVENT_KEY		=0x00001000,	//!< 按键
 		EVENT_ABS		=0x00002000,	//!< 触摸屏
 		EVENT_UART		=0x00004000,	//!< UART串口
-		EVENT_AUDIO		=0x00008000,	//!< 音频通信接口		
+		EVENT_AUDIO	=0x00008000,	//!< 音频通信接口		
 		EVENT_UI		=0x00010000,	//!< 图形用户界面接口
 		EVENT_SYS		=0x00020000,	//!< 系统接口
 		EVENT_MISC		=0x00040000,	//!< 其他杂项接口
-		EVENT_PRINT		=0x00080000,	//!< 打印完成
-		EVENT_PHONE		=0x00100000,	//!< 电话功能				API_Phone_GetEvent
-		EVENT_ERROR		=0x01000000,	//!< 错误
+		EVENT_PRINT	=0x00080000,	//!< 打印完成
+		EVENT_PHONE	=0x00100000,	//!< 电话功能				API_Phone_GetEvent
+		EVENT_ERROR	=0x01000000,	//!< 错误
 		EVENT_TIMEOUT	=0x02000000,	//!< 超时
 		EVENT_OK  		=0x04000000,	//!< 确认	   确认		确认	是
 		EVENT_CANCEL	=0x08000000,	//!< 取消	   返回		退出	否
 		EVENT_QUIT		=0x10000000,	//!< 退出
+		EVENT_ENTER	=0x20000000,	//!< 进入
 		EVENT_MASK		=0x7FFFFF00,		//!< EVENT掩码
 	};	
 
 	//-------定时器控制---------------------
 	extern void StartTimed500ms(void);
 	extern void StopTimed500ms(void);
+	
+	//=======将执行函数导入定时器中======1S执行一次,直到返回EVENT_TIMEOUT， 
+	//---------fTimerS1与fTimerS2互相错开0.5S-----------
+	extern void LoadTimerSFun(funtimerS fTimerS1,funtimerS fTimerS2);
+	extern void ClearTimerSFun(int bitInter);
+	
 	extern void Set_WaitEvent(int tTimeOutMs,u32 EventControl);
 	extern void Get_EventMsg(int *pTimeOutMs,u32 *pEventControl);
 	extern void Rewrite_WaitTime(int tTimeOutMs);

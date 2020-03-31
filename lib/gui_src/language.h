@@ -81,7 +81,7 @@ extern KS_LANGUAGE sLanguageIndex;
 extern void API_InitSysLanguage(u8 index);
 extern int API_SetLanguage(unsigned int language);
 
-extern int APP_SetLanguage(char* pTitle);
+//extern int APP_SetLanguage(char* pTitle);
 
 
 

@@ -53,11 +53,11 @@ typedef struct
 }NET_ADDR_S;
 extern NET_ADDR_S		tNetAddr;
 
-typedef int (*CHECK_DATA_FULL)(char *,int); 
+typedef int (*CHECK_DATA_FULL)(u8 *,int); 
 
 extern int APP_Network_Connect(char* pHostIp,u16 port,int ENssl);
-extern int APP_Network_Send(char* pBuff,int len);
-extern int APP_Network_Recv(char* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCheckFull);
+extern int APP_Network_Send(u8* pBuff,int len);
+extern int APP_Network_Recv(u8* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCheckFull);
 extern int APP_Network_Disconnect(int timeOutMs);
 extern void APP_Network_KeyAccept(u32 bitflag);
 

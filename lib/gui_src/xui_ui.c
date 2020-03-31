@@ -17,6 +17,7 @@
 #include "input_hand.h"
 #include "sdk/sys_sdk.h"
 
+#include "bitmap.h"
 
 
 
@@ -716,9 +717,66 @@ void UI_GetRectBuff(XuiWindow *pWindow,RECTL *pRect,A_RGB *pRGB)
 
 //static u8 SPF_runLock=FALSE;
 int UI_ShowPictureFile(XuiWindow *pWindow,RECTL *prclTrg,const char *pfilePath)
-{
-	
-	return 0;
+{	
+	bitmap_t *pBitmap;
+	int w,h,x,y;
+	if(prclTrg)
+	{
+		//-----------check width and height of prclTrg------
+		if(prclTrg->width > (pWindow->width-prclTrg->left))
+			prclTrg->width =(pWindow->width-prclTrg->left);
+		if(prclTrg->height > (pWindow->height-prclTrg->top))
+			prclTrg->height = (pWindow->height-prclTrg->top);
+		if(prclTrg->width <= 0 || prclTrg->height <= 0)
+			return -1;
+		x = prclTrg->left;
+		y = prclTrg->top;
+		w = prclTrg->width;
+		h = prclTrg->height;
+	}
+	else
+	{
+		x = 0;
+		y = 0;
+		w = pWindow->width;
+		h = pWindow->height;
+	}
+	pBitmap=bitmap_load(pfilePath);
+	if(pBitmap)
+	{
+		int i,j;
+		register GuiColor *destin,*source;
+		//------------------------------------------------------
+		if(w > pBitmap->w)
+			w = pBitmap->w;
+		if(h > pBitmap->h)
+			h = pBitmap->h;
+		for(j=0;j<h;j++)
+		{
+			destin=(GuiColor *)(pWindow->widget + (y+j)*pWindow->width + x);
+			source=(GuiColor *)(pBitmap->data + j*pBitmap->w);
+			for(i=0;i<w;i++)
+			{
+				if(source->color.a == 0xFF)
+				{
+					destin->argb = source->argb;
+				}
+				else if(source->color.a > 0)
+				{
+					register int as,ad;
+					as = source->color.a;
+					ad = 0xFF - as;
+					destin->color.r = (ad*destin->color.r + as*source->color.r)/0xFF;
+					destin->color.g = (ad*destin->color.g + as*source->color.g)/0xFF;
+					destin->color.b = (ad*destin->color.b + as*source->color.b)/0xFF;
+				}
+				destin++; source++;
+			}
+		}
+		bitmap_destroy(pBitmap);
+		return 0;
+	}
+	return 1;
 }
 
 

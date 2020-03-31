@@ -476,8 +476,8 @@ void fb_ui_fill_rect(int x, int y, int w, int h,A_RGB argb)
 
 void fb_ui_set_rect(int x, int y, int w, int h,A_RGB* pArgb) 
 {
-	register A_RGB *pbgra;
-	register int i;
+	register GuiColor *destin,*source;
+	int 	i;
 	w += x;
 	h += y;
 
@@ -485,15 +485,30 @@ void fb_ui_set_rect(int x, int y, int w, int h,A_RGB* pArgb)
 	if(h > tSurface.sHeight) h=tSurface.sHeight;
 	if(x < 0) x = 0;
 	if(y < 0) y = 0;
+	source =(GuiColor *)pArgb;
 	for (;y < h; y++) 
 	{
-		pbgra=tSurface.pARGB+(y*tSurface.rWidth + x);
+		destin=(GuiColor *)(tSurface.pARGB+(y*tSurface.rWidth + x));
 		for(i=x; i<w; i++)
 		{
-			*pbgra++ = *pArgb++;
+			if(source->color.a == 0xFF)
+			{//-----------不透蜜---------
+				destin->argb = source->argb;
+			}
+			else if(source->color.a > 0)
+			{//-----------部分透明---------
+				register int as,ad;
+				as = source->color.a;
+				ad = 0xFF - as;
+				destin->color.r = (ad*destin->color.r + as*source->color.r)/0xFF;
+				destin->color.g = (ad*destin->color.g + as*source->color.g)/0xFF;
+				destin->color.b = (ad*destin->color.b + as*source->color.b)/0xFF;
+			}
+			destin++; source++;
 		}
 	}
 }
+
 
 void fb_ui_get_rect(int x, int y, int w, int h,A_RGB* pArgb) 
 {
