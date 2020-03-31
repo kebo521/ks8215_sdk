@@ -24,7 +24,7 @@
 //#include <stdarg.h>
 //#include <fcntl.h>
 #include <sys/wait.h>
-#include<sys/stat.h>
+//#include<sys/stat.h>
 
 
 
@@ -104,11 +104,11 @@ const char sMaster_Cert_ZT[] =
 
 
 #define Tms_TMS_sApp		"tms_run" 
-#define	S_SYS_MSG_PATH	"shmaid.bin"
+#define	S_SYS_MSG_PATH	"run/shmaid.bin"
 
 #ifdef FILE_SHARD_MEMORY
-#define SHM_SDK_AID		"shm_A8215"		//独立数字平台统一定
-#define SHM_SDK_DID		"shm_D8215"		//独立数字平台统一定
+#define SHM_SDK_AID		"run/shm_A8215"		//独立数字平台统一定
+#define SHM_SDK_DID		"run/shm_D8215"		//独立数字平台统一定
 #else
 #define SHM_SDK_AID		0xA8215		//独立数字平台统一定
 #define SHM_SDK_DID		0xD8215		//独立数字平台统一定
@@ -218,7 +218,7 @@ int InstallMasterAPP(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBotto
 		//Sleep(3000);
 		return -3;
 	}	
-//	mkdir(tKspSignContext->app.tag,0666);	//创建对应目录
+	mkdir(tKspSignContext->app.tag,0666);	//创建对应目录
 //	chdir(tKspSignContext->app.tag);		//进入对应目录
 #endif
 	//APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_INSTALLING);
@@ -255,8 +255,7 @@ int InstallMasterAPP(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBotto
 			Tfd = -1;
 			if(0 == strcmp("/hd/tms", fileName)) //TMS自身更新
 			{ 
-				strcpy(dir_name,Tms_TMS_sApp);
-				//remove(dir_name);
+				sprintf(dir_name,"run/%s",tKspSignContext->app.tag);
 				tmsSetup=1;
 				Tfd=open(dir_name,O_WRONLY|O_CREAT,0777);
 			}
@@ -266,7 +265,7 @@ int InstallMasterAPP(const char* pKspPath,ST_APP_INFO* pAppInfo,void (*ShowBotto
 			}
 			else	//资源更新
 			{ 
-				strcpy(dir_name, fileName);
+				sprintf(dir_name,"%s/%s",tKspSignContext->app.tag,fileName);
 				if(!(resLogoSetup&0x01))
 				{
 					if(strcmp("ks.res", fileName) == 0) //字库资源
@@ -401,6 +400,7 @@ int my_signal(int sig,void (*handler)(int))
 int main(int argc, char* argv[]) 
 {
 	ST_SYS_DATA *pSysData;
+	int times=2;
 	int shmDid;
 	pid_t pid;
 	pid = fork();
@@ -440,8 +440,13 @@ int main(int argc, char* argv[])
 	shmDid=open(SHM_SDK_DID,O_CREAT|O_RDWR,0666);
 	if(shmDid == -1) 
 	{		
-		TRACE("shm_open->%s [%d]Err\r\n",SHM_SDK_DID,shmDid);		
-		return -1;	
+		mkdir("run",0777);	//创建运行目录
+		shmDid=open(SHM_SDK_DID,O_CREAT|O_RDWR,0666);
+		if(shmDid == -1)
+		{
+			TRACE("shm_open->%s [%d]Err\r\n",SHM_SDK_DID,shmDid);		
+			return -1;
+		}
 	}
 	//获取文件的属性
 	if(ftruncate(shmDid, sizeof(ST_SYS_DATA)))
@@ -503,6 +508,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
+			mkdir("run",0777);	//创建运行目录
 			memset(pSysMsg,0x00,sizeof(ST_SYS_MSG));
 		}
 		pSysMsg->pid = getpid();
@@ -571,15 +577,15 @@ int main(int argc, char* argv[])
 				exit(0);
 			}*/
 			pSysData->AppExitCode= (int)_pid_t;
-			sleep(5);
-			exit(0);
+			sleep(1);
+			if(--times <= 0) exit(0);
+			//exit(0);
 		} 
 		else break; //孙进程，跳出外面执行
 	} 
 
 
 	{
-
 		u8 max,id=1;
 		char *pData;
 		char *pArgv[8];
@@ -597,22 +603,14 @@ int main(int argc, char* argv[])
 		pArgv[id]=(char*)0;
 		TRACE("pArgv[%x][%x]-[%d]\r\n",pArgv[0],pArgv[1],id);
 		//---------------------------------------------------------------
-		if(pSysData->pNextAppId == 0)
+		//if(pSysData->pNextAppId == 0)
 		{//------主控应用-------------
-			//char sRunBuff[32];
-			pSysData->nCurrAppId=0;
-			umask(0); //主控进程权限
-			pArgv[0]="master";
-			execv(Tms_TMS_sApp , pArgv);
-		}
-		else
-		{//-------其它应用-------------
+			char sRunBuff[32];
 			pSysData->nCurrAppId=pSysData->pNextAppId;
-			chdir(pSysMsg->AppInfo[pSysData->nCurrAppId].Id);	//进入对应目录
-			umask(0); //应用进程权限
-			pArgv[0]="app";
-			execv("app_run" , pArgv);
-			//ret=execl("./app_run","app_run",(char*)0);
+			umask(0); //主控进程权限
+			pArgv[0]=pSysMsg->AppInfo[pSysData->nCurrAppId].Id;
+			sprintf(sRunBuff,"run/%s",pSysMsg->AppInfo[pSysData->nCurrAppId].Id);
+			execv(sRunBuff , pArgv);
 		}
 	}
 	//----------------不会运行-------------------------------------
