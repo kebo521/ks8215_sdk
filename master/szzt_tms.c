@@ -40,7 +40,6 @@
 #define Tms_Term_UpFlag		"appup.ini"  	// 应用参数标记
 #define Tms_TMS_sAppUp		"tms_run"  		// 终端参数版本
 #define Tms_Term_fAppUp		"appup.ksp"  	// 终端参数版本
-#define Tms_APP_sAppUp		"app_run"  		// 应用程序
 #define Tms_APP_sLogo			"logo.bmp"  		// 应用程序
 
 #define TMS_CONNET_ADDER		tAdminTermPar.TmsAddre
@@ -342,7 +341,7 @@ int APP_TmsPackS001(tData_TMS_Const *pFixed,u8* pOutBuff)
 	pSend=TMS_AddSendData(pSend,0x3001,"4.4");
 	pSend=TMS_AddSendData(pSend,0x3126,"{\"net\":\"%s\",\"app_v\":\"%s\",\"source_v\":\"%s\",\"life\":\"%d\",\"bat\":\"%d\"}", \
 		pFixed->sComType,tAdminTermPar.AppVer,pFixed->sParVer,APP_GetLifeCycle(),OldScreen.batteryLevel);
-	LOG_HEX(LOG_INFO,"TmsSendS001",pOutBuff,(pSend-pOutBuff));
+//	LOG_HEX(LOG_INFO,"TmsSendS001",pOutBuff,(pSend-pOutBuff));
 	return (pSend-pOutBuff);
 }
 
@@ -354,7 +353,7 @@ void* APP_TmsParseS001(u8* pInData,u32* pinLen)
 	tData_TMS_struct tTmsRecv;
 	OldScreen.TmsUpDataFlag = 1;
 	//Len[2]+Data[Len]
-	LOG_HEX(LOG_INFO,"TmsRecvS001",pInData,*pinLen);
+//	LOG_HEX(LOG_INFO,"TmsRecvS001",pInData,*pinLen);
 	OldScreen.TmsUpDataFlag = 2;
 	TMS_LoadStructData(&tTmsRecv,pInData,*pinLen);
 /*
@@ -412,7 +411,7 @@ int APP_TmsPackF011(tData_TMS_Const *pFixed,u8* pOutBuff)
 	pSend=TMS_AddSendData(pSend,0x3111,pFixed->pFileNo);
 	pSend=TMS_AddSendData(pSend,0x3114,"%d",*pFixed->pOffset);
 	pSend=TMS_AddSendData(pSend,0x4007,"%d",*pFixed->pReadMax);
-	LOG_HEX(LOG_INFO,"TmsSendF011",pOutBuff,(int)(pSend-pOutBuff));
+//	LOG_HEX(LOG_INFO,"TmsSendF011",pOutBuff,(int)(pSend-pOutBuff));
 	return (pSend-pOutBuff);
 	
 }
@@ -431,7 +430,7 @@ void* APP_TmsParseF011(u8* pInData,u32* pLen)
 {
 	tData_TMS_struct tTmsRecv;
 	//Len[2]+Data[Len]
-	LOG_HEX(LOG_INFO,"TmsRecvF011",pInData,*pLen);
+//	LOG_HEX(LOG_INFO,"TmsRecvF011",pInData,*pLen);
 	TMS_LoadStructData(&tTmsRecv,pInData,*pLen);
 	return TMS_FindRecvData(&tTmsRecv,0x3115,pLen);
 }
@@ -458,7 +457,7 @@ int APP_TmsPackF012(tData_TMS_Const *pFixed,u8* pOutBuff)
 	pSend=TMS_AddSendData(pSend,0x3111,pFixed->pFileNo);
 	pSend=TMS_AddSendData(pSend,0x3116,"img");
 	pSend=TMS_AddSendData(pSend,0x3117,pFixed->pRetCode);
-	LOG_HEX(LOG_INFO,"TmsSendF012",pOutBuff,(pSend-pOutBuff));
+//	LOG_HEX(LOG_INFO,"TmsSendF012",pOutBuff,(pSend-pOutBuff));
 	return (pSend-pOutBuff);
 	
 }
@@ -470,7 +469,7 @@ void* APP_TmsParseF012(u8* pIndata,u32 *Inlen)
 	//tData_TMS_struct tTmsRecv;
 	//ret=APP_Network_Recv((char*)pUseBuff,BuffSize,5000,TMS_CheckFullData);
 	//Len[2]+Data[Len]
-	LOG_HEX(LOG_INFO,"APP_TmsRecvF012",pIndata,*Inlen);
+//	LOG_HEX(LOG_INFO,"APP_TmsRecvF012",pIndata,*Inlen);
 	return NULL;
 }
 
@@ -858,6 +857,7 @@ u32 APP_TMS_UpAPP(u16 Msg)
 int InstallAPP(ST_APP_INFO* pAppInfo)
 { // 从文件系统中读取应用
 	u8  i,tmsSetup,appSetup,resLogoSetup; //ret bit0,logo bit1
+	char dir_name[32];
 	int ks_fd,ret,kspoffset,totalLen,compLen;
 	KSP_FILE_HEAD head;
 	int		MaxSet,CruSet;
@@ -957,8 +957,9 @@ int InstallAPP(ST_APP_INFO* pAppInfo)
 		OsSleep(3000);
 		return -3;
 	}	
-	mkdir(tKspSignContext->app.tag,0666);	//创建对应目录
-//	chdir(tKspSignContext->app.tag);		//进入对应目录
+	//chdir("../");							//进入上层目录
+	sprintf(dir_name,"../%s",tKspSignContext->app.tag);
+	mkdir(dir_name,0666);					//创建对应目录
 #endif
 	APP_ShowSta(STR_FIRMWARE_UPGRADE,STR_INSTALLING);
 	// 写入应用信息到块
@@ -975,8 +976,7 @@ int InstallAPP(ST_APP_INFO* pAppInfo)
 	//------------------------------
 	{
 		int 	Tfd;
-		char	fileName[16+1];
-		char	dir_name[32+3];
+		char	fileName[20];
 		KSP_FILE_ITEM tFileItem;
 		//-----打开安装文件------------
 		// 重新读取文件，并按文件写入相关系统
@@ -994,18 +994,21 @@ int InstallAPP(ST_APP_INFO* pAppInfo)
 			Tfd = -1;
 			if(0 == strcmp("/hd/tms", fileName)) //TMS自身更新
 			{ 
-				
+				sprintf(dir_name,"../run/%s",tKspSignContext->app.tag);
+				//remove(dir_name);
+				tmsSetup=1;
+				Tfd=open(dir_name,O_WRONLY|O_CREAT,0777);
 			}
 			else if(0 == strcmp("/hd/app", fileName)) //应用更新
 			{ 
-				sprintf(dir_name,"%s/%s",tKspSignContext->app.tag,Tms_APP_sAppUp);
+				sprintf(dir_name,"../run/%s",tKspSignContext->app.tag);
 				//remove(dir_name);
 				appSetup=1;
 				Tfd=open(dir_name,O_WRONLY|O_CREAT,0777);
 			}
 			else	//资源更新
 			{ 
-				sprintf(dir_name,"%s/%s",tKspSignContext->app.tag,fileName);
+				sprintf(dir_name,"../%s/%s",tKspSignContext->app.tag,fileName);
 				if(!(resLogoSetup&0x01))
 				{
 					if(strcmp("ks.res", fileName) == 0) //字库资源

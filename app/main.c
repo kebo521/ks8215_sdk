@@ -263,10 +263,12 @@ void StatusBar_Thread(XuiWindow* pStaWindow)
     return ;
 }
 */
+//#include "emvapi.h"
+#include "emvspi_plugin.h"
+
 
 int APP_main(int argc, char* argv[]) {
 //	int ret;
-	
 	char *pHardMsg[]={
 	"FB=/dev/fb0",
 	"INPUT=/dev/input",	//"INPUT=/dev/input/event2",
@@ -302,12 +304,12 @@ int APP_main(int argc, char* argv[]) {
 		API_InitSysLanguage(1);
 		API_GUI_LoadWindow(pWindow);
 		StartTimed500ms();
+		emvspi_Init(); //上电一次就可以
 
-		//APP_HardTestMenu("单项测试");
 		//APP_FactoryMeun("测试应用");
-		APP_MasterMeun("终端管理");//
-		APP_ShowProsseMenu();
-
+		//APP_ShowProsseMenu();
+		//APP_ShowMsg("测试->测试","菜单2",2000);
+		APP_ShowFixedMenu("应用测试2",&tFactoryMeun,NULL);
 
 		StopTimed500ms();
 		ApiFont.DeInitFontLib();

@@ -9,6 +9,10 @@
  */
 
 #include "comm_type.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
 #include "xui_comm.h"
 #include "sys_sdk.h"
 #include "emv_type.h"
@@ -962,6 +966,7 @@ const EMV_PORTING g_emv_porting =
 
 #endif
 #endif
+/*
 u8* emv_alloc_buffer(int* size)
 {
 	static u8 *pEmvBuff=NULL;
@@ -970,7 +975,7 @@ u8* emv_alloc_buffer(int* size)
 		pEmvBuff=malloc(*size);
 	return pEmvBuff;
 }
-
+*/
 //=======================================================================================================================
 #define _LANG_ID_		(1)											//0为英文	1为中文
 #define DS(en,ch)		((_LANG_ID_==0)?(en):(ch))					//多语言定义
@@ -1082,6 +1087,7 @@ EMV_INIT_PARAM tEmvInitParam=
 	fCardEventOccured,
 };
 
+
 int emvspi_Init(void)
 {
 //	u8 *pBuff,*pSave;
@@ -1090,8 +1096,21 @@ int emvspi_Init(void)
 	LOG(LOG_INFO,"->emvspi_Init1\r\n");
 	ret=emv_get_version(sBuff);
 	LOG(LOG_INFO,"->emv_get_version[%d][%s]\r\n",ret,sBuff);
-	//emv_initialize(&tEmvInitParam);
+	emv_initialize(&tEmvInitParam);
 	LOG(LOG_INFO,"->emv_initialize\r\n");
+
+	{
+		DIR *dfd;
+		dfd = opendir("yaffs");
+		if(dfd)
+		{
+			closedir(dfd);
+		}
+		else 
+		{
+			mkdir("yaffs",0666);	//创建对应目录
+		}
+	}
 	/*
 	fd = API_fsize("AIDFlag.flg");
 	if(fd>0) return ret;
@@ -1118,8 +1137,41 @@ int emvspi_Init(void)
 	return ret;	
 }
 
-
-
+int  API_ICC_Apdu(int tCardIndex,const u8* pCmdBuf,u32 nCmdLen,u8* pOutBuf,u32 nOutSize, u32* pOutLen, u32* pSW)
+{
+	int ret;
+	ST_APDU_REQ tApduReq;
+	ST_APDU_RSP tApduRsp;
+	TRACE_HEX("->ApduSendBuf",(u8*)pCmdBuf,nCmdLen);
+	memcpy(tApduReq.Cmd,pCmdBuf,sizeof(tApduReq.Cmd));
+	tApduReq.LC=pCmdBuf[sizeof(tApduReq.Cmd)];
+	memcpy(tApduReq.DataIn,pCmdBuf+sizeof(tApduReq.Cmd)+1,tApduReq.LC);
+	if(nCmdLen >(sizeof(tApduReq.Cmd)+1+tApduReq.LC))
+		tApduReq.LE=pCmdBuf[(sizeof(tApduReq.Cmd)+1+tApduReq.LC)];
+	else 
+		tApduReq.LE=0;
+		
+	if(tCardIndex==EMV_CARD_CONTACT)
+	{
+		ret=OsIccExchange(0,0,&tApduReq,&tApduRsp);
+	}
+	else
+	{
+		ret=OsPiccIsoCommand(0,&tApduReq,&tApduRsp);
+	}
+	LOG(LOG_INFO,"ApduRead[%d][%X %X]",ret,tApduRsp.SWA,tApduRsp.SWB);
+	if(ret == 0)
+	{
+		memcpy(pOutBuf,tApduRsp.DataOut,tApduRsp.LenOut);
+		if(pOutLen)
+			*pOutLen = tApduRsp.LenOut;
+		*pSW = tApduRsp.SWA*0x100 + tApduRsp.SWB;
+		
+		TRACE_HEX("->ApduReadBuf",pOutBuf,*pOutLen);
+		return 0;
+	}
+	return ret;
+}
 
 
 /**

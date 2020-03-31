@@ -1,7 +1,7 @@
 CFLAGS  := $(INCLUDE_DIR)
 CFLAGS  += -g 
 CFLAGS  += -Wall 
-SRC := xui_fb.c xui_ui.c xui_font.c xui_gui.c ui_menu.c QR_Encode.c language.c input_hand_win.c EvenMsg.c
+SRC := xui_fb.c xui_ui.c xui_font.c xui_gui.c ui_menu.c QR_Encode.c language.c input_hand_win.c EvenMsg.c bitmap.c
 #SRC += ./xui/*.c
 #SRC += ./bit/bitmap.c ./bit/linux_fb.c
 

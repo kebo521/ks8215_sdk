@@ -59,7 +59,7 @@ int APP_Edit(EDIT_DATA *pEdit,char* pOutStr)
 		API_GUI_Edit_Prompt(SIZE_NORMAL,pEdit->pFrontText,SIZE_NORMAL,pEdit->pAfterText);
 		API_GUI_Edit(SIZE_NORMAL,pOutStr,pEdit->Max,pEdit->Way,pEdit->Limit);
 		API_GUI_Show();
-		Event=API_WaitEvent(pEdit->timeOutMs,EVENT_UI|EVENT_ABS,EVENT_NONE);
+		Event=API_WaitEvent(pEdit->timeOutMs,EVENT_UI,EVENT_NONE);
 		if(Event==EVENT_OK) //获取输入卡号数据
 		{
 			int ret;
