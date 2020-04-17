@@ -68,18 +68,6 @@ typedef enum _ret_t { RET_OK = 0, RET_OOM, RET_FAIL, RET_BAD_PARAMS } ret_t;
 #define END_C_DECLS
 #endif
 
-#ifndef TRUE
-#define TRUE 1
-#endif /*TRUE*/
-
-#ifndef FALSE
-#define FALSE 0
-#endif /*FALSE*/
-
-#ifndef bool_t
-#define bool_t uint8_t
-#endif /*bool_t*/
-
 typedef struct _rgba_t {
   uint8_t r;
   uint8_t g;

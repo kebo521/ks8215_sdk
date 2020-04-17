@@ -60,7 +60,7 @@ typedef struct
 	tMenuItemStru pItem[];		//菜单内容,菜单功能
 }FixedMenuUITable;
 
-extern int APP_ShowFixedMenu(char* pTitle,FixedMenuUITable *pFixedMenu,void* pTagFunc);
+extern int APP_ShowFixedMenu(char* pTitle,const FixedMenuUITable *pFixedMenu,void* pTagFunc);
 
 
 #endif

@@ -391,7 +391,7 @@ int emvspi_icc_poweron(int comm)
 			APP_ShowMsg(NULL,"IC卡获取ATR失败",2000);
 			return EMV_FAIL;
 		}
-		API_TraceHex(DBG_APP_INFO, "emvplugin_icc_poweron::ATr", Data, nLen);
+		LOG_HEX(LOG_INFO, "emvplugin_icc_poweron::ATr", Data, nLen);
 	}
     return EMV_OK;
 }
@@ -405,7 +405,7 @@ int emvspi_icc_poweron(int comm)
  */
 int emvspi_icc_poweroff(int comm)
 {
-	API_Trace(DBG_APP_INFO, "emvplugin_icc_poweroff[%d]",comm);
+	LOG(LOG_INFO, "emvplugin_icc_poweroff[%d]",comm);
 	if(comm==EMV_CARD_CONTACTLESS)
 	{
 		CheckCard_SetNotRemove();
@@ -1002,8 +1002,7 @@ int emvspi_choice_account_type(void)
 		DS("Cheque/Debit",	"支票账户/借记账户"),
 		DS("Credit",		"信用账户"),
 	};
-	ret=APP_GUI_Menu("账户类型选择",0,4,0,(char**)item);
-	ret=APP_WaitUiEvent(30*1000);
+	ret=APP_GUI_Menu("账户类型选择",NULL,4,0,item,30*1000);
 	APP_ShowSta("正在处理濉","请勿拔卡！");
 	if (ret == 0) {
 		ret = EMV_ACCOUNT_DEFAULT;

@@ -137,8 +137,18 @@ typedef struct
 	int 	(*base64_decode)(unsigned char*,size_t,size_t *,const unsigned char *,size_t);
 }API_Crypt_Def;
 
+typedef struct  
+{
+	char* Mask;		// "SSL"
+	int (*Open)(mbedtls_ssl_send_t *,mbedtls_ssl_recv_timeout_t *,int,unsigned char *, int);
+	int (*Handshake)(void);
+	int (*Send)(unsigned char *, int);
+	int (*Recv)(unsigned char *, int);
+	int (*GetState)(int);	//mS 默认100ms
+	void (*Close)(void);
+}API_SSL_Def;
 
-
+//---------------------------------------------------------
 
 typedef struct 
 {
@@ -149,9 +159,10 @@ typedef struct
 	const API_PK_Def*			pk;			// PKcs处理功能接口
 	const API_CRT_Def*			crt;		// 证书处理
 	const API_Crypt_Def*		cry;		//加密钥接口
+	const API_SSL_Def*			ssl;		//ssl通信接口
 }API_TLS_INTERFACE;
 //-----------------------------------------------------------
-extern const API_TLS_INTERFACE api_tls_InterFace;
+//extern const API_TLS_INTERFACE api_tls_InterFace;
 	
 
 //extern void* tls_InterfaceEntry(void);

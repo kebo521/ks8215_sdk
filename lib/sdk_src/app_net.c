@@ -4,7 +4,7 @@
 #include "esm_sdk.h" 
 
 #include "app_net.h" 
-
+#include "tls/ssl.h" 
 
 #include<errno.h>
 #include<netdb.h>
@@ -339,12 +339,86 @@ int main(void)
 
 #endif
 
+typedef struct  
+{
+	char* Mask;		// "SSL"
+	int (*Open)(mbedtls_ssl_send_t *,mbedtls_ssl_recv_timeout_t *,int,unsigned char *, int);
+	int (*Handshake)(void);
+	int (*Send)(unsigned char *, int);
+	int (*Recv)(unsigned char *, int);
+	int (*GetState)(int);	//mS 默认100ms
+	void (*Close)(void);
+}NET_SSL_API;
 
-NET_ADDR_S		tNetAddr={0};
+static NET_SSL_API *pAppNetSsl=NULL;
 
 
+typedef struct
+{
+	int				SocketFD;
+	struct sockaddr_in stSockAddr;
+	char			sHost[32+2];	/* 域名或IP名 */
+	u16 			port;			/* port number */
+}NET_ADDR_TERM;
 
 
+typedef struct
+{
+	u32				AcceptKey;		//受理按键标记
+	NET_ADDR_TERM	*pNet;			/*当前通道 */
+	NET_ADDR_TERM	net[4];
+	NET_ADDR_TERM	trade;
+	u8 				NetIndex;		//当前net索引
+	u8  			ENssL;          //当前操作SSL标记
+	u8				NetSslInit;		//Gsmssl初始化标记,交易为1,TMS为2
+   	u8				sslconnet;		//SSL连接标记-
+}NET_ADDR_S;
+
+static NET_ADDR_S		tNetAddr={0};
+
+//===================SSL========================
+int Socket_net_send(void *ctx, const unsigned char *pSend, size_t sendlen)
+{
+	return send(tNetAddr.pNet->SocketFD, pSend, sendlen, 0); 
+}
+
+
+int Socket_net_recv_timeout(void *ctx, unsigned char *pRecv,size_t RecvSize, uint32_t timeoutMs)
+{
+	int ret;
+	if(timeoutMs)
+	{//设置接收超时
+		struct timeval timeout; 
+		timeout.tv_sec = timeoutMs/1000;
+		timeout.tv_usec = (timeoutMs%1000)*1000;
+		ret=setsockopt(tNetAddr.pNet->SocketFD,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout)); 
+		if(ret)
+		{
+			LOG(LOG_INFO,"setsockopt = %d,[%d]\r\n",ret,errno);
+		}
+	}
+	while(1)
+	{
+		ret = recv(tNetAddr.pNet->SocketFD, pRecv, RecvSize, 0);
+		if(ret >0)
+		{
+			return ret;
+		}
+		else if(ret < 0)
+		{
+			LOG(LOG_INFO,"recv = %d,[%d]\r\n",ret,errno);
+			if(ret == -1 && (errno == EAGAIN||errno == EWOULDBLOCK||errno == EINTR)) //这几种错误码，认为连接是正常的，继续接收
+			{
+				continue;//继续接收数据
+			}
+			break;//跳出接收循环
+		}
+	}
+	return ret;
+}
+
+
+//==============================================================================================
 
 #include <poll.h> 
 int Connect_CheckEINTR(int sock) 
@@ -378,29 +452,25 @@ int Connect_CheckEINTR(int sock)
 	return 0;
 }  
 
-
-//============================================================================
-int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
+int gNetConnect(NET_ADDR_TERM *pAddr,int timeOutMs)
 {
-	struct sockaddr_in stSockAddr;
-	int ret;
-	int SocketFD;
+	int ret,SocketFD;
 	SocketFD = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (-1 == SocketFD)
 	{
-		LOG(LOG_ERROR,"cannot create socket errno[%d]\r\n",errno);
+		LOG(LOG_ERROR,"NetConnect socket errno[%d]\r\n",errno);
 		//perror("socket");
 		return -1;
-	}
+	}	
 	{
 		struct timeval timeout; 
-		timeout.tv_sec = 5;
-		timeout.tv_usec = 0;
+		timeout.tv_sec = timeOutMs/1000;
+		timeout.tv_usec = (timeOutMs%1000)*1000;
 		//设置发送超时
 		ret = setsockopt(SocketFD,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof(timeout));
 		if (-1 == ret)
 		{
-			LOG(LOG_ERROR,"cannot set SNDTIMEO errno[%d]\r\n",errno);
+			LOG(LOG_ERROR,"NetConnect SNDTIMEO errno[%d]\r\n",errno);
 			//perror("setsockopt5");
 			close(SocketFD);
 			return -1;
@@ -417,9 +487,32 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 			return -1;
 		}
 	}
-	memset(&stSockAddr, 0, sizeof(stSockAddr));
-	stSockAddr.sin_port = htons(port);
+	ret = connect(SocketFD,(struct sockaddr *)&pAddr->stSockAddr,sizeof(pAddr->stSockAddr));
+	if((ret == 0) \
+		||((ret == -1)&&(errno == EINTR) && (Connect_CheckEINTR(SocketFD) == 0)))
+	{
+		pAddr->SocketFD = SocketFD;
+		return 0;
+	}
+	LOG(LOG_ERROR,"NetConnect[%X][%d] failed ret[%d]errno[%d]\r\n",pAddr->stSockAddr.sin_addr,pAddr->stSockAddr.sin_port,ret,errno);
+	close(SocketFD);
+	return -1;
+}
 
+void gNetDisConnect(NET_ADDR_TERM *pAddr)
+{
+	if(pAddr->SocketFD != -1)
+	{
+		shutdown(pAddr->SocketFD, SHUT_RDWR); /* 执行读写操作*/
+		close(pAddr->SocketFD);
+	}
+	pAddr->SocketFD = -1;
+}
+
+int gNetworkGetHostPort(char* pHostIp,u16 port,struct sockaddr_in *pOutAdd)
+{
+	struct sockaddr_in stSockAddr={0};
+	//memset(&stSockAddr, 0, sizeof(stSockAddr));
 	if(pHostIp[0]<'0' || pHostIp[0] >'9')
 	{
 		struct hostent *hptr;
@@ -431,61 +524,109 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 			return -103;
 		}
 		/* 将主机的规范名打出来 */
-    	//LOG(LOG_INFO,"official hostname:%s[%x],%x\n", hptr->h_name,hptr->h_addr,*(u32*)hptr->h_addr);
+		//LOG(LOG_INFO,"official hostname:%s[%x],%x\n", hptr->h_name,hptr->h_addr,*(u32*)hptr->h_addr);
 		stSockAddr.sin_family = hptr->h_addrtype;
 		stSockAddr.sin_addr.s_addr=((struct in_addr *)hptr->h_addr)->s_addr;
-		//memcpy(&stSockAddr.sin_addr,hptr->h_addr,sizeof(struct in_addr));
-		/* 主机可能有多个别名，将所有别名分别打出来 
-		    for(pptr = hptr->h_aliases; *pptr != NULL; pptr++)
-		        printf(" alias:%s\n", *pptr);*/
-		// 根据地址类型，将地址打出来 
-		/*
-	    switch(hptr->h_addrtype)
-	    {
-			case AF_INET:
-			case AF_INET6:
-				pptr = hptr->h_addr_list;
-				// 将刚才得到的所有地址都打出来。其中调用了inet_ntop()函数
-				for(; *pptr!=NULL; pptr++)
-				printf(" address:%s\n", inet_ntop(hptr->h_addrtype, *pptr, str, sizeof(str)));
-				printf(" first address: %s\n", inet_ntop(hptr->h_addrtype, hptr->h_addr, str, sizeof(str)));
-			       break;
-			default:
-				printf("unknown address type\n");
-		        break;
-	    }*/
 	}
 	else
 	{
 		stSockAddr.sin_family = AF_INET;
-		ret = inet_pton(stSockAddr.sin_family,pHostIp,&stSockAddr.sin_addr);
-		if (0 > ret)
+		if (0 >= inet_pton(stSockAddr.sin_family,pHostIp,&stSockAddr.sin_addr))
 		{
-			LOG(LOG_ERROR,"error: first parameter is not a valid address family ret[%d]errno[%d]\r\n",ret,errno);
-			close(SocketFD);
+			LOG(LOG_ERROR,"error: inet_pton errno[%d]\r\n",errno);
 			return -106;
 		}
-		else if (0 == ret)
+	}
+	stSockAddr.sin_port = htons(port);
+	memcpy(pOutAdd,&stSockAddr,sizeof(stSockAddr));
+	return 0;
+}
+
+
+int APP_Network_Init(const void *pApiSsldef)	//API_SSL_Def
+{
+	pAppNetSsl=(NET_SSL_API *)pApiSsldef;
+	if(strcmp(pAppNetSsl->Mask,"SSL"))
+		return -1;
+	memset(&tNetAddr,0x00,sizeof(tNetAddr));
+	return 0;
+}
+
+
+//============================================================================
+int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
+{
+	int ret;
+	if(tNetAddr.net==NULL || (tNetAddr.net->port != port) || (0!=strcmp(tNetAddr.net->sHost,pHostIp)))
+	{//----暂存地址信息--避免重复获取信息减少处理时间------------------------------
+		for(ret=0;ret < (sizeof(tNetAddr.net)/sizeof(tNetAddr.net[0])) ;ret++)
 		{
-			LOG(LOG_ERROR,"inet_pton (second parameter does not contain validipaddress)errno[%d]\r\n",errno);
-			close(SocketFD);
-			return -107;
+			if(tNetAddr.net[ret].sHost[0] == 0)
+			{
+				tNetAddr.net[ret].port = port;
+				strcpy(tNetAddr.net[ret].sHost,pHostIp);
+				//tNetAddr.net[ret].stSockAddr.sin_port = 0;	//没有用过的组，参数肯定为0
+				tNetAddr.pNet = &tNetAddr.net[ret];
+				tNetAddr.NetSslInit=0;
+				break;
+			}
+			else if((tNetAddr.net[ret].port == port) && (0==strcmp(tNetAddr.net[ret].sHost,pHostIp)))
+			{
+				if(tNetAddr.pNet != &tNetAddr.net[ret])
+				{
+					tNetAddr.pNet = &tNetAddr.net[ret];
+					tNetAddr.NetSslInit=0;
+				}
+				break;
+			}
+		}
+		if(ret == (sizeof(tNetAddr.net)/sizeof(tNetAddr.net[0])))
+		{
+			tNetAddr.trade.stSockAddr.sin_port = 0;
+			tNetAddr.pNet = &tNetAddr.trade;
+			tNetAddr.NetSslInit=0;
+		}
+	}	
+	//--------------解析地址-之前连接过可以跳过这一步-----------------------
+	
+	if(tNetAddr.pNet->stSockAddr.sin_port == 0)
+	{
+		ret=gNetworkGetHostPort(pHostIp,port,&tNetAddr.pNet->stSockAddr);
+		if(ret < 0) return ret;
+	}
+	ret=gNetConnect(tNetAddr.pNet,5000);
+	if(ret < 0)
+	{
+		if(!gNetworkGetHostPort(pHostIp,port,&tNetAddr.pNet->stSockAddr))
+		{//------检查域名对应的邋IP地址变更-------------------
+			ret=gNetConnect(tNetAddr.pNet,5000);
+			if(ret < 0) return ret;
 		}
 	}
-	ret = connect(SocketFD,(struct sockaddr *)&stSockAddr,sizeof(stSockAddr));
-	if((ret == 0) \
-		||((ret == -1)&&(errno == EINTR) && (Connect_CheckEINTR(SocketFD) == 0)))
+	tNetAddr.ENssL = ENssl;
+	//------------------SSL connet(Handshake)---------------------------------
+	if(ENssl)
 	{
-		tNetAddr.net[tNetAddr.NetIndex].SocketFD = SocketFD;
-		tNetAddr.net[tNetAddr.NetIndex].port = port;
-		strcpy(tNetAddr.net[tNetAddr.NetIndex].sHost,pHostIp);
-		tNetAddr.pNet = &tNetAddr.net[tNetAddr.NetIndex];
-		//tNetAddr.NetIndex++;
-		return 0;
+		tNetAddr.sslconnet=0;
+		if(pAppNetSsl==NULL) 
+			return ERR_SYS_NOT_SUPPORT;
+		if(tNetAddr.NetSslInit!=2)
+		{
+			pAppNetSsl->Close();
+			LOG(LOG_INFO,"pTlsFuntion->ssl->Open\r\n");
+			ret=pAppNetSsl->Open(Socket_net_send,Socket_net_recv_timeout,20*1000,NULL,0);
+			tNetAddr.NetSslInit=2;
+		}
+		ret=pAppNetSsl->Handshake();
+		if(ret)
+		{
+			LOG(LOG_ERROR,"ssl_net_funtion.Handshake[%s]Err ret[%d]\r\n",tNetAddr.pNet->sHost,ret);
+			gNetDisConnect(tNetAddr.pNet);
+			return ret;
+		}
+		tNetAddr.sslconnet=1;
 	}
-	LOG(LOG_ERROR,"connect[%X][%d] failed ret[%d]errno[%d]\r\n",stSockAddr.sin_addr,stSockAddr.sin_port,ret,errno);
-	close(SocketFD);
-	return -1;
+	return ret;	
 }
 
 
@@ -495,13 +636,59 @@ int APP_Network_Connect(char* pHostIp,u16 port,int ENssl)
 //=======================网络发送=========================================================
 int  APP_Network_Send(u8* pBuff,int len)
 {
+	if(tNetAddr.ENssL==1)
+	{
+		if(tNetAddr.sslconnet==0)
+		{
+			LOG(LOG_WARN,"**---Net_SSL_Reconnection--\r\n");
+			if(gNetConnect(tNetAddr.pNet,5000))
+			{
+				LOG(LOG_ERROR,"---Net_SSL_SocketConnect-Err\r\n");
+				return -1;
+			}
+			if(0 > pAppNetSsl->Handshake())
+			{
+				LOG(LOG_ERROR,"---Net_SSL_Handshake-Err\r\n");
+				return -2;
+			}
+			tNetAddr.sslconnet=1;
+		}
+		return pAppNetSsl->Send(pBuff,len);
+	}
 	return send(tNetAddr.pNet->SocketFD, pBuff, len, 0); 
 }
 
 //=======================网络接收=========================================================
 int  APP_Network_Recv(u8* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pCheckFull)
 {
-	int ret;
+	int ret,offset=0;
+	if(tNetAddr.ENssL==1)
+	{
+		while(1)
+		{
+			ret=pAppNetSsl->Recv(pBuff+offset,BuffSize-offset);
+			//LOG(LOG_INFO,"ssl_net_Recv ret[%d]\r\n",ret);
+			if(ret > 0)
+			{
+				if(pCheckFull)
+				{
+					offset += ret;
+					ret=(*pCheckFull)(pBuff,offset);
+					LOG(LOG_INFO,"pCheckFullret[%d]\r\n",ret);
+					if(ret==0) continue;
+				}
+			}
+			if(MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY == pAppNetSsl->GetState(100))
+			{
+				LOG(LOG_ERROR,"---MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY-SocketRecv-\r\n");
+				gNetDisConnect(tNetAddr.pNet);
+				tNetAddr.sslconnet=0;
+			}
+			return ret;
+		}
+	}
+	
+	//----------------------------非ssl------------------------------------------------
 	if(timeoutMs)
 	{//设置接收超时
 		struct timeval timeout; 
@@ -510,37 +697,32 @@ int  APP_Network_Recv(u8* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pChec
 		ret=setsockopt(tNetAddr.pNet->SocketFD,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout)); 
 		if(ret)
 		{
-			LOG(LOG_INFO,"setsockopt = %d\r\n",ret);
-			perror("setsockopt");
+			LOG(LOG_INFO,"setsockopt = %d,[%d]\r\n",ret,errno);
 		}
 	}
-
+	while(1)
 	{
-		int offset=0;
-		while(1)
+		ret = recv(tNetAddr.pNet->SocketFD, pBuff+offset, BuffSize-offset, 0);
+		if(ret >0)
 		{
-			ret = recv(tNetAddr.pNet->SocketFD, pBuff+offset, BuffSize-offset, 0);
-			if(ret >0)
+			offset += ret;
+			if(pCheckFull)
 			{
-				offset += ret;
-				if(pCheckFull)
-				{
-					ret =pCheckFull(pBuff,offset);
-					if(ret > 0) return ret;
-					OsSleep(50);
-					continue;
-				}
-				return offset;
+				ret =pCheckFull(pBuff,offset);
+				if(ret > 0) return ret;
+				OsSleep(50);
+				continue;
 			}
-			else if(ret < 0)
+			return offset;
+		}
+		else if(ret < 0)
+		{
+			LOG(LOG_INFO,"recv = %d,%d,[%d]\r\n",ret,offset,errno);
+			if(ret == -1 && (errno == EAGAIN||errno == EWOULDBLOCK||errno == EINTR)) //这几种错误码，认为连接是正常的，继续接收
 			{
-				LOG(LOG_INFO,"recv = %d,%d,[%d]\r\n",ret,offset,errno);
-				if(ret == -1 && (errno == EAGAIN||errno == EWOULDBLOCK||errno == EINTR)) //这几种错误码，认为连接是正常的，继续接收
-				{
-					continue;//继续接收数据
-				}
-				break;//跳出接收循环
+				continue;//继续接收数据
 			}
+			break;//跳出接收循环
 		}
 	}
 	return ret;
@@ -548,9 +730,14 @@ int  APP_Network_Recv(u8* pBuff,int BuffSize,int timeoutMs,CHECK_DATA_FULL pChec
 
 int APP_Network_Disconnect(int timeOutMs)
 {
-	/* 执行读写操作*/
-	shutdown(tNetAddr.pNet->SocketFD, SHUT_RDWR);
-	close(tNetAddr.pNet->SocketFD);
+/*
+	if(tNetAddr.ENssL==1)
+	{
+		if(tNetAddr.sslconnet==0)
+			return 0;
+	}
+	*/
+	gNetDisConnect(tNetAddr.pNet);
 	return 0;
 }
 

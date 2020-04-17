@@ -29,29 +29,7 @@ typedef enum
 	SR_STAMAC=2,	//<Station	MAC	address>
 }APP_MSG_TYPE;
 
-
-typedef struct
-{
-	int				SocketFD;
-	u16  			port;           /* port number */
-	char 			sHost[32+1];	/* 域名或IP名 */
-	u8				ENssL;			/* SSL标记 */
-}NET_ADDR_TERM;
-
-
-typedef struct
-{
-	NET_ADDR_TERM	*pNet;			/*当前通道 */
-	NET_ADDR_TERM	net[5];
-	//NET_ADDR_TERM	trade;
-	u32				AcceptKey;		//受理按键标记
-	u8 				NetIndex;		//当前net索引
-	u8  			ENssL;          //当前操作SSL标记
-	u8				GsmSslInit;		//Gsmssl初始化标记,交易为1,TMS为2
-   	u8				sslconnet;		//SSL连接标记-
-   	u8				SaveSleepEn;
-}NET_ADDR_S;
-extern NET_ADDR_S		tNetAddr;
+extern int APP_Network_Init(const void *pApiSsldef);	//(API_SSL_Def *pApiSsldef)
 
 typedef int (*CHECK_DATA_FULL)(u8 *,int); 
 

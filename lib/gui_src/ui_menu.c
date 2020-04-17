@@ -409,7 +409,7 @@ void ShowFixedMenutem(void *pMenu,int index,int line,char *pOutShow)
 	API_sprintf(pOutShow,"%d.%s",line,pItem[index].pText);
 }
 
-int APP_ShowFixedMenu(char* pTitle,FixedMenuUITable *pFixedMenu,void* pTagFunc)
+int APP_ShowFixedMenu(char* pTitle,const FixedMenuUITable *pFixedMenu,void* pTagFunc)
 {
 	int ret;
 	u8 ShowHead=0,TeamCurr=0,TeamTatla;

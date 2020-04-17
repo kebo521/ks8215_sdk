@@ -67,6 +67,10 @@ typedef unsigned int			u32;	//!< Define u32
 #define bool_t uint8_t
 #endif /*bool_t*/
 
+#ifndef bool
+#define bool uint8_t
+#endif /*bool*/
+
 //======================================================================
 #define API_atoi		atoi
 #define API_strstr		strstr

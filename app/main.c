@@ -28,7 +28,7 @@
 #include "app_show.h"
 
 
-//#include "mbedtls_sdk.h"
+#include "tls_sdk.h"
 
 
 #include "main.h"
@@ -305,7 +305,7 @@ int APP_main(int argc, char* argv[]) {
 		API_GUI_LoadWindow(pWindow);
 		StartTimed500ms();
 		emvspi_Init(); //上电一次就可以
-
+		APP_Network_Init(api_tls_InterFace.ssl);
 		//APP_FactoryMeun("测试应用");
 		//APP_ShowProsseMenu();
 		//APP_ShowMsg("测试->测试","菜单2",2000);
